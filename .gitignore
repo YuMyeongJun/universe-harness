@@ -9,3 +9,6 @@ playwright-report/
 blob-report/
 .auth/
 *.zip
+
+# macOS
+.DS_Store
