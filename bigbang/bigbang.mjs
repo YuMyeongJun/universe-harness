@@ -37,6 +37,7 @@ import { attributeCompileFailure, DEFAULT_BASE, runSecondExpansion } from './exp
 import { createClaudeAsk, createScriptedAsk, loadScript, MAX_GATE_RUNS_THIRD, MAX_TURNS, runThirdExpansion } from './nebula.mjs';
 import { firstFilled } from '../lib/pick.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { cannotStandMessage, missingEnv } from '../lib/required-env.mjs';
 
 /** `--universe <경로>` 를 argv 에서 먼저 꺼낸다(우주의 집을 찾기 전에 필요하다). */
 const argvUniverse = () => {
@@ -120,6 +121,14 @@ if (loaded.problem) {
   process.exit(1);
 }
 const galaxy = loaded.galaxy;
+
+/* ⛔ **은하가 서는지 먼저 본다**(R149) — 별을 쓰기도, 모델을 부르기도 전에.
+   못 잴 것이 뻔한 곳에 사용량을 쓰지 않는다. 「못 쟀다」는 정직하지만 너무 늦다. */
+const missing = missingEnv(galaxy, process.env);
+if (missing.length > 0) {
+  console.error(cannotStandMessage(galaxyName, missing));
+  process.exit(2);
+}
 
 const solar = galaxy.solarSystems.find((s) => s.name === solarName);
 if (!solar) {
