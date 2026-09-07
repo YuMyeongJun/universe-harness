@@ -239,9 +239,19 @@ export const lintJsonPathOf = (galaxyPath, signalName) =>
  * lint 실패의 **정확한 증거**를 원본 산출(JSON)에서 읽는다.
  * ⚠️ 화면의 detail 은 `worst` 5개로 잘려 있다 — 그것으로 귀속을 판단하면 6번째 파일이 시야 밖이다.
  */
-const lintErrorFiles = async (bases, signalName) => {
+const lintErrorFiles = async (bases, signalName, notBefore = 0) => {
   const galaxyPath = bases[0];
-  const raw = await fs.readFile(lintJsonPathOf(galaxyPath, signalName), 'utf8').catch(() => null);
+  const file = lintJsonPathOf(galaxyPath, signalName);
+  /* ⛔ **묵은 산출을 근거로 쓰지 마라**(R143). 실측: 게이트는 샌드박스 안에서 lint JSON 을 쓰고
+   * 그 샌드박스는 사라진다. 은하 폴더에는 **이틀 묵은 같은 이름의 파일**이 남아 있었고, 귀속은
+   * 그것을 읽어 「별의 폴더 안에는 error 가 하나도 없다 · 근거: 원본 산출」이라고 **확신했다** —
+   * 같은 실행의 집안 규칙 관문은 「별이 error 15건」이라 말하고 있었는데.
+   * 이제 이번 게이트보다 오래된 파일은 **없는 것으로 친다**. 못 읽으면 「못 읽었다」다(§8). */
+  const stat = await fs.stat(file).catch(() => null);
+  if (stat === null || stat.mtimeMs < notBefore) {
+    return null;
+  }
+  const raw = await fs.readFile(file, 'utf8').catch(() => null);
   if (raw === null) {
     return null;
   }
@@ -280,7 +290,7 @@ const pathsMentioned = (text, bases) => {
  * - `exact: true`  — 원본 산출(lint JSON) 또는 관문의 `where` 에서 온 경로다. 자동 수정의 근거가 된다.
  * - `exact: false` — 실패 출력에서 주운 문자열이다. **사람에게 넘길 때만** 쓴다.
  */
-export const attribute = async ({ parsed, galaxyPath, starDir }) => {
+export const attribute = async ({ parsed, galaxyPath, starDir, gateStartedAt = 0 }) => {
   const findings = [];
   /* 링크를 푼 경로를 후보로 함께 들고 간다(위 `relativeToGalaxy` 의 ⚠️ 참고). */
   const real = await fs.realpath(galaxyPath).catch(() => galaxyPath);
@@ -301,7 +311,7 @@ export const attribute = async ({ parsed, galaxyPath, starDir }) => {
 
   for (const signal of parsed.signals.filter((s) => !s.ok)) {
     const isLint = signal.name === 'lint' || signal.name.startsWith('lint:');
-    const fromJson = isLint ? await lintErrorFiles(bases, signal.name) : null;
+    const fromJson = isLint ? await lintErrorFiles(bases, signal.name, gateStartedAt) : null;
     const paths = fromJson ?? pathsMentioned(signal.detail, bases);
     findings.push({
       name: signal.name,
@@ -350,8 +360,20 @@ export const planRepair = ({ findings, galaxy, relDir }) => {
     const other = findings.filter((f) => f.kind !== 'lint').map((f) => f.name);
     return { can: false, why: `lint 밖의 게이트가 빨간불이다(${other.join(' · ')}) — 자동 수정의 근거가 되는 원본 산출이 없다.` };
   }
-  if (findings.length === 0 || failing.length === 0) {
+  /* ⚠️ 이 둘을 **한 말로 뭉뚱그리면 안 된다**(R143).
+   *  · 신호가 아예 없다  → 우리 파싱이 깨졌을 수 있다.
+   *  · 신호는 있는데 별의 파일에 error 가 하나도 없다 → **파싱은 멀쩡하고 별이 무죄다.**
+   *  실측: 은하 전체를 무는 규칙을 켜자 lint error 52개가 났고, 별의 파일은 error 0이었다.
+   *  도구는 옳게 거절했지만 「출력 형식이 바뀌었을 수 있다」고 말해 **없는 고장을 가리켰다.**
+   *  읽는 사람을 엉뚱한 곳으로 보내는 거절 사유는 거절하지 않는 것만큼 나쁘다. */
+  if (findings.length === 0) {
     return { can: false, why: '실패한 신호를 찾지 못했다 — 출력 형식이 바뀌었을 수 있다.' };
+  }
+  if (failing.length === 0) {
+    return {
+      can: false,
+      why: '별의 폴더 안에는 lint error 가 하나도 없다 — 이 빨간불은 별의 것이 아니다(은하가 원래 빨갰나 재라).',
+    };
   }
   const notExact = findings.filter((f) => !f.exact);
   if (notExact.length > 0) {
@@ -522,6 +544,8 @@ export const runSecondExpansion = async ({
 
   for (;;) {
     run += 1;
+    /* 게이트가 **시작한 시각**을 잡아 둔다 — 귀속은 이보다 오래된 lint 산출을 안 믿는다(R143). */
+    const gateStartedAt = Date.now();
     const gate = await runGate({ root, galaxyName, base, judge });
     const parsed = parseVerify(gate.output);
 
@@ -548,7 +572,7 @@ export const runSecondExpansion = async ({
       console.log('   빨간불로 읽는다 — 어긋난 관측은 통과의 근거가 될 수 없다.');
     }
 
-    const findings = await attribute({ parsed, galaxyPath: galaxy.path, starDir: relDir });
+    const findings = await attribute({ parsed, galaxyPath: galaxy.path, starDir: relDir, gateStartedAt });
     reportFindings({ findings, starName, starDir: relDir, dirtyBefore });
 
     if (run >= MAX_GATE_RUNS_SECOND) {

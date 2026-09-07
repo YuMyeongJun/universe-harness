@@ -22,6 +22,7 @@ import { readFile, writeFile, readdir, appendFile, stat } from 'node:fs/promises
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 
 const argv = process.argv.slice(2);
 rejectUnknownFlags(argv, ['--universe', '--promote', '--from', '--since', '--check', '--update'], 'universe learn');
@@ -60,7 +61,7 @@ const trajectoryDirs = async () => {
   const config = JSON.parse(await readFile(join(ROOT, 'universe.config.json'), 'utf8'));
   for (const name of config.galaxies ?? []) {
     const galaxy = await readFile(join(ROOT, 'galaxies', `${name}.json`), 'utf8')
-      .then((t) => JSON.parse(t)).catch(() => null);
+      .then((t) => resolveGalaxyPath(ROOT, JSON.parse(t))).catch(() => null);
     if (galaxy?.path) { dirs.push(join(galaxy.path, '.harness', 'trajectories')); }
   }
   const fixtures = join(ROOT, 'fixtures');

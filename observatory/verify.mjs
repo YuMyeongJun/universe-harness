@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url';
 import { requireUniverseHome } from '../lib/home.mjs';
 import { openEngine } from '../lib/engine.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 
 /** `--universe <경로>` 를 argv 에서 먼저 꺼낸다(우주의 집을 찾기 전에 필요하다). */
 const argvUniverse = () => {
@@ -40,7 +41,8 @@ const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 
 const config = JSON.parse(await fs.readFile(path.join(root, 'universe.config.json'), 'utf8'));
 const gname = flag('--galaxy') ?? config.galaxies[0];
-const g = JSON.parse(await fs.readFile(path.join(root, 'galaxies', `${gname}.json`), 'utf8'));
+const g = resolveGalaxyPath(root,
+  JSON.parse(await fs.readFile(path.join(root, 'galaxies', `${gname}.json`), 'utf8')));
 
 /* 관측 장치.
    ⚠️⚠️ **여기가 `resolveEngine` 을 import 해 놓고 안 쓰고 있었다.** 경로를 직접 이어 붙였고,

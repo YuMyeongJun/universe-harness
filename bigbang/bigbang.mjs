@@ -215,7 +215,12 @@ for (const f of files) {
    ⚠️ 단서일 뿐 근거가 아니다 — 근거는 깨끗한 상태에서 한 번 더 재는 것뿐이다. */
 const execFileAsync = promisify(execFile);
 const dirtyBefore = wantsGate
-  ? await execFileAsync('git', ['status'], { cwd: galaxy.path })
+  /* ⛔ `--porcelain` 이 **반드시** 있어야 한다(R143). 없으면 `git status` 는 사람용 안내문을
+     내고, 깨끗한 트리도 「On branch main / nothing to commit…」 **2줄**이 되어 「더러움 2건」으로
+     읽혔다. 그러면 도구가 귀속을 포기하고 「별 때문인지 가릴 수 없다」고 말한다 —
+     아무 일도 없었는데. 게다가 안내문은 **로케일을 탄다.** 소비자(expand.mjs)는 `?? 경로`
+     꼴을 기대하므로 형식도 어긋나 있었다. */
+  ? await execFileAsync('git', ['status', '--porcelain'], { cwd: galaxy.path })
       .then(({ stdout }) => stdout.split('\n').map((l) => l.trim()).filter(Boolean))
       .catch(() => [])
   : [];

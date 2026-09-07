@@ -14,5 +14,6 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: { document: 'readonly', window: 'readonly', console: 'readonly' },
     },
+
   },
 );

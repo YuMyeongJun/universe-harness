@@ -23,6 +23,7 @@ import { requireUniverseHome } from '../lib/home.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { firstFilled } from '../lib/pick.mjs';
 import { toolMissing } from '../lib/tool.mjs';
+import { resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 
 const execFileAsync = promisify(execFile);
 const argv = process.argv.slice(2);
@@ -51,7 +52,7 @@ let measured = 0;
 let toolAbsent = false;
 for (const name of names) {
   const file = join(root, 'galaxies', `${name}.json`);
-  const g = await readFile(file, 'utf8').then((t) => JSON.parse(t)).catch(() => null);
+  const g = await readFile(file, 'utf8').then((t) => resolveGalaxyPath(root, JSON.parse(t))).catch(() => null);
   if (!g) { continue; }
   const build = firstFilled(g.commands?.build);
   if (!build) {
