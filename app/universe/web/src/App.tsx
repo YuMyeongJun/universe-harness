@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-import { DomainSelect } from './routes/DomainSelect';
-import { Survey } from './routes/Survey';
+import { DomainSelect } from '@routes/DomainSelect';
+import { Survey } from '@routes/Survey';
 
 export function App() {
   return (

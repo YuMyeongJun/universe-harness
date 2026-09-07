@@ -1,0 +1,59 @@
+/**
+ * 시맨틱 토큰 — **색이 아닌 것.**
+ *
+ * 반경·글자 크기·레이아웃 상수. 색과 **교체 주기가 달라서** 따로 둔다.
+ * 테마가 밀도나 글자 크기까지 바꾸고 싶어지면 여기 이름들을 덮으면 된다.
+ *
+ * ⚠️ **여백 램프(`p-*`·`gap-*`)는 여기 없다.** tailwind 기본 스케일에 없는 칸
+ * (9px·11px·15px·18px…)을 `tailwind.config.ts` 에서 **리터럴로** 늘렸다.
+ * 그것을 여기 변수로 빼지 않은 이유는, **밀도를 바꾸는 주체가 아직 없기 때문**이다 —
+ * 손잡이를 만들어 놓고 아무도 돌리지 않으면 그건 손잡이가 아니라 거짓말이다.
+ * 밀도 설정이 생기는 날 그 칸들을 이 파일로 옮기면 된다(참고: 그때 `w-*`·`h-*` 는
+ * 따라오면 안 된다 — 아이콘 상자가 같이 줄어드는 건 밀도가 아니라 깨짐이다).
+ */
+:root {
+  /**
+   * ⚠️ 본문 글꼴은 **`sans-serif` 가 아니라 이 스택 그대로**여야 한다.
+   * 「Apple SD Gothic Neo」가 빠지면 한글 자간이 통째로 달라진다.
+   */
+  --ui-font-sans: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', sans-serif;
+  /**
+   * ⚠️ **`monospace` 한 낱말이어야 한다.** tailwind preflight 는 `code`·`pre` 에
+   * `theme(fontFamily.mono)` 를 먹이는데, tailwind 기본값(`ui-monospace, SFMono-Regular …`)을
+   * 그대로 두면 **코드 글꼴이 조용히 바뀐다.** 옮기기 전 계산값이 `monospace` 였다(실측).
+   */
+  --ui-font-mono: monospace;
+
+  /* ── 반경 ── chip 은 인라인 code, control 은 입력·버튼, card 는 카드·배너 */
+  --ui-radius-chip: 4px;
+  --ui-radius-control: 8px;
+  --ui-radius-card: 10px;
+  --ui-radius-pill: 999px;
+
+  /**
+   * ── 글자 크기 ──
+   * ⚠️ **크기만 준다 — 줄간격은 안 붙인다.** tailwind 의 `text-xs` 는 line-height 를
+   * 함께 주는데, 이 콘솔의 작은 글자들은 전부 body 의 1.6 을 **상속**받고 있었다.
+   * 줄간격을 함께 주면 이관하는 순간 줄이 붙어 화면이 바뀐다. 이 비대칭은 의도한 것이다.
+   * (`tailwind.config.ts` 의 `fontSize` 가 문자열인 이유가 이것이다.)
+   */
+  --ui-text-xs: 12px;
+  --ui-text-meta: 12.5px;
+  --ui-text-label: 13px;
+  --ui-text-xl: 20px;
+  --ui-text-title: 22px;
+
+  /* 본문 줄간격. 코드 블록만 예외적으로 좁다. */
+  --ui-leading-body: 1.6;
+  --ui-leading-code: 1.55;
+
+  /* 대문자 눈썹 라벨의 자간. tailwind 기본(0.05em·0.1em)에 없는 칸이다. */
+  --ui-tracking-eyebrow: 0.08em;
+
+  /* ── 레이아웃 상수 ── */
+  --ui-shell-max: 1120px;
+  --ui-code-max-h: 340px;
+  --ui-textarea-min-h: 68px;
+  /* 목록 한 줄: 본문 1fr + 꼬리(배지) auto */
+  --ui-grid-entry: 1fr auto;
+}

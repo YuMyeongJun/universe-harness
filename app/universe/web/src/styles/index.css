@@ -1,0 +1,15 @@
+/**
+ * 스타일 입구 — main.tsx 가 부르는 단 하나의 CSS.
+ *
+ * 순서가 곧 층이다: **팔레트 → 시맨틱 → 메트릭 → 바탕 → tailwind.**
+ * (`@import` 는 CSS 규칙상 맨 위에만 올 수 있어서 `@tailwind` 보다 앞에 있지만,
+ *  `base.css` 는 `@layer base` 로 감싸 두었으므로 출력에서는 preflight **다음**에 놓인다.)
+ */
+@import './tokens/_palette.css';
+@import './tokens/_semantic.css';
+@import './tokens/_metrics.css';
+@import './base.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
