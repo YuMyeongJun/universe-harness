@@ -27,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 
 import { createHash } from 'node:crypto';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { EXIT_UNMEASURED } from '../lib/gates.mjs';
 import { findGalaxyFile, loadGalaxy, saveGalaxy } from '../lib/galaxy-load.mjs';
 import { openNebulaRows } from '../lib/nebula-close.mjs';
 import { execFile } from 'node:child_process';
@@ -745,6 +746,29 @@ const main = async () => {
      * ⇒ 못 읽은 것을 세어 말하고, **은하가 그것을 판단하기 전에는 초록불을 주지 않는다.**
      */
     const blindTotal = blindNow.reduce((sum, [, n]) => sum + n, 0);
+
+    /**
+     * ⛔⛔ **파일 0개를 봤으면 그건 「0건」이 아니라 「못 쟀다」다** — `--update` 여부와 무관하다.
+     *
+     * 실측(R163): 우주 자신을 은하로 걸어 재 봤더니 화면이 이렇게 나왔다:
+     *     ⚠️ 토큰 법칙 0건 · 시맨틱 법칙 0건 · … · 발동하지 않은 규칙 13/13
+     * **한 줄도 「파일을 0개 봤다」고 말하지 않았다.** 훑개는 `<appDir>/src` 아래만 훑는데
+     * 그 저장소엔 뿌리에 `src/` 가 없었다. 「깨끗한 저장소」와 **글자 하나 다르지 않은 화면**이다.
+     *
+     * ⚠️ 아래쪽 `update-refused-zero-files` 가드는 **심을 때만** 물었다. 그런데 0개를 본 것은
+     * 심든 안 심든 **같은 사실**이고, 사람이 처음 보는 화면은 대개 `--update` 없는 쪽이다.
+     * ⇒ 여기서 **먼저** 말한다. 종료코드는 ❌(1)도 ✅(0)도 아닌 **⚪ 못 쟀다(3)**다.
+     */
+    if (fileCountNow === 0 && blindTotal === 0) {
+      say('\n  ⚪ **훑은 파일이 0개다 — 못 쟀다.**');
+      say('     위의 「0건」은 **위반이 없다는 뜻이 아니다**(관측 법칙 §8). 아무것도 안 봤다는 뜻이다.');
+      say(`     → 좌표의 \`appDir\` 이 소스가 있는 곳을 가리키는지 보라(지금: ${JSON.stringify(g.appDir ?? '.')}).`);
+      say('       훑개는 그 아래 `src/` 를 훑는다. 모노레포면 앱의 폴더를 적어라.');
+      say('     ⛔ `src/` 관례를 안 쓰는 저장소는 **아직 못 잰다** — 그것은 이 도구의 한계다.');
+      cannotMeasure(gReport.unmeasured, 'zero-files-scanned', gReport.appDir,
+        '훑은 파일이 0개다 — 「위반이 없다」가 아니라 「안 봤다」이다(§8)');
+      emit(EXIT_UNMEASURED);
+    }
     if (blindTotal > 0) {
       const share = Math.round((blindTotal / (fileCountNow + blindTotal)) * 100);
       say(`\n  ⚠️ 코드인데 **규칙이 못 읽은 파일 ${blindTotal}개** (${share}%) — ${blindNow.map(([ext, n]) => `${ext} ${n}`).join(' · ')}`);

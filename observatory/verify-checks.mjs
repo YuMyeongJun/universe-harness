@@ -125,6 +125,32 @@ const CASES = [
     cmd: ['node', ['observatory/verify-links.mjs']],
   },
   {
+    check: '커버리지 분모(observe)',
+    bite: '파일을 0개 봤는데 「0건」으로 보임',
+    expect: '훑은 파일이 0개다 — 못 쟀다',
+    file: 'galaxies/console.json',
+    /**
+     * ⛔⛔ **「0건」과 「0개를 봤다」는 글자 하나 다르지 않은 화면을 낸다.**
+     *
+     * 실측(R163): 우주 자신을 은하로 걸었더니 「토큰 0건 · 시맨틱 0건 · … · 발동 안 한 규칙
+     * 13/13」이 나왔다. 훑개는 `<appDir>/src` 만 훑는데 그 자리에 `src/` 가 없었던 것이다.
+     * **깨끗한 저장소와 구별이 안 됐다.** 심을 때만(`--update`) 막던 가드를 앞으로 당겼다.
+     *
+     * ⚠️⚠️ **조준을 두 번 옮겼다.**
+     *   ① `appDir` 을 **없는 자리**로 바꿨더니 「태양계 srcDir 이 빈 곳을 가리킨다」가
+     *     **먼저** 물어 exit 1 로 죽었다 — 죽긴 했는데 **그 이유가 아니었다.**
+     *   ⇒ ② **있는데 소스가 없는 자리**(`web/src`)로 옮기고 태양계를 비운다. 그러면
+     *     앞선 좌표 검사는 통과하고 **훑은 파일만 0개**가 된다 — 겨눈 자리가 정확히 드러난다.
+     * ⚠️ `tiny-galaxy` 는 `appDir: "."` 이라 훑개가 저장소 뿌리를 훑어 **0개가 안 된다.**
+     */
+    mutate: (t) => {
+      const g = JSON.parse(t.replace('"appDir": "web"', '"appDir": "web/src"'));
+      g.solarSystems = [];
+      return `${JSON.stringify(g, null, 2)}\n`;
+    },
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'console']],
+  },
+  {
     check: '문서 링크(verify-links)',
     bite: '훑개가 고장 나 0개를 셈 (§8 바닥값)',
     expect: '아무것도 못 셌다',
