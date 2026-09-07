@@ -12,6 +12,7 @@
     "flatness",
     "cohesion"
   ],
+  "//환경": "⚠️ 이 저장소의 `.yarnrc.yml` 은 npmScopes 에서 `${NODE_AUTH_TOKEN}` 을 참조한다. 그 변수가 **없으면 yarn 이 어떤 명령도 안 돈다** — `yarn build` 가 0.2초 만에 exit 1 로 죽고 출력은 `Environment variable not found (NODE_AUTH_TOKEN)` 이다(실측 R146). node_modules 가 이미 깔려 있으면 **값은 아무거나 있으면 된다**(레지스트리를 안 탄다). ⛔ 이걸 모르면 컴파일 관문의 「못 쟀다」를 보고 은하가 깨진 줄 안다.",
   "commands": {
     "build": "yarn build",
     "//없는 명령": "test 스크립트가 이 저장소에 없다 — 없는 명령을 지어내지 않았다. 게이트가 그만큼 덜 본다.",
