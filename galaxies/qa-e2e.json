@@ -4,8 +4,14 @@
   "path": "qa",
   "appWorkspace": "",
   "appDir": ".",
-  "codeDirs": ["src"],
-  "laws": ["naming", "flatness", "cohesion"],
+  "codeDirs": [
+    "src"
+  ],
+  "laws": [
+    "naming",
+    "flatness",
+    "cohesion"
+  ],
   "//laws": "⛔ 토큰·시맨틱(UI 법칙)은 안 켰다 — 이 은하는 CLI 도구다. 켜면 규칙이 자기 예시를 문다.",
   "commands": {
     "e2e": "npx playwright test --reporter=json > .universe/e2e.json",
@@ -14,5 +20,23 @@
   "e2eReport": ".universe/e2e.json",
   "thresholds": {},
   "solarSystems": [],
-  "observed": {}
+  "observed": {
+    "measuredAt": "2026-09-07T23:30:12.874Z",
+    "commit": "76ac699b1fd9b03b449751d3b3b83ca227e3ade6",
+    "dirtyFiles": 0,
+    "files": 23,
+    "blind": {},
+    "fingerprint": "v2:2e1eea0e64eb",
+    "rulesFingerprint": "ad5eb07792f9",
+    "lawsEnabled": [
+      "naming",
+      "flatness",
+      "cohesion"
+    ],
+    "laws": {
+      "naming": 8,
+      "flatness": 1,
+      "cohesion": 0
+    }
+  }
 }
