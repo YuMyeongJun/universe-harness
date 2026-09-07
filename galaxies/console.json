@@ -27,5 +27,28 @@
       "srcDir": "src/routes"
     }
   ],
-  "//appDir": "⚠️ 앱은 `web/` 다 — 뿌리에 `src/` 가 없어서 `appDir: \".\"` 로 두면 훑개가 **0개를 본다.** 실측으로 그랬다(files: 0 인데 「0건」이 기준선으로 심겼다)."
+  "//appDir": "⚠️ 앱은 `web/` 다 — 뿌리에 `src/` 가 없어서 `appDir: \".\"` 로 두면 훑개가 **0개를 본다.** 실측으로 그랬다(files: 0 인데 「0건」이 기준선으로 심겼다).",
+  "observed": {
+    "measuredAt": "2026-09-07T12:07:06.684Z",
+    "commit": "040b71d49445d74f9ecaa2fe78ddd0cfd241bf4c",
+    "dirtyFiles": 0,
+    "files": 7,
+    "blind": {},
+    "fingerprint": "v2:3c8e6c4d62da",
+    "rulesFingerprint": "ad5eb07792f9",
+    "lawsEnabled": [
+      "tokens",
+      "semantics",
+      "naming",
+      "flatness",
+      "cohesion"
+    ],
+    "laws": {
+      "tokens": 0,
+      "semantics": 24,
+      "naming": 6,
+      "flatness": 1,
+      "cohesion": 0
+    }
+  }
 }
