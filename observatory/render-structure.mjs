@@ -29,6 +29,32 @@ const END = '<!-- STRUCTURE:END -->';
 /** 안 그리는 것 — 산출물·의존성·기계가 쓰는 자리. */
 const SKIP = new Set(['node_modules', '.git', 'dist', 'out', '.harness', 'typedocs', '.DS_Store']);
 
+/**
+ * **커밋되지 않는 것은 그림에 없다.**
+ *
+ * ⚠️⚠️ 실측(R154 · CI 가 처음 잡았다): `galaxies.local/`(gitignore)을 만들자 내 기계에서는
+ * 그림에 들어가고 **깨끗한 클론에서는 안 들어가서**, 커밋된 그림이 CI 에서 영영 「낡았다」가 됐다.
+ * 로컬에서는 초록불이라 **혼자서는 못 봤을 결함**이다.
+ *
+ * ⛔ 이름을 `SKIP` 에 하나 더 적어 막지 않는다(§9) — 다음 로컬 폴더에서 또 깨진다.
+ *    **git 에게 묻는다**: 무시되는 것이면 커밋본에 없고, 커밋본에 없으면 그림에도 없어야 한다.
+ */
+const ignoredNames = async (dir, names) => {
+  if (names.length === 0) {
+    return new Set();
+  }
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const run = promisify(execFile);
+  /* `check-ignore` 는 무시되는 것이 하나도 없으면 exit 1 이다 — 실패가 아니다. */
+  /* ⛔ `--stdin` 을 쓰면 안 된다 — `promisify(execFile)` 에는 `input` 옵션이 없어서
+     자식이 **stdin 을 영영 기다린다**(실측: 5분 타임아웃까지 매달렸다). 이름을 인자로 준다. */
+  const out = await run('git', ['check-ignore', '--', ...names], { cwd: dir })
+    .then((r) => r.stdout)
+    .catch((error) => error.stdout ?? '');
+  return new Set(out.split('\n').map((line) => line.trim()).filter(Boolean));
+};
+
 /** 한 줄 설명 — 없으면 안 적는다(지어내지 않는다). */
 const NOTE = {
   laws: '무엇이 옳은가 — 문서가 아니라 관문',
@@ -51,9 +77,10 @@ const NOTE = {
 const tree = async (dir, prefix = '', depth = 0) => {
   if (depth > 1) { return []; }
   const names = (await readdir(dir)).filter((name) => !SKIP.has(name) && !name.startsWith('.') || name === '.githooks');
+  const ignored = await ignoredNames(dir, names);
   const dirs = [];
   for (const name of names.sort()) {
-    if (SKIP.has(name)) { continue; }
+    if (SKIP.has(name) || ignored.has(name)) { continue; }
     if ((await stat(join(dir, name))).isDirectory()) { dirs.push(name); }
   }
   const lines = [];
