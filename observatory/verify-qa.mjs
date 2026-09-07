@@ -60,13 +60,22 @@ if (!existsSync(path.join(QA, 'node_modules'))) {
  *
  * 그리고 **덜 걷힌 것**도 잰다: 시험 파일이 collect 에서 빠지면 남은 것만 돌고 초록이다.
  * ⛔ 여기에 기대 개수를 **적지 않는다** — `git` 이 아는 시험 파일 수와 **대조**한다(§9).
+ *
+ * ⛔⛔ **질문을 답과 같은 자리에서 만들지 않는다 — 그러면 대조가 아니라 순환이다.**
+ * ⚠️ 처음엔 `git ls-files qa/tests qa/e2e` 로 물었다. **폴더를 손으로 적은 것**이라,
+ * 그 두 자리 **밖에** 시험이 생기면 질문 자체가 못 본다 — 검사가 조용해지는 방향이다.
+ * ⚠️ 옆 저장소 세션이 더 나쁜 판을 자기 검사에서 찾아 줬다: 질문의 범위를 **훑개의 설정에서
+ * 파생**시켰더니, 훑개가 한 자리를 잃자 **질문도 같이 줄어** 변이가 조용히 통과했다.
+ * ⇒ **git 에게는 `qa/` 전부를 묻는다.** 시험처럼 생긴 것이 collect 밖에 있으면 드러난다.
  */
 const tracked = await new Promise((done) => {
-  const git = spawn('git', ['ls-files', 'qa/tests', 'qa/e2e'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] });
+  const git = spawn('git', ['ls-files', 'qa'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] });
   let out = '';
   git.stdout.on('data', (d) => { out += d; });
+  /* vitest 의 기본 collect 규칙과 **같은 모양**으로 고른다 — `.e2e.ts` 는 여기 안 걸린다
+     (브라우저가 필요한 축이라 vitest 가 원래 안 걷는다. 그것은 `--from-playwright` 쪽 일이다). */
   git.on('close', (code) => done(code === 0
-    ? out.split('\n').filter((f) => /\.(test|spec)\.[cm]?tsx?$/.test(f) && !f.includes('/e2e/')).length
+    ? out.split('\n').filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f))
     : null));
   git.on('error', () => done(null));
 });
@@ -102,10 +111,15 @@ child.on('close', (code) => {
   const collected = Number(/\((\d+)\)/.exec(files)?.[1] ?? 0);
   if (tracked === null) {
     console.log('   ⚠️ git 에게 **못 물었다** — 시험 파일이 덜 걷혔는지는 못 쟀다(§8).');
-  } else if (collected < tracked) {
-    console.error(`\n⛔ 시험 파일이 **덜 걷혔다** — git 이 아는 것 ${tracked}개 중 ${collected}개만 돌았다.`);
-    console.error('   남은 것만 돌고 초록이 나오는 자리다. 안 걷힌 파일이 무엇인지 보라.');
+  } else if (collected < tracked.length) {
+    console.error(`\n⛔ 시험 파일이 **덜 걷혔다** — git 이 아는 것 ${tracked.length}개 중 ${collected}개만 돌았다.`);
+    console.error('   남은 것만 돌고 초록이 나오는 자리다. 안 걷힌 것은 이 중에 있다:');
+    for (const f of tracked) {
+      console.error(`     · ${f}`);
+    }
     process.exit(1);
+  } else {
+    console.log(`   ⓘ git 이 아는 시험 파일 ${tracked.length}개 — 전부 걷혔다(질문은 \`qa/\` 전체에 했다).`);
   }
   process.exit(0);
 });
