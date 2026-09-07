@@ -21,6 +21,32 @@
 그래서 각 TC마다 한 번씩 묻는다:
 **"이게 통과했을 때, 아무것도 안 재고도 통과할 수 있는 경로가 있는가."**
 
+## 도구
+
+| 명령 | 하는 일 | 종료 코드 |
+|---|---|---|
+| `npm run lint:tickets -- <경로>` | TC 티켓 형식 관문 | `0` 통과 / `1` 위반 / **`3` 못 쟀다** |
+| `npm run gate:redfirst -- <spec> -- <실행명령>` | 생성된 spec 이 "처음부터 통과"하지 않는지 | `0` 수용 / `1` 거부 / **`3` 못 쟀다** |
+| `npm test` | 변이 시험 — 각 검사가 실제로 무는지 | |
+
+`exit 3` 은 실패도 통과도 아니다. 대상 파일이 0개이거나 spec 을 받지 못한 경우다.
+**0개는 "위반 없음"이 아니라 검사가 아무것도 안 본 것이다.**
+
+## 구성
+
+```
+src/
+├── config/types.ts      프로젝트별 설정 계약 (앱 고유값은 전부 여기로)
+├── lint/                ① TC 티켓 정적 관문 — 프로젝트 무관
+├── guards/              ② Playwright 가드 — config 주입식, 앱을 알지 않는다
+│   ├── measure.ts         assertMeasured / assertFollows / assertContrast
+│   └── reach.ts           createReach — 404·얇은 본문·의도치 않은 리다이렉트를 던진다
+└── gate/redFirst.ts     ③ 빨간불 관문 — 자기 채점 방지
+tests/                   변이 시험 (검사가 죽어 있는지 확인하는 층)
+```
+
+새 프로젝트에 붙이려면 `qa-harness.config.example.ts` 를 복사해 라우트와 404 문구만 채우면 된다.
+
 ## 참고
 
 - `universe-harness` — ⚪ "못 쟀다" 규율, 계약 우선 장치 (github.com/YuMyeongJun/universe-harness)
