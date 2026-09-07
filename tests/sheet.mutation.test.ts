@@ -39,6 +39,7 @@ const MUTATIONS: Array<{ fixture: string; rule: string }> = [
   { fixture: 'g4-precondition-obvious.json', rule: 'G4-precondition-form' },
   { fixture: 'g5-category-length.json', rule: 'G5-category-form' },
   { fixture: 'g5-category-consistency.json', rule: 'G5-category-consistency' },
+  { fixture: 'g0-three-results.json', rule: 'G0-single-point' },
 ];
 
 describe('정상 스펙', () => {
@@ -162,5 +163,50 @@ describe('관문 자체의 배선', () => {
 
   it('규칙이 최소 하나는 있다 — 규칙 0개는 "위반 없음"이 아니다', () => {
     expect(sheetRules.length).toBeGreaterThan(0);
+  });
+});
+
+describe('회귀 — 실사용에서 나온 버그', () => {
+  it('NFD 폴더 이름을 NFC 스펙 값과 맞춘다 (macOS)', () => {
+    // macOS 파일시스템은 한글을 NFD 로 돌려준다. 눈에는 같아 보여도 JS 문자열로는 다른 값이라
+    // 정규화 없이는 **정상 대분류가 100% 오탐**이 된다 (실측: 지식 폴더 10개 중 7개가 NFD).
+    const nfd = '채팅'.normalize('NFD');
+    expect(nfd).not.toBe('채팅'); // 전제 확인 — 두 형식이 실제로 다르다
+    const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    for (const row of spec.components[0].rows) row.major = '채팅';
+    const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)), {
+      majorDictionary: [nfd, '설정'.normalize('NFD')],
+    });
+    expect(findings.filter((f) => f.rule === 'G5-major-dictionary' && f.severity === 'error')).toEqual([]);
+  });
+
+  it('NFD 로 적힌 스펙 값도 길이 상한을 정확히 잰다', () => {
+    // `상담관리` 는 NFC 4자 / NFD 11자다. 정규화하지 않으면 대분류 상한(10)에 헛걸린다.
+    const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    for (const row of spec.components[0].rows) row.major = '상담관리'.normalize('NFD');
+    const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)));
+    expect(findings.filter((f) => f.rule === 'G5-category-form' && f.severity === 'error')).toEqual([]);
+  });
+
+  it('연결어미 `며,` 로 이어진 결과 3개를 잡는다', () => {
+    // 리터럴 `되며,` 만 세면 "노출 되며, 닫히며, 유지 됨" 을 놓친다.
+    // `-며,` 는 아무 용언 어간에나 붙는다.
+    expect(ruleIds('g0-three-results.json')).toContain('G0-single-point');
+  });
+
+  it('조사 인용이 어절 단위로 나온다', () => {
+    const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    for (const row of spec.components[0].rows) row.content = '1. 저장 버튼을 선택';
+    const finding = lintSheet(parseSheetSpec('x', JSON.stringify(spec))).find(
+      (f) => f.rule === 'G2-no-particle',
+    );
+    expect(finding?.message).toContain('"버튼을"');
+    expect(finding?.message).not.toContain('"튼을"');
+  });
+
+  it('행 위치를 기계가 되짚을 수 있게 담는다', () => {
+    const finding = lint('g0-empty-action.json').find((f) => f.rule === 'G0-empty-action');
+    expect(finding?.tab).toBe('관리자 콘솔');
+    expect(finding?.rowIndex).toBe(2); // 스펙 행 순서(1-based)
   });
 });

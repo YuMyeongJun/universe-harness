@@ -7,36 +7,54 @@
 /** ⚪ = 못 쟀다. 통과도 실패도 아니다. 통과율 분모에서 뺀다. */
 export type Severity = 'error' | 'unmeasured';
 
+/** 어느 자리인가. 기계가 되짚을 수 있게 탭·행을 따로 담는다. */
+export interface ILocation {
+  at: string;
+  tab?: string;
+  /** 스펙 행 순서 (1-based) — 소비 쪽이 시트 행으로 되짚는 키다 */
+  rowIndex?: number;
+}
+
 export interface IFinding {
   rule: string;
   severity: Severity;
   message: string;
   /** 왜 이 검사가 있는가 — 근거를 잃으면 검사는 미신이 된다 */
   why: string;
-  /** 어느 자리인가 (시트는 `컴포넌트/행번호`, 마크다운은 생략) */
+  /** 사람이 읽는 위치 표시 */
   at?: string;
+  tab?: string;
+  rowIndex?: number;
 }
+
+const locationOf = (at: string | ILocation | undefined): Partial<IFinding> => {
+  if (at === undefined) return {};
+  if (typeof at === 'string') return { at };
+  return {
+    at: at.at,
+    ...(at.tab === undefined ? {} : { tab: at.tab }),
+    ...(at.rowIndex === undefined ? {} : { rowIndex: at.rowIndex }),
+  };
+};
 
 export interface IRule<T> {
   id: string;
   check: (subject: T) => IFinding[];
 }
 
-export const err = (rule: string, message: string, why: string, at?: string): IFinding => ({
-  rule,
-  severity: 'error',
-  message,
-  why,
-  ...(at === undefined ? {} : { at }),
-});
+export const err = (
+  rule: string,
+  message: string,
+  why: string,
+  at?: string | ILocation,
+): IFinding => ({ rule, severity: 'error', message, why, ...locationOf(at) });
 
-export const unmeasured = (rule: string, message: string, why: string, at?: string): IFinding => ({
-  rule,
-  severity: 'unmeasured',
-  message,
-  why,
-  ...(at === undefined ? {} : { at }),
-});
+export const unmeasured = (
+  rule: string,
+  message: string,
+  why: string,
+  at?: string | ILocation,
+): IFinding => ({ rule, severity: 'unmeasured', message, why, ...locationOf(at) });
 
 /** 값이 실질적으로 비어 있는가. 템플릿 잔재(`...`, `<...>`, 체크박스)도 빈 것으로 본다. */
 export const isBlank = (value: string): boolean => {

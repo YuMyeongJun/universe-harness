@@ -55,7 +55,16 @@ export interface IParsedSheet {
   isPartial: boolean;
 }
 
-const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+/**
+ * 문자열로 읽되 **NFC 로 정규화**한다.
+ *
+ * ⚠️ macOS 파일시스템은 한글을 NFD(자모 분해)로 돌려주고 JSON 값은 NFC(완성형)다.
+ *    눈에는 같아 보여도 JS 문자열로는 다른 값이라 비교가 전부 어긋난다.
+ *    길이도 다르다 — `상담관리` 가 NFC 4자, NFD 11자다. 길이 상한 검사까지 틀어진다.
+ *    그래서 **들어오는 자리에서 한 번** 맞추고, 이후로는 정규화를 신경 쓰지 않는다.
+ */
+const str = (value: unknown): string =>
+  typeof value === 'string' ? value.normalize('NFC') : '';
 
 const ID_FIELDS = ['scenarioId', 'tcId', 'no'] as const;
 

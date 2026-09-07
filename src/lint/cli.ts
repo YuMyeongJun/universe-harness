@@ -57,7 +57,7 @@ const readFeatureNames = (dir: string): string[] | undefined => {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((e) => e.isDirectory())
-      .map((e) => e.name);
+      .map((e) => e.name.normalize('NFC'));
   } catch {
     return undefined;
   }
@@ -85,6 +85,8 @@ const main = (): number => {
   }
   const format: Format = rawFormat;
 
+  const asJson = argv.includes('--json');
+  const requireFeaturesDir = argv.includes('--require-features-dir');
   const featuresDir = readOption(argv, 'features-dir', consumed);
   let majorDictionary: string[] | undefined;
   if (featuresDir !== undefined) {
@@ -98,6 +100,14 @@ const main = (): number => {
       console.error(`⚪ [tc-lint] --features-dir 에 하위 폴더가 0개다: ${featuresDir}`);
       return EXIT_UNMEASURED;
     }
+  }
+  // 호출부를 고치다 플래그를 빠뜨리면 **검사가 조용히 사라진다.** 그 자리를 3 으로 만든다.
+  if (requireFeaturesDir && majorDictionary === undefined) {
+    console.error(
+      '⚪ [tc-lint] --require-features-dir 인데 --features-dir 가 없다.\n' +
+        '   검사가 조용히 사라지는 것을 막기 위해 통과시키지 않는다.',
+    );
+    return EXIT_UNMEASURED;
   }
   const adapter = makeAdapters(majorDictionary)[format];
 
@@ -127,6 +137,11 @@ const main = (): number => {
   let errorCount = 0;
   let unmeasuredCount = 0;
   const unmeasuredNames: string[] = [];
+  /** 기계가 읽는 출력 — 사람용 텍스트를 파싱하게 만들지 않는다 */
+  const jsonFindings: Array<Record<string, unknown>> = [];
+  const say = (line: string): void => {
+    if (!asJson) console.log(line);
+  };
 
   for (const file of files) {
     const rel = relative(cwd, file);
@@ -141,21 +156,54 @@ const main = (): number => {
     }
 
     if (findings.length === 0) {
-      console.log(`✅ ${rel}`);
+      say(`✅ ${rel}`);
       continue;
     }
 
-    console.log(`\n${rel}`);
+    say(`\n${rel}`);
     for (const f of findings) {
       const mark = f.severity === 'error' ? '❌' : '⚪';
-      console.log(`  ${mark} ${f.at ? `${f.at} ` : ''}[${f.rule}] ${f.message}`);
-      console.log(`     └ ${f.why}`);
+      say(`  ${mark} ${f.at ? `${f.at} ` : ''}[${f.rule}] ${f.message}`);
+      say(`     └ ${f.why}`);
+      jsonFindings.push({
+        file: rel,
+        rule: f.rule,
+        // 외부 계약에서는 `error` 가 아니라 `violation` 이다 — 도구 오류와 헷갈리지 않게
+        severity: f.severity === 'error' ? 'violation' : 'unmeasured',
+        ...(f.tab === undefined ? {} : { tab: f.tab }),
+        ...(f.rowIndex === undefined ? {} : { rowIndex: f.rowIndex }),
+        message: f.message,
+        why: f.why,
+      });
       if (f.severity === 'error') errorCount += 1;
       else {
         unmeasuredCount += 1;
         unmeasuredNames.push(`${rel}:${f.rule}`);
       }
     }
+  }
+
+  const exitCode = errorCount > 0 ? EXIT_VIOLATION : EXIT_OK;
+
+  if (asJson) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          ok: errorCount === 0,
+          exitCode,
+          format,
+          files: files.length,
+          violations: errorCount,
+          unmeasured: unmeasuredCount,
+          findings: jsonFindings,
+          // 관문이 재지 않는 것을 출력에도 적는다 — 소비 쪽이 "다 쟀다"로 읽지 않게
+          notMeasured: '필드가 다 채워졌지만 얕은 TC 는 잡지 않는다. 형식만 재고 내용은 재지 않는다.',
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return exitCode;
   }
 
   const unit = format === 'sheet' ? '스펙' : '티켓';
@@ -169,7 +217,7 @@ const main = (): number => {
     '\n⛔ 이 관문이 못 잡는 것: 필드가 다 채워졌지만 **얕은 TC**. 형식만 재고 내용은 재지 않는다.',
   );
 
-  return errorCount > 0 ? EXIT_VIOLATION : EXIT_OK;
+  return exitCode;
 };
 
 process.exit(main());

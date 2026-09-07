@@ -7,7 +7,7 @@
  * ⛔ **여기서 재지 않는 것**(지식 베이스가 있어야 재는 것)은 조용히 통과시키지 않고
  *    ⚪ 로 이름을 부른다. 조용히 넘기면 "다 쟀다"로 읽힌다.
  */
-import { err, unmeasured, type IFinding, type IRule } from '../core.js';
+import { err, unmeasured, type IFinding, type ILocation, type IRule } from '../core.js';
 import {
   groupKeyOf,
   hasQuoteSpan,
@@ -68,8 +68,11 @@ const EMOJI_RE =
 /** G6-2 토글 표기 — `ON`/`OFF` 는 항상 대문자 */
 const LOWER_TOGGLE_RE = /(?:^|[^A-Za-z])(?:[Oo]n\s*\/\s*[Oo]ff|[Oo]ff\s*\/\s*[Oo]n)(?:[^A-Za-z]|$)|(?:^|[^가-힣])(?:켬|끔)(?:[^가-힣]|$)/;
 
-const at = (component: ISheetComponent, row: ISheetRow): string =>
-  `${component.tab || '(탭 없음)'}#${row.index + 1}`;
+const at = (component: ISheetComponent, row: ISheetRow): ILocation => ({
+  at: `${component.tab || '(탭 없음)'}#${row.index + 1}`,
+  tab: component.tab,
+  rowIndex: row.index + 1,
+});
 
 /** 모든 (컴포넌트, 행) 을 훑는다 */
 const eachRow = (
@@ -99,12 +102,15 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
     id: 'G0-single-point',
     check: (sheet) =>
       eachRow(sheet, (c, row) => {
-        const joins = (row.expected.match(/되며,/g) ?? []).length;
+        // ⚠️ 키는 `되며,` 가 아니라 **연결어미 `며,`** 다.
+        //    `-며,` 는 아무 용언 어간에나 붙는다 — `닫히며,` · `유지되며,` · `이동하며,`.
+        //    리터럴 `되며,` 만 세면 "토스트 노출 되며, 레이어 닫히며, 값 유지 됨"(결과 3개)을 놓친다.
+        const joins = (row.expected.match(/며,/g) ?? []).length;
         return joins > 1
           ? [
               err(
                 'G0-single-point',
-                `한 행 \`기대결과\` 에 검증 포인트가 ${joins + 1}개다 (\`되며,\` ${joins}회)`,
+                `한 행 \`기대결과\` 에 검증 포인트가 ${joins + 1}개다 (연결어미 \`며,\` ${joins}회)`,
                 '1행 = 1 검증 포인트. 3개 이상이면 행을 분리한다 (연결은 2개까지)',
                 at(c, row),
               ),
@@ -271,12 +277,13 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
           );
         }
         // 조사 검출은 을·를·에서만 본다 — 이·가는 `추가`·`참가` 같은 어절과 구별이 안 된다
-        const particle = /[가-힣](을|를)\s|[가-힣]에서\s/.exec(body);
+        // 어절 전체를 보여준다 — 앞 한 글자만 잘라 보여주면 "튼을" 처럼 읽히지 않는다
+        const particle = /[가-힣]+(?:을|를|에서)(?=\s)/.exec(body);
         if (particle) {
           out.push(
             err(
               'G2-no-particle',
-              `\`테스트항목\` 에 조사가 있다: "${particle[0].trim()}"`,
+              `\`테스트항목\` 에 조사가 있다: "${particle[0]}"`,
               '조사(을·를·에서)는 쓰지 않는다. `{요소}를 선택` ❌ → `{요소} 선택` ⭕',
               at(c, row),
             ),
@@ -429,8 +436,8 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
       for (const component of sheet.components) {
         for (const row of component.rows) {
           const body = row.expected.trim();
-          if (/노출\s*됨$/.test(body)) full.push(at(component, row));
-          else if (/노출$/.test(body)) abbrev.push(at(component, row));
+          if (/노출\s*됨$/.test(body)) full.push(at(component, row).at);
+          else if (/노출$/.test(body)) abbrev.push(at(component, row).at);
         }
       }
       if (abbrev.length === 0 || full.length === 0) return [];
@@ -539,7 +546,7 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
             if (value === '') continue;
             const key = `${label}|${value.replace(/\s+/g, '')}`;
             const seen = buckets.get(key) ?? new Map<string, string>();
-            if (!seen.has(value)) seen.set(value, at(component, row));
+            if (!seen.has(value)) seen.set(value, at(component, row).at);
             buckets.set(key, seen);
           }
         }
@@ -648,12 +655,13 @@ const COMMON_MAJOR = '공통';
 const majorDictionaryRule = (dictionary: string[]): IRule<IParsedSheet> => ({
   id: 'G5-major-dictionary',
   check: (sheet) => {
+    // 폴더 이름은 파일시스템에서 오므로 여기서도 맞춘다 (macOS 는 NFD 로 돌려준다)
     const allowed = new Set([
-      ...dictionary.filter((name) => !name.startsWith('_')),
+      ...dictionary.filter((name) => !name.startsWith('_')).map((name) => name.normalize('NFC')),
       COMMON_MAJOR,
     ]);
     return eachRow(sheet, (c, row) => {
-      const value = row.major.trim();
+      const value = row.major.trim().normalize('NFC');
       if (value === '' || allowed.has(value)) return [];
       return [
         err(
