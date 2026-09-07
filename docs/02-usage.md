@@ -213,6 +213,20 @@ universe new my-app wallet CouponList --from "…" --lane omniroute  --model cc/
 universe new my-app wallet CouponList --from "…" --lane script --agent-script <대본>   # 0원
 ```
 
+### 게이트 축은 은하가 정한다
+
+| 축 | 은하가 적는 곳 | 안 적으면 |
+|---|---|---|
+| lint | `commands.lintJson` | ⚪ 못 쟀다 |
+| build | `commands.build` | ⚪ 못 쟀다 |
+| test | `commands.test` | ⚪ 못 쟀다 |
+| typecheck | `commands.typecheck` (또는 `extraGates.typecheck`) | ⚪ 못 쟀다 |
+| **e2e** | `commands.e2e` | ⚪ 못 쟀다 |
+
+⛔ **브라우저를 우리가 깔지 않는다.** 이미 Playwright·Cypress 를 쓰는 팀이 **명령만 적으면** 붙는다.
+안 적으면 ⚪ 다 — 없는 E2E 가 통과로 세어지지 않는다.
+⚠️ e2e 는 **맨 뒤에서 돈다**. 가장 비싸고, 앞이 빨간불이면 아예 안 돈다(죽은 빌드 위의 수는 거짓이다).
+
 | 레인 | 무엇으로 | 돈 |
 |---|---|---|
 | `subscription`(기본) | `claude` CLI · `ANTHROPIC_API_KEY` 를 **자식에서 지운다** | 그 기계의 구독 |
@@ -379,6 +393,7 @@ universe round audit     # 로그(정본)와 성운(파생)이 어긋나지 않�
 | `universe enumeration` | 규칙이 **사람이 정한 이름**을 열거하는가 | 열거 밖은 영영 안 보인다(관측 법칙 §9) |
 | `universe fix` | 규칙이 **무엇을 하라**고 말하는가 | 처방 없는 관문은 무시하는 법부터 가르친다(R35) |
 | `universe learn [--check]` | 궤적이 낸 후보를 **판단했는가** · 고친 것이 **재발했는가** | 궤적에만 남은 관측은 실행되지 않는다(R48·R49) |
+| `universe orphans` | **아무도 안 가리키는 별**을 센다 — 「사람이 볼 수 있는가」의 싼 절반. ⛔ **커밋된 별**만 본다(갓 만든 별이 고아인 것은 정상이다) | 게이트는 별이 **서는지**만 봤다 — 이어졌는지는 세 자리에 적어 두고도 안 쟀다(R157) |
 | `universe extract` | **성공** 궤적에서 지식 카드를 뽑는다 — 학습 고리의 **돌아오는 절반**(R155). ⛔ 기본은 **모델을 안 부른다**(무엇이 될지만 보여 준다) | 실패는 성운으로 가는 길이 있었는데(`learn`) **성공은 갈 곳이 없었다** — 엔진에 코드가 있는데 아무도 안 불렀다 |
 | `universe messy [--check]` | **일부러 더러운 은하**가 규칙 표와 맞는가 | 깨끗한 은하만으로는 재는 장치가 도는지 모른다(R37) |
 | `universe facts [--check]` | 문서의 **「지금 상태」 수치**를 생성한다 | 수치를 손으로 적었다가 여섯 번 낡았다(R55) |
@@ -428,6 +443,7 @@ universe round audit     # 로그(정본)와 성운(파생)이 어긋나지 않�
 | `universe learn` | `--promote` | 궤적이 낸 후보를 성운에 붙인다 |
 | `universe extract` | `--write` | **진짜로 뽑는다 — 모델을 궤적 한 건에 한 번 부른다.** 안 주면 무엇이 될지만 본다 |
 | `universe extract` | `--galaxy <이름>` | 어느 은하의 궤적을 볼 것인가 |
+| `universe orphans` | `--galaxy <이름>` | 한 은하만 본다 (안 주면 등록된 은하 전부) |
 | `universe extract` | `--model <별칭>` | 카드를 뽑는 모델 (안 주면 엔진 기본) |
 | `universe learn` | `--since <날짜>` | 볼 궤적의 범위를 자른다 (기본은 전부, 범위를 항상 찍는다) |
 | `universe learn` `universe fix` `universe names` `universe enumeration` | `--update` | 지금 실측을 기준선으로 적는다 |

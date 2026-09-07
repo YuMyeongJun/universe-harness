@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { MenuBadge } from './components/shop/MenuBadge';
+
 const ITEMS = [
   { id: 'a1', title: '아메리카노', price: 4500, soldOut: false },
   { id: 'a2', title: '라떼', price: 5000, soldOut: true },
@@ -21,6 +23,7 @@ export const App = () => {
           </li>
         ))}
       </ul>
+      <MenuBadge title="품절 안내" />
     </main>
   );
 };

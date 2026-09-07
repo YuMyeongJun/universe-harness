@@ -229,6 +229,21 @@ const CASES = [
     cmd: ['node', ['observatory/verify-coordinates.mjs']],
   },
   {
+    check: '고아 별(orphans)',
+    bite: '아무도 안 가리키는 별',
+    expect: '아무도 안 가리킨다',
+    file: 'fixtures/tiny-galaxy/src/App.tsx',
+    /**
+     * 별을 잇는 줄을 지우면 그 별은 **사람이 볼 수 없는 코드**가 된다 — 그것을 잡아야 한다.
+     *
+     * ⚠️⚠️ 처음엔 **JSX 쓰는 줄**(`<MenuBadge …/>`)을 지웠는데 **안 물었다** —
+     * `import … from './components/shop/MenuBadge'` 가 남아 있어서 검사는 여전히 「이어져 있다」고
+     * 옳게 봤다. **연결선은 import 경로지 JSX 태그가 아니다.** 겨냥을 옮겼다.
+     */
+    mutate: (t) => t.replace("import { MenuBadge } from './components/shop/MenuBadge';\n", ''),
+    cmd: ['node', ['observatory/verify-orphans.mjs']],
+  },
+  {
     check: '3차 배선(nebula-wiring)',
     bite: '요구사항 신호가 성공 출구에서 사라진 것',
     expect: '요구사항 신호',

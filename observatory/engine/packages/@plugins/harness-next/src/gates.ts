@@ -124,7 +124,11 @@ export const createNextBuildAndTest =
       declared('typecheck', typecheckCommand, () =>
         runCommandGate(io, { name: 'typecheck', command: typecheckCommand ?? '', timeoutMs: 10 * 60_000 }),
       ),
-      /* 5) 그 밖의 추가 정적 검사 — **적힌 것이 있을 때만 칸을 만든다.**
+      /* 5) E2E — 가장 비싸므로 맨 뒤. ⛔ 은하가 선언할 때만 돈다(브라우저를 우리가 깔지 않는다). */
+      declared('e2e', commands.e2e, () =>
+        runCommandGate(io, { name: 'e2e', command: commands.e2e ?? '', timeoutMs: 30 * 60_000 }),
+      ),
+      /* 6) 그 밖의 추가 정적 검사 — **적힌 것이 있을 때만 칸을 만든다.**
             ⚠️ `extraGates` 는 축이 아니라 **그릇**이다. 빈 그릇까지 「못 쟀다」로 세면
                없는 눈먼 자리를 가리키게 되고, 그런 경고는 늑대소년이 된다(`lib/blind.mjs` 의 ⚠️). */
       ...extraGates.map(([name, command]): IGateStep => ({

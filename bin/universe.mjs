@@ -29,6 +29,7 @@
  *   universe hooks [--install]         커밋 시점 관문을 켠다
  *   universe learn [--promote]         궤적을 읽어 성운 후보를 낸다
  *   universe extract [--write]         성공 궤적에서 지식 카드를 뽑는다 (기본은 모델 0회)
+ *   universe orphans                   아무도 안 가리키는 별을 센다
  *   universe delivery                  **배달본이 도는가** — 빈 곳에 깔아 본다
  *   universe new <은하> <태양계> <별>   빅뱅 — 별을 태어나게 한다
  *     └ [--expand]        2차 팽창 — 게이트까지 돌고 빨간 축을 스스로 고친다
@@ -74,6 +75,8 @@ const SUBCOMMANDS = {
   learn: 'observatory/learn.mjs',
   /* 성공 궤적 → 지식 카드. ⛔ 기본은 모델을 안 부른다(`--write` 를 줘야 부른다 · R155). */
   extract: 'observatory/extract.mjs',
+  /* 아무도 안 가리키는 별 — 「사람이 볼 수 있는가」의 싼 절반(R157). */
+  orphans: 'observatory/verify-orphans.mjs',
   delivery: 'observatory/verify-delivery.mjs',
   galaxy: 'bin/galaxy.mjs',
   new: 'bigbang/bigbang.mjs',
@@ -112,6 +115,7 @@ if (!command || command === 'help' || command === '--help') {
     '  universe hooks [--install]         커밋 시점 관문을 켠다',
     '  universe learn [--promote]         궤적을 읽어 성운 후보를 낸다',
     '  universe extract [--write]         성공 궤적에서 지식 카드를 뽑는다 (기본은 모델 0회)',
+    '  universe orphans                   아무도 안 가리키는 별을 센다',
     '  universe delivery                  **배달본이 도는가** — 빈 곳에 깔아 본다',
     '  universe new <은하> <태양계> <별>   빅뱅 — 별을 태어나게 한다',
     '    └ [--expand]        2차 팽창 — 게이트까지 돌고 빨간 축을 스스로 고친다',
