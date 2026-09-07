@@ -239,6 +239,21 @@ const CASES = [
     cmd: ['node', ['lib/selftest.mjs']],
   },
   {
+    check: '끝났는가(loop)',
+    bite: '판정이 없는데 「끝났다」고 말함',
+    expect: '판단하지 않은 fail',
+    file: 'observatory/loop-state.mjs',
+    /**
+     * ⛔⛔ 사람의 계획은 **「fail 0 까지 반복」**인데, 종료 조건을 「fail 0」으로 두면
+     * **가장 싼 해법이 단정을 약하게 만드는 것**이 된다. 그래서 「**판단하지 않은** fail 0」이다.
+     * ⇒ 그 판정을 계약(`qa`)이 아니라 **여기서 만들면** 두 자리가 갈린다 —
+     *   화면은 「판정 붙였다」인데 관문은 「판단 안 했다」가 되는 자리다(R47·R91).
+     * ⚠️ 겨냥: 계약이 낸 답을 **무시하고 늘 끝났다고** 하게 만든다.
+     */
+    mutate: (t) => t.replace('if (done.done === true) {', 'if (true) {'),
+    cmd: ['bash', ['observatory/probe-loop.sh']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',

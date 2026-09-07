@@ -55,6 +55,9 @@ const SUBCOMMANDS = {
   /* 채운 초안을 **은하로 들인다**(좌표 두기 + 목록 올리기). ⛔ 한 자리만 고쳐지면
      관측이 아무것도 안 재고 초록불을 낸다(R121) — 도구가 그 경고를 하고 사람에게 맡기고 있었다. */
   adopt: 'bin/adopt.mjs',
+  /* **이 은하는 끝났는가** — 종료 조건은 「fail 0」이 아니라 **「판단하지 않은 fail 0」**이다.
+     ⛔ 판정을 여기서 만들지 않는다 — `qa` 의 계약이 낸 답을 **나른다**. */
+  loop: 'observatory/loop-state.mjs',
   round: 'bin/round.mjs',
   observe: 'observatory/observe.mjs',
   verify: 'observatory/verify.mjs',
