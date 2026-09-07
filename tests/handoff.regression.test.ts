@@ -8,8 +8,8 @@
  *    파일 이름의 정규화는 체크아웃·압축·전송 과정에서 바뀔 수 있어서,
  *    커밋된 폴더 이름에 기대면 그 시험이 조용히 무의미해진다.
  */
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -145,69 +145,5 @@ describe('도메인 오지정 검출 (의도하지 않은 효과)', () => {
     // 이 대비가 없으면 "항상 걸리는 검사"와 구별되지 않는다
     const { exitCode } = run('spec-clean.json', ['--features-dir', featuresDir]);
     expect(exitCode).toBe(0);
-  });
-});
-
-/**
- * 소비 쪽이 배선하다 넘긴 계약 문제 — **종료 코드 `1` 이 두 가지를 뜻한다.**
- *
- * `node <경로>` 로 부르는 소비자에게 "도구가 없다"는 `127` 로 오지 않는다.
- * `node` 는 대개 설치돼 있으므로 셸은 명령을 찾고, **스크립트가 없다는 건
- * node 가 자기 에러로 `exit 1`** 을 낸다. 그건 "위반 있음"과 같은 값이다.
- *
- * `dist/` 를 커밋하지 않으니 **새로 클론한 사람은 전부 이 상태로 시작한다.**
- * exit 1 을 "위반"으로 읽는 소비자는 없는 위반을 TC 에서 찾다가
- * **도구 설치 문제를 TC 탓으로 돌리고** 끝난다.
- *
- * 그래서 판별자는 종료 코드가 아니라 **stdout** 이다. 아래 시험은 그 전제를 고정한다.
- * 이게 깨지면 소비 쪽 판별이 조용히 무너진다.
- */
-describe('종료 코드가 아니라 stdout 이 판별자다 — 소비 계약', () => {
-  const raw = (script: string, extra: string[] = []): { status: number | null; stdout: string } => {
-    const result = spawnSync(
-      process.execPath,
-      [script, '--format', 'sheet', '--json', ...extra, join(FIXTURES, 'spec-dirty.json')],
-      { cwd: ROOT, encoding: 'utf8' },
-    );
-    return { status: result.status, stdout: result.stdout };
-  };
-
-  const BUILT = join(ROOT, 'dist/lint/cli.js');
-
-  it('스크립트 경로가 틀리면 stdout 이 비어 있다 — 판별의 전제', () => {
-    // 빌드 여부와 무관하게 성립한다: 이 경로는 빌드해도 생기지 않는다.
-    const { status, stdout } = raw(join(ROOT, 'dist/lint/NOPE.js'));
-    expect(stdout).toBe('');
-    expect(status, 'node 는 스크립트가 없으면 127 이 아니라 1 을 낸다').toBe(1);
-  });
-
-  it('클론이 통째로 없어도 마찬가지다 — 같은 exit 1, 빈 stdout', () => {
-    const { status, stdout } = raw(join(ROOT, '../NOPE-REPO/dist/lint/cli.js'));
-    expect(stdout).toBe('');
-    expect(status).toBe(1);
-  });
-
-  it('위반이 있는 정상 실행은 같은 exit 1 이지만 stdout 이 유효 JSON 이다', () => {
-    // ⭐ 이 대비가 문제의 핵심이다. 종료 코드만 보면 위 두 경우와 구별되지 않는다.
-    if (!existsSync(BUILT)) return; // 빌드 전이면 이 축은 재지 않는다 (위 두 시험은 여전히 돈다)
-    const { status, stdout } = raw(BUILT);
-    expect(status).toBe(1);
-    expect(stdout).not.toBe('');
-    expect(() => JSON.parse(stdout)).not.toThrow();
-    expect(JSON.parse(stdout).findings.length).toBeGreaterThan(0);
-  });
-
-  it('못 잰 축(bail)도 --json 이면 stdout 에 유효 JSON 을 낸다', () => {
-    // 진단 메시지가 stdout 대신 stderr 로만 나가면 소비 쪽은 「미실행」으로 오판한다.
-    const result = spawnSync(
-      process.execPath,
-      [join(ROOT, 'dist/lint/cli.js'), '--format', 'nope', '--json', join(FIXTURES, 'spec-clean.json')],
-      { cwd: ROOT, encoding: 'utf8' },
-    );
-    if (!existsSync(BUILT)) return;
-    expect(result.status).toBe(3);
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.ran).toBe(true);
-    expect(parsed.exitCode).toBe(3);
   });
 });

@@ -30,6 +30,8 @@
 | `… --format sheet --features-dir <경로>` | 위에 더해 `대분류` 를 지식 **폴더 이름**과 대조 (파일은 안 연다) | 〃 |
 | `… --require-features-dir` | `--features-dir` 없이 돌면 통과가 아니라 `3` | 〃 |
 | `… --json` | 기계가 읽는 출력 (`{ok, exitCode, findings[]}`) | 〃 |
+| `npm run gate:redfirst -- <spec> -- <실행명령>` | 생성된 spec 이 "처음부터 통과"하지 않는지 | `0` 수용 / `1` 거부 / **`3` 못 쟀다** |
+| `npm test` | 변이 시험 — 각 검사가 실제로 무는지 | |
 
 `--json` 의 `findings[]` 항목: `file` · `rule` · `severity`(`violation`\|`unmeasured`) · `tab` · `rowIndex`(스펙 행 순서, 1-based) · `message` · `why`.
 `severity` 가 `error` 가 아니라 `violation` 인 이유 — 도구 오류와 헷갈리지 않게 하려는 것이다.
@@ -58,8 +60,6 @@
 2. 파싱에 성공했을 때만 `exitCode` 로 판정한다
 
 이 계약은 `tests/json-contract.test.ts` 가 **모든 종료 경로에 대해** 지킨다.
-| `npm run gate:redfirst -- <spec> -- <실행명령>` | 생성된 spec 이 "처음부터 통과"하지 않는지 | `0` 수용 / `1` 거부 / **`3` 못 쟀다** |
-| `npm test` | 변이 시험 — 각 검사가 실제로 무는지 | |
 
 `exit 3` 은 실패도 통과도 아니다. 대상 파일이 0개이거나 spec 을 받지 못한 경우다.
 **0개는 "위반 없음"이 아니라 검사가 아무것도 안 본 것이다.**
