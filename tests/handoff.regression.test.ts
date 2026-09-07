@@ -115,3 +115,35 @@ describe('넘겨받은 회귀 표본', () => {
     expect(empty?.rowIndex).toBe(2);
   });
 });
+
+describe('도메인 오지정 검출 (의도하지 않은 효과)', () => {
+  /**
+   * 소비 쪽이 배선하다 발견한 것 — `--features-dir` 를 도메인별로 넘기면
+   * **같은 스펙을 다른 도메인 폴더로 겨눌 때 즉시 걸린다.**
+   *
+   * 그쪽 시스템에서 이건 실재하는 사고 유형이다: 잡 파라미터 하나로 지식 로딩이
+   * 전부 갈리는데, 잘못 고르면 **엉뚱한 도메인 지식으로 그럴듯한 TC 가 생성돼**
+   * 시트로 나갔다. 사람이 검토하다 걸러야 했다.
+   *
+   * 의도한 규칙이 아니라 부수 효과라서, 적어 두지 않으면 다음 사람이 모르고 없앤다.
+   */
+  it('다른 도메인의 폴더로 겨누면 대분류가 안 맞아 걸린다', () => {
+    const other = join(mkdtempSync(join(tmpdir(), 'tc-lint-other-')), 'features');
+    mkdirSync(other, { recursive: true });
+    // spec-clean 의 대분류는 `업무`·`설정` 인데, 이 도메인의 LNB 는 전혀 다르다
+    for (const name of ['분석', '이력']) mkdirSync(join(other, name));
+
+    const { exitCode, json } = run('spec-clean.json', ['--features-dir', other]);
+    expect(exitCode).toBe(1);
+    const hits = json.findings.filter((f) => f.rule === 'G5-major-dictionary' && f.severity === 'violation');
+    expect(hits.length).toBeGreaterThan(0);
+
+    rmSync(join(other, '..'), { recursive: true, force: true });
+  });
+
+  it('맞는 도메인 폴더로 겨누면 통과한다 — 대비가 있어야 검출이 뜻을 갖는다', () => {
+    // 이 대비가 없으면 "항상 걸리는 검사"와 구별되지 않는다
+    const { exitCode } = run('spec-clean.json', ['--features-dir', featuresDir]);
+    expect(exitCode).toBe(0);
+  });
+});
