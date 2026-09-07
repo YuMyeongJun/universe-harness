@@ -47,6 +47,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -196,6 +197,42 @@ const selfTest = async () => {
    * 일곱을 재고 있었다. **「검사가 무는가」의 한 단계 앞**, 「무엇을 만들었는지 세는 것」이다.
    * ⇒ 갈래를 하나 더 만들고 시험을 안 붙이면 여기서 문다.
    */
+  /**
+   * ⛔⛔ **문서가 말하는 갈래와 만든 갈래가 같은가.**
+   * 옆 저장소 세션은 화면에 「여섯」이라 **적고** 일곱을 재고 있었다. 나는 그 실측을 듣고
+   * 「시험을 안 붙인 갈래」는 막았는데, **문서에만 안 적는 것**은 열어 둔 채였다 —
+   * 그 자리를 「하한이다」라고 적기만 하고 지나갔다. ⇒ 싸니까 막는다.
+   * ⚠️ 문서는 사람이 처음 읽는 자리다. 거기 없는 갈래는 **없는 것과 같다.**
+   */
+  const usage = await readFile(new URL('../docs/02-usage.md', import.meta.url), 'utf8').catch(() => null);
+  if (usage === null) {
+    console.log('  ⏭  문서 대조 — `docs/02-usage.md` 가 없다(배달본이다). 못 쟀다.');
+  } else {
+    const documented = new Set(Object.values(VERDICTS).filter((v) => usage.includes(`| ${v} |`)));
+    const missing = Object.values(VERDICTS).filter((v) => !documented.has(v));
+    if (missing.length > 0) {
+      console.error(`⛔ **문서에 없는 갈래 ${missing.length}개**: ${missing.join(' · ')}`);
+      console.error('   `docs/02-usage.md` 의 `universe mutate` 표에 적어라 — 문서에 없으면 아무도 모른다.');
+      process.exit(1);
+    }
+    /**
+     * ⛔⛔ **문서가 말하는 「수」까지 대조한다** — 표는 맞는데 문장이 틀릴 수 있다.
+     * 실측: 갈래를 일곱으로 늘리면서 문서에 **「여덟 갈래로 가른다」**고 적었다.
+     * 자기 시험의 **케이스**가 여덟(겨냥실패를 0곳/여러곳 둘로 재서)이라 그 수를 옮겨 적은 것이다.
+     * ⚠️ 옆 저장소 세션이 「여섯이라 적고 일곱을 쟀다」로 데인 **바로 그 자리를 그대로 밟았다** —
+     *    남의 사고를 듣고 검사까지 넣어 놓고, **그 검사가 표만 보고 문장은 안 봤다.**
+     */
+    const KO = ['영', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
+    const stated = /\*\* ?([가-힣]+) 갈래로 가른다/.exec(usage)?.[1];
+    const want = KO[Object.values(VERDICTS).length];
+    if (stated && stated !== want) {
+      console.error(`⛔ 문서가 **「${stated} 갈래」**라고 말하는데 실제로는 **${want} 갈래**다.`);
+      console.error('   ⚠️ 「검사가 무는가」의 한 단계 앞 — **무엇을 만들었는지 세는 것**에서 틀린 자리다.');
+      process.exit(1);
+    }
+    console.log(`  ⓘ 문서가 갈래 ${documented.size}개를 전부 적고, 「${stated ?? '?'} 갈래」라는 말도 맞다.`);
+  }
+
   const covered = new Set(cases.map(([, , want]) => want));
   const uncovered = Object.values(VERDICTS).filter((v) => !covered.has(v));
   if (uncovered.length > 0) {
@@ -231,7 +268,11 @@ const selfTest = async () => {
 /* ⚠️ `mine.includes(...)` 로 읽었더니 부품 시험이 **「허용해 놓고 안 읽는다」**고 물었다.
    훑개는 **읽는 방식**(`argv.includes` · `flag`)으로 판정한다 — 문자열 유무로 보면
    `git status --porcelain` 의 인자에 속기 때문이다. 훑개를 느슨하게 하는 대신 관례를 따른다. */
-const wantsSelfTest = argv.includes('--self-test');
+/* ⛔ **`argv` 가 아니라 `mine` 이다.** `argv` 는 `--` 뒤의 **명령까지** 담는다. 그래서
+   `universe mutate … -- node observatory/mutate.mjs --self-test` 처럼 **자기를 검증기로 쓰면**
+   바깥쪽이 그 `--self-test` 를 자기 것으로 읽고 **변이 대신 자기 시험을 돌린다**(실측으로 겪었다).
+   ⚠️ 이 틀을 이 틀로 재는 순간 드러났다 — **도구를 자기 자신에게 써 보는 것**이 그래서 값싸다. */
+const wantsSelfTest = mine.includes('--self-test');
 if (wantsSelfTest) {
   await selfTest();
 }
