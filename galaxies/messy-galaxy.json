@@ -27,17 +27,17 @@
     }
   ],
   "observed": {
-    "measuredAt": "2026-09-07T15:21:11.859Z",
-    "commit": "d5d5fb3de6a829f7423dbe9c2cbd7fa78100883f",
-    "dirtyFiles": 1,
-    "files": 20,
+    "measuredAt": "2026-09-07T18:01:27.720Z",
+    "commit": "293cbc83c940a7ce6d45ce9956aad11b6e6a3c8d",
+    "dirtyFiles": 0,
+    "files": 22,
     "blind": {},
-    "fingerprint": "v2:6c6285b5d249",
+    "fingerprint": "v2:ccf8220f80a0",
     "rulesFingerprint": "ad5eb07792f9",
     "laws": {
       "tokens": 6,
-      "semantics": 5,
-      "naming": 2,
+      "semantics": 6,
+      "naming": 3,
       "flatness": 2,
       "form": 6,
       "cohesion": 1
@@ -57,6 +57,15 @@
         "why": "규칙 시험(RULE_MATRIX)의 positive 에 `border-[color:#333]` 을 더했다 — 타입 힌트가 붙어도 하드코딩은 걸려야 한다는 것을 못 박은 것이라, 더러운 은하가 그 표에서 생성되면서 2건이 는 것은 **의도한 결과**다. 오탐(토큰 참조)을 뺀 대신 진짜 위반 사례를 넣었다.",
         "laws": [
           "tokens 4→6"
+        ]
+      },
+      {
+        "at": "2026-09-07T18:01:27.719Z",
+        "commit": "293cbc83c940a7ce6d45ce9956aad11b6e6a3c8d",
+        "why": "규칙이 .js·.jsx 를 읽기 시작했다(R163) — 규칙 표가 20→22개가 되면서 더러운 은하 생성기가 시맨틱 1건·네이밍 1건을 더 심는다. 코드가 나빠진 것이 아니라 재는 범위가 넓어졌다.",
+        "laws": [
+          "semantics 5→6",
+          "naming 2→3"
         ]
       }
     ]

@@ -56,6 +56,23 @@ const restoreFrom = (file, original) =>
   original === null ? rm(join(ROOT, file), { force: true }) : writeFile(join(ROOT, file), original, 'utf8');
 
 /** 검사 하나 · 변이 하나. `mutate` 는 파일 내용을 받아 **위반이 든 내용**을 돌려준다. */
+/**
+ * ⛔ **기대 문구에 숫자를 손으로 적지 않는다.**
+ *
+ * 실측(R163): 여기에 `'기준선 5 → 실측 4'` 라고 박아 뒀는데 규칙이 `.js`·`.jsx` 를 읽기
+ * 시작하면서 기준선이 6이 됐고, 변이는 **여전히 죽었는데 이유가 달라져** 관문이 빨개졌다.
+ * 「검사가 낡아서 나는 빨간불」은 사람이 **검사를 지우는 쪽으로** 배우게 만든다.
+ * ⇒ 기준선에서 **만들어 낸다.** 은하가 바뀌면 기대도 같이 움직인다.
+ */
+const MESSY_SEMANTICS = JSON.parse(
+  await readFile(join(ROOT, 'galaxies/messy-galaxy.json'), 'utf8'),
+).observed?.laws?.semantics;
+/* 분모 가드 — 못 읽었으면 「통과」가 아니라 **못 쟀다**다(§8). */
+if (typeof MESSY_SEMANTICS !== 'number') {
+  console.error('⛔ messy-galaxy 의 시맨틱 기준선을 못 읽었다 — 변이 기대를 만들 수 없다.');
+  process.exit(EXIT_UNMEASURED);
+}
+
 const CASES = [
   {
     check: '우주 형식(verify-laws)',
@@ -508,7 +525,7 @@ const CASES = [
   {
     check: '드리프트(observe)',
     bite: '더러운 은하에서 위반이 사라짐',
-    expect: '기준선 5 → 실측 4',
+    expect: `기준선 ${MESSY_SEMANTICS} → 실측 ${MESSY_SEMANTICS - 1}`,
     file: 'fixtures/messy-galaxy/src/rulebite/ImgAlt.tsx',
     /* ⚠️⚠️ **이 경로는 R37 전까지 한 번도 안 돌았다.** 유일한 은하가 깨끗해서 모든 법칙이
        0건이었고, 드리프트는 언제나 0이었다. 「초록불」이 「재고 있다」를 뜻하지 않았다. */
