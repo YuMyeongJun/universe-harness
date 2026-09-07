@@ -59,7 +59,8 @@ export function GalaxySelect() {
       />
 
       <p className={`mb-4.5 ${HELP_TEXT}`}>
-        <Link to="/violations">위반 목록과 처방 보기 →</Link> · <Link to="/domains">잴 저장소 고르기 · 도메인 지식 →</Link>
+        <Link to="/violations">위반 목록과 처방 보기 →</Link> · <Link to="/runs">주행 결과 · 판단하지 않은 fail →</Link> ·{' '}
+        <Link to="/domains">잴 저장소 고르기 · 도메인 지식 →</Link>
       </p>
 
       {/* ⛔ 아직 안 온 것을 「없다」로 그리지 않는다. */}

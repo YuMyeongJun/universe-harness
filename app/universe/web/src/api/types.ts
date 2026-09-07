@@ -380,3 +380,155 @@ export interface IGalaxyList {
   /** ⚪ 못 쟀다 — 목록 자체를 만들 수 없었던 이유. `null` 이면 **잰 것**이다. */
   unmeasured: string | null;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * ── 주행 결과(`tc-run`) ── **fail 목록과 판정** 화면이 받는 모양.
+ *
+ * ⛔⛔ **여기서 계약을 다시 정의하지 않았다.** 원천은 `qa/src/run/contract.ts` 이고,
+ * 이 칸들은 `tc-run … --json` 이 stdout 으로 뱉는 **전선 모양의 거울**이다.
+ * 값의 뜻(무엇을 검증으로 세는가 · 무엇이 판단인가)은 전부 그 파일이 정하고,
+ * ⛔ 화면은 **그 셈을 다시 하지 않는다** — 두 자리에서 세면 언젠가 갈리고,
+ * 갈린 뒤에는 어느 쪽이 사실인지 아무도 모른다(`BlankCounter` 가 같은 이유로 그렇게 한다).
+ *
+ * ⚠️ 그래서 이 화면이 스스로 하는 일은 **셈이 아니라 대조**다: 도구가 「끝났다」고 했는데
+ * 화면에 보이는 fail 에 판단이 없으면 **끝났다고 말하지 않는다**(`@lib/run-judge` 의 `disagreements`).
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * TC 가 어디서 나왔는가.
+ * ⛔ `derived-from-code`·`unknown` 은 **검증이 아니다** — 구현을 읽고 쓴 TC 는 정의상 통과한다.
+ */
+export type CaseOrigin = 'policy' | 'human' | 'derived-from-code' | 'unknown';
+
+/** ⛔ 2상태(passed/failed)가 아니다 — `unmeasured` 를 접으면 **못 잰 것이 통과로 세어진다.** */
+export type CaseStatus = 'passed' | 'failed' | 'unmeasured';
+
+/** 누구 탓인가. 안 가르면 자동 수정이 **환경 탓을 코드에서** 고치려 든다. */
+export type Attribution = 'star' | 'galaxy' | 'environment' | 'unknown';
+
+/** 판단의 종류는 셋뿐이다 — 고쳤다 · 테스트가 틀렸다 · 받아들인다. */
+export type VerdictKind = 'fixed' | 'test-wrong' | 'accepted';
+
+export interface IPrecondition {
+  id: string;
+  /** ⛔ `true` 만 「섰다」다. `null` 은 **확인 못 했다** — `false` 와 함께 ⚪ 로 접힌다. */
+  ok: boolean | null;
+  detail?: string;
+}
+
+export interface ICaseEvidence {
+  url?: string | null;
+  httpStatus?: number | null;
+  screenshot?: string | null;
+}
+
+export interface ICaseVerdict {
+  kind: VerdictKind;
+  /** ⛔ `accepted` 는 사유가 짧으면 판단이 아니다 — **길이는 도구가 잰다**(최소 30자). */
+  why: string;
+}
+
+/** 도구가 접고 센 뒤의 케이스 한 건. */
+export interface IRunCase {
+  id: string;
+  origin: CaseOrigin;
+  originRef?: string | null;
+  status: CaseStatus;
+  attribution: Attribution;
+  evidence?: ICaseEvidence;
+  /** ⛔ `null` 이면 **판단하지 않음.** 「빈 객체」와 구별한다. */
+  verdict: ICaseVerdict | null;
+  flaky?: boolean;
+  /** ⛔ **검증 분모에 드는가.** 구현에서 나왔거나 못 쟀으면 안 든다 — 화면이 갈라 그린다. */
+  countsAsVerification: boolean;
+  /** 전제가 안 서서 ⚪ 로 접힌 케이스의 **원래 상태**. 잃지 않으려고 도구가 따로 적는다. */
+  foldedFrom?: CaseStatus;
+  unmeasuredReason?: string;
+}
+
+/** Playwright 어휘 그대로 — 옮겨 적으면서 뜻이 바뀌는 것을 막는다. */
+export interface IRunStats {
+  total: number;
+  expected: number;
+  unexpected: number;
+  skipped: number;
+  flaky: number;
+}
+
+export interface IRunVerification {
+  /** ⛔ **분모.** 이 수가 0이면 그 주행은 아무것도 검증하지 않았다. */
+  denominator: number;
+  /** 분모에서 뺀 것 — 합치면 「0건」의 뜻을 잃는다. */
+  excluded: {
+    derivedFromCode: number;
+    unknownOrigin: number;
+    unmeasured: number;
+  };
+  /** 자기 채점 케이스의 id — **이름을 불러야 지워진다.** */
+  selfScoringIds: string[];
+}
+
+/** 판단이 필요한데 안 한 케이스 하나. `reason` 은 **도구의 문장 그대로** 쓴다. */
+export interface IUnjudgedCase {
+  id: string;
+  attribution: Attribution;
+  reason: string;
+}
+
+export interface IRunDone {
+  /** ⛔ **「fail 0」이 아니다.** 판단하지 않은 fail 이 0건일 때만 `true`. */
+  done: boolean;
+  /** `0` 끝났다 / `1` 판단하지 않은 fail 이 있다 / `3` **못 쟀다**(전제·분모). */
+  exitCode: number;
+  unjudged: IUnjudgedCase[];
+  /** 실패는 아니지만 **자동 수정이 못 다루는 것** — 탓을 못 가른 fail 의 id. */
+  unattributed: string[];
+  reason: string;
+}
+
+/** `tc-run … --json` 의 stdout 전체. */
+export interface IRunPayload {
+  tool: 'tc-run';
+  ran: boolean;
+  preconditions: IPrecondition[];
+  /** ⛔ **케이스보다 이것을 먼저 보라.** `false` 면 그 주행의 케이스는 전부 ⚪ 다. */
+  measurable: boolean;
+  unmeasurableBecause: string[];
+  stats: IRunStats;
+  verification: IRunVerification;
+  cases: IRunCase[];
+  done: IRunDone;
+  /** ⛔ 도구가 **안 재는 것**. 화면이 「다 쟀다」로 읽지 않게 그대로 적는다. */
+  notMeasured?: string;
+}
+
+/**
+ * 서버가 도구를 **부르고 나른** 결과 — `POST /api/runs` 의 답.
+ *
+ * ⛔ 서버는 판정을 만들지 않는다(`server/src/run-result.ts` 머리말). 여기 실려 오는 `report` 는
+ * `tc-run … --json` 의 **stdout 그대로**이고, 화면은 그것을 `IRunPayload` 로 읽는다.
+ * ⛔ `report` 가 `null` 인 것은 **「결과가 없다」가 아니라 「못 받았다」**다 — 그때 `unmeasured` 에
+ * 이유가 있고, 화면은 ⚪ 로 그린다.
+ */
+export type RunShape = 'contract' | 'playwright' | 'unknown';
+
+export interface IRunToolTrace {
+  command: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface IRunReceipt {
+  /** ⭐ 도구의 JSON 그대로. ⛔ `null` 은 못 받았다 — 화면이 빈 목록으로 접지 않는다. */
+  report: unknown;
+  /** 서버가 본문을 어떤 모양으로 읽어 도구에 넘겼나. **판정이 아니라 경로**다. */
+  shape: RunShape;
+  /** ⚪ 못 쟀다 — 이유. `null` 이면 도구가 답한 것이다. ⛔ ❌(잰 빨강)와 다른 말이다. */
+  unmeasured: string | null;
+  /** `0` 끝났다 · `1` 판단하지 않은 fail · `3` 못 쟀다 · 그 밖/`null` = 뜻을 모른다. */
+  exitCode: number | null;
+  /** 서버가 알아챈 것(빌드가 낡았다 등). ⛔ 판정이 아니다 — 화면이 고쳐 적지 않는다. */
+  notes: string[];
+  tool: IRunToolTrace;
+}

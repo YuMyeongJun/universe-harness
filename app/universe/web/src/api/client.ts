@@ -5,6 +5,7 @@ import type {
   IGalaxyList,
   IObservation,
   IProgress,
+  IRunReceipt,
   ISurvey,
 } from './types';
 
@@ -163,3 +164,22 @@ export const getObservation = (galaxy: string, sample: number): Promise<IObserva
  * 대응처: `app/universe/server/src/server.ts` 의 `GET /api/galaxies` → `listGalaxies()`.
  */
 export const getGalaxies = (): Promise<IGalaxyList> => req<IGalaxyList>('/api/galaxies');
+
+/**
+ * ── 주행 결과 ── **주행 결과 본문을 서버에 물려 판정을 받아 온다.**
+ *
+ * ⭐ 서버는 판정을 만들지 않고 `qa/dist/run/cli.js`(계약)를 부른다 — 접는 것 · 세는 것 ·
+ * 「끝났는가」는 전부 그 계약이 안다. 화면도 서버도 **다시 세지 않는다.**
+ *
+ * ⚠️ 본문은 **손대지 않은 주행 결과**다: 계약 모양(`preconditions[]`·`cases[]`) 이거나
+ * Playwright 리포트(`suites[]`). 출처 표를 함께 줄 때만 `{ report, origins }` 봉투로 싼다.
+ * ⛔ 화면이 미리 파싱해서 되쓰지 않는다 — 되쓰면 「도구가 무엇을 읽었나」가 화면과 달라진다.
+ *
+ * ⛔ 이 길이 아직 안 열려 있을 수 있다(서버를 안 띄웠다 · 빌드가 없다). 그때는 던진 오류가
+ * 화면에서 **⚪ 「못 받았다」**로 그려진다 — ❌ 도 ✅ 도 아니다.
+ */
+export const postRun = (raw: string, from?: 'contract' | 'playwright'): Promise<IRunReceipt> =>
+  req<IRunReceipt>(from === undefined ? '/api/runs' : `/api/runs?from=${from}`, {
+    method: 'POST',
+    body: raw,
+  });

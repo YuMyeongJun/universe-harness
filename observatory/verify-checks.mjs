@@ -339,7 +339,14 @@ const CASES = [
       .replace("export const READABLE = /\\.(ts|tsx)$/;", "export const READABLE = /\\.(ts)$/;")
       .replace("export const CODE_BUT_BLIND = /\\.(js|jsx|mjs|cjs|vue|svelte|astro)$/;",
         "export const CODE_BUT_BLIND = /\\.(js|jsx|mjs|cjs|vue|svelte|astro|tsx)$/;"),
-    cmd: ['node', ['observatory/blind-census.mjs', '--galaxy', 'console', '--max-blind-share', '0']],
+    /**
+     * ⚠️ **선을 0 → 5 로 올렸다. 도구가 나빠져서가 아니라 훑개를 고쳐서다.**
+     * 점 규칙을 디렉터리 한정으로 좁히자 `scripts/free-ports.mjs` 가 **드러났다**(35 → 47).
+     * 그전엔 **숨어 있어서** 0% 였던 것이다 — 선 0 이 참이었던 게 아니라 **안 보였을 뿐이다.**
+     * ⛔ 여기서 선을 그대로 두고 도구를 되돌리면, **보이게 만든 것을 다시 숨기는** 꼴이 된다.
+     * ⇒ 실측(2.1%)보다 위에 긋되 **변이가 넘길 만큼은 낮게**(변이는 45.7% 를 만든다).
+     */
+    cmd: ['node', ['observatory/blind-census.mjs', '--galaxy', 'console', '--max-blind-share', '5']],
   },
   {
     check: 'TC 도구 시험(qa)',

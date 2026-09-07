@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import { DomainSelect } from '@routes/DomainSelect';
 import { GalaxySelect } from '@routes/GalaxySelect';
+import { RunReport } from '@routes/RunReport';
 import { Survey } from '@routes/Survey';
 import { Violations } from '@routes/Violations';
 
@@ -21,6 +22,11 @@ export function App() {
         <Route path="/d/:domain" element={<Survey />} />
         {/* 조각 3 — 위반 목록과 처방. 지금까지 터미널 출력에만 있던 자리다. */}
         <Route path="/violations" element={<Violations />} />
+        {/**
+         * 조각 5 — **주행 결과의 fail 목록과 판정.**
+         * ⛔ 이 화면의 종료 조건은 「fail 0」이 아니라 **「판단하지 않은 fail 0」**이다.
+         */}
+        <Route path="/runs" element={<RunReport />} />
       </Routes>
     </BrowserRouter>
   );

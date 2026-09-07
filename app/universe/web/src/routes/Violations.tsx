@@ -96,7 +96,8 @@ export function Violations() {
       />
 
       <p className={`mb-4.5 ${HELP_TEXT}`}>
-        <Link to="/">← 우주가 아는 은하</Link> · <Link to="/domains">잴 저장소 고르기 →</Link>
+        <Link to="/">← 우주가 아는 은하</Link> · <Link to="/runs">주행 결과 · 판단하지 않은 fail →</Link> ·{' '}
+        <Link to="/domains">잴 저장소 고르기 →</Link>
       </p>
 
       <div className={CARD}>
