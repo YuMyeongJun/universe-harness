@@ -20,7 +20,7 @@ import { pathToFileURL } from 'node:url';
 
 import { createHash } from 'node:crypto';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
-import { loadGalaxy } from '../lib/galaxy-load.mjs';
+import { loadGalaxy, saveGalaxy } from '../lib/galaxy-load.mjs';
 import { openNebulaRows } from '../lib/nebula-close.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -146,7 +146,11 @@ const argvUniverse = () => {
 /* 우주의 집은 cwd 에서 찾는다 — 패키지 안이 아니다(lib/home.mjs 참고). */
 const root = await requireUniverseHome(argvUniverse());
 const argv = process.argv.slice(2);
-rejectUnknownFlags(argv, ['--universe', '--update', '--galaxy', '--law', '--sample', '--why'], 'universe observe');
+/* ⛔ `--force` 가 목록에 없었다(R144). 그런데 **코드는 `has('--force')` 를 읽고 있었고**,
+   더러운 트리에서 도구가 스스로 「굳이 심으려면 --force」라고 **권했다.**
+   권한 대로 치면 「모르는 플래그」로 죽는다 — 도구가 알려 준 탈출구가 제 파서에 없었다.
+   §7 이 잡아 준 것은 맞지만, 잡힌 것은 **사용자가 아니라 도구 자신의 안내**였다. */
+rejectUnknownFlags(argv, ['--universe', '--update', '--galaxy', '--law', '--sample', '--why', '--force'], 'universe observe');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
 
@@ -704,7 +708,7 @@ const main = async () => {
         laws: { ...(g.observed?.laws ?? {}), ...measuredNow },
       };
       delete g.observed.date;
-      await fs.writeFile(galaxyFile, `${JSON.stringify(g, null, 2)}\n`, 'utf8');
+      await saveGalaxy(galaxyFile, g);
       console.log(`  ↳ ${path.basename(galaxyFile)} 의 observed 를 실측으로 갱신했다`);
     }
 

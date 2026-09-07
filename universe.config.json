@@ -31,7 +31,8 @@
   "//galaxies": "배포판에는 은하가 없다 — 은하는 배달되지 않는다. galaxies/{name}.json 을 만들어 등재한다.",
   "galaxies": [
     "tiny-galaxy",
-    "messy-galaxy"
+    "messy-galaxy",
+    "backoffice"
   ],
   "//observatory": "관측소 = 별이 실제로 도는지 재는 장치. @plugins/harness-react-vite 를 끼운다.",
   "observatory": {

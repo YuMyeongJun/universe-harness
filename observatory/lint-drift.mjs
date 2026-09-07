@@ -24,7 +24,7 @@ import { requireUniverseHome } from '../lib/home.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { firstFilled } from '../lib/pick.mjs';
 import { toolMissing } from '../lib/tool.mjs';
-import { resolveGalaxyPath } from '../lib/galaxy-load.mjs';
+import { resolveGalaxyPath, saveGalaxy } from '../lib/galaxy-load.mjs';
 
 const execFileAsync = promisify(execFile);
 const argv = process.argv.slice(2);
@@ -102,7 +102,7 @@ for (const name of names) {
       ? [...(g.observed?.raisedLint ?? []), { at: new Date().toISOString(), why, from: was, to: errors }]
       : (g.observed?.raisedLint ?? []);
     g.observed = { ...(g.observed ?? {}), lint: { errors, warnings }, ...(raised.length > 0 ? { raisedLint: raised } : {}) };
-    await writeFile(file, `${JSON.stringify(g, null, 2)}\n`, 'utf8');
+    await saveGalaxy(file, g);
     console.log(`  ↳ 은하 ${name} — 기준선을 심었다: error ${errors} · warning ${warnings}`);
     continue;
   }

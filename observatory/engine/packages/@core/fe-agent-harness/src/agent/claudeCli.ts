@@ -1,10 +1,15 @@
 /**
  * `claude -p` 호출 공통부. 에이전트 레인·판정 레인·추출 레인이 전부 이 하나를 쓴다.
  *
- * ⚠️ `--bare` 를 기본으로 쓰지 마라. 실측(2026-09-04): `--bare` 는 인증을 **`ANTHROPIC_API_KEY`
- *    또는 apiKeyHelper 로만** 한다 — OAuth/키체인을 아예 안 읽는다. 구독 로그인 상태에서
- *    `--bare` 를 넣으면 `terminal_reason: "api_error"` 로 조용히 빈 결과가 돌아온다.
- *    그래서 키가 환경에 있을 때만 켠다(그때는 CLAUDE.md 자동 로드·훅이 빠져 판정이 더 안정적이다).
+ * ⛔ **이 하네스는 구독 경로로만 돈다**(사용자 결정 2026-09-07, R145).
+ *    그래서 자식 프로세스의 환경에서 `ANTHROPIC_API_KEY` 를 **지우고**, `--bare` 를 **안 붙인다.**
+ *
+ * ⚠️ `--bare` 는 인증을 **`ANTHROPIC_API_KEY` 또는 apiKeyHelper 로만** 한다(실측 2026-09-04)
+ *    — OAuth/키체인을 아예 안 읽는다. 구독 로그인 상태에서 `--bare` 를 넣으면
+ *    `terminal_reason: "api_error"` 로 **조용히 빈 결과**가 돌아온다.
+ *    예전엔 「키가 환경에 있으면 `--bare` 를 켠다」였는데, 그러면 **키가 어디선가 새어 들어온 날
+ *    아무 말 없이 과금 경로로 갈아탄다.** 모드가 바뀌는데 아무도 안 재는 자리였다(§8).
+ *    이제 키를 자식에게 물려주지 않으므로 `--bare` 는 언제나 틀린 선택이고, 분기 자체가 없다.
  */
 import { spawn } from 'node:child_process';
 
@@ -47,6 +52,9 @@ export interface IClaudeResult {
  *    날아갔다.** 관문 하나가 흔들렸다고 훈련을 죽이면 안 된다 — 실패를 신호로 바꿔 돌려준다.
  *    (판단은 부르는 쪽이 한다: 러너는 한 번 재시도하고, 그래도 안 되면 곱게 끝낸다.)
  */
+/* 한 프로세스에서 여러 번 불리므로 **한 번만** 말한다 — 매 호출마다 찍으면 로그가 시끄럽다. */
+let announcedAuthLane = false;
+
 export const callClaude = ({
   systemPromptFile,
   input,
@@ -58,9 +66,6 @@ export const callClaude = ({
 }: IClaudeCall): Promise<IClaudeResult> =>
   new Promise((resolve) => {
     const args = ['-p', '--system-prompt-file', systemPromptFile, '--model', model, '--output-format', 'json'];
-    if (process.env.ANTHROPIC_API_KEY) {
-      args.push('--bare');
-    }
     if (toolless) {
       args.push(
         '--disallowed-tools',
@@ -71,7 +76,14 @@ export const callClaude = ({
       args.push('--resume', resumeSessionId);
     }
 
-    const child = spawn(bin, args, { stdio: ['pipe', 'pipe', 'inherit'] });
+    /* ⛔ 키를 **자식에게 물려주지 않는다.** `spawn` 에 `env` 를 안 넘기면 자식이 부모 환경을
+       통째로 물려받는다 — 그것이 예전 동작이었다. 구독 경로를 보증하는 자리는 여기 하나뿐이다. */
+    const { ANTHROPIC_API_KEY: droppedKey, ...childEnv } = process.env;
+    if (droppedKey !== undefined && !announcedAuthLane) {
+      announcedAuthLane = true;
+      console.log('🔑 인증 — 구독 경로 (ANTHROPIC_API_KEY 를 자식에서 지웠다)');
+    }
+    const child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'inherit'] });
     let stdout = '';
     let timedOut = false;
     const timer = setTimeout(() => {

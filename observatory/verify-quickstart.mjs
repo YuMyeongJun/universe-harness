@@ -40,7 +40,14 @@ const step = async (what, command, args, expect) => {
   const ok = expect(got);
   console.log(`  ${ok ? '✅' : '❌'} ${what}  exit=${got.code}`);
   if (!ok) {
-    failures.push(`${what}\n     ${got.out.split('\n').filter(Boolean).slice(-3).join('\n     ')}`);
+    /* ⛔ **마지막 3줄만 보이면 오류 메시지가 잘린다**(R144). 실측: `ReferenceError: saveGalaxy is
+       not defined` 가 잘리고 `at main (...:711:7)` 스택만 남아, 「711줄이 왜 죽는지」를 찾느라
+       상자를 세 번 되살렸다. **무엇이 깨졌는지는 메시지에 있고 어디서인지는 스택에 있다** —
+       스택만 보여 주면 절반만 준 것이다. 오류 줄을 골라 **앞에** 붙인다. */
+    const outLines = got.out.split('\n').filter(Boolean);
+    const errorLine = outLines.filter((l) => /Error:|error:|⛔/.test(l)).slice(-1);
+    const shown = [...new Set([...errorLine, ...outLines.slice(-3)])];
+    failures.push(`${what}\n     ${shown.join('\n     ')}`);
   }
   return got;
 };

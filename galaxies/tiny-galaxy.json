@@ -30,7 +30,7 @@
   ],
   "//thresholds": "픽스처의 fe-harness.config.json 과 같은 값을 쓴다 — 두 곳이 어긋나면 어느 쪽이 진실인지 모른다.",
   "thresholds": {
-    "initialLoadKB": 400
+    "initialLoadKB": 141
   },
   "solarSystems": [
     {
@@ -40,8 +40,8 @@
     }
   ],
   "observed": {
-    "measuredAt": "2026-09-05T17:04:54.520Z",
-    "commit": "b890cf7c2833df0fbb009d06cbc430c2151bbacc",
+    "measuredAt": "2026-09-07T02:21:50.818Z",
+    "commit": "666ccf555a8ce2ec554237078d38747e73238c76",
     "dirtyFiles": 0,
     "files": 6,
     "fingerprint": "v2:ecd9b943c818",
@@ -53,7 +53,7 @@
       "form": 0,
       "cohesion": 0
     },
-    "rulesFingerprint": "0bab91f19967",
+    "rulesFingerprint": "ad5eb07792f9",
     "blind": {},
     "lint": {
       "errors": 0,
