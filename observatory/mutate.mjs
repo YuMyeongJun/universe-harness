@@ -27,7 +27,15 @@
  *   ⚠️ 변이미적용   치환했는데 **원본과 같다**
  *   ⚠️ 변이본깨짐   싼 문법 검사가 죽었다 — **변이가 아니라 사고**다
  *   ❌ 놓쳤다       검증이 **통과했다** — 검사가 장식이다
+ *   ⚠️ 기준선빨강   **변이 전부터 빨갛다** — 무슨 변이를 넣든 「물었다」로 보인다
  *
+ * ⛔⛔ **마지막 갈래가 이 틀의 가장 위험한 구멍이었다.** 옆 저장소 세션이 자기 틀에서 먼저
+ * 밟았다 — 복사본의 자기 시험이 애초에 실패하고 있어서 **세 건이 전부 ✅ 로 찍혔다.**
+ * 여기서도 재현했다: 검증기가 늘 죽게 만들어 놓고 무해한 변이를 넣으니 **「✅ 물었다」**가 나왔다.
+ * ⇒ **변이 전에 원본으로 한 번 돌린다.** 그때 이미 빨가면 그 뒤 판정은 전부 무의미하다.
+ * ⚠️ 값은 싸지 않다(검증을 두 번 돌린다). 그런데 **거짓 초록보다 싸다** —
+ *    이 틀의 존재 이유가 「죽었다」와 「그 이유로 죽었다」를 가르는 것인데,
+ *    기준선이 빨가면 **그 구분 자체가 성립하지 않는다.**
  * ⛔ **어떤 경로로 끝나든 원본을 되돌린다.** 커밋 안 된 파일을 변이시키는 일이라 여기서 새면 끝이다
  *   (실측: `git checkout` 으로 커밋 안 된 새 검사를 통째로 지운 적이 있다).
  *
@@ -59,6 +67,7 @@ export const VERDICTS = {
   NOOP: '⚠️ 변이미적용',
   BROKEN: '⚠️ 변이본깨짐',
   MISSED: '❌ 놓쳤다',
+  RED: '⚠️ 기준선빨강',
 };
 
 /** 싼 문법 검사 — 아는 모양만. ⛔ 모르면 **검사했다고 말하지 않는다**(`null`). */
@@ -102,6 +111,28 @@ export const runMutation = async ({ file, from, to, expect, cmd, cwd = process.c
     return { verdict: VERDICTS.NOOP, evidence: '치환했는데 원본과 같다 — 변이가 안 일어났다' };
   }
 
+  /**
+   * ⛔ **변이 전에 원본으로 한 번 돌린다** — 기준선이 이미 빨가면 무슨 변이든 「물었다」로 보인다.
+   * `verify-checks` 는 이 가드를 갖고 있었는데(「깨끗한 상태에서 빨간 검사가 있다」),
+   * 손 변이 틀에는 **안 옮겨졌다.** 옆 저장소 세션이 자기 틀에서 그 값을 먼저 치렀다.
+   */
+  const runCmd = () => new Promise((done) => {
+    const child = spawn(cmd[0], cmd.slice(1), { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let text = '';
+    child.stdout.on('data', (d) => { text += d; });
+    child.stderr.on('data', (d) => { text += d; });
+    child.on('close', (code) => done({ code, text }));
+    child.on('error', (error) => done({ code: 127, text: String(error.message) }));
+  });
+  const baseline = await runCmd();
+  if (baseline.code !== 0) {
+    const why = baseline.text.split('\n').filter(Boolean).slice(-2).join(' ').slice(0, 160);
+    return {
+      verdict: VERDICTS.RED,
+      evidence: `변이 전부터 빨갛다(종료코드 ${baseline.code}) — 이 위에서 재는 판정은 무의미하다: ${why}`,
+    };
+  }
+
   const restore = () => { writeFileSync(at, original); };
   const onSignal = () => { restore(); process.exit(130); };
   process.on('SIGINT', onSignal);
@@ -112,14 +143,7 @@ export const runMutation = async ({ file, from, to, expect, cmd, cwd = process.c
     if (broken) {
       return { verdict: VERDICTS.BROKEN, evidence: broken.split('\n').slice(0, 3).join(' ').slice(0, 200) };
     }
-    const out = await new Promise((done) => {
-      const child = spawn(cmd[0], cmd.slice(1), { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-      let text = '';
-      child.stdout.on('data', (d) => { text += d; });
-      child.stderr.on('data', (d) => { text += d; });
-      child.on('close', (code) => done({ code, text }));
-      child.on('error', (error) => done({ code: 127, text: String(error.message) }));
-    });
+    const out = await runCmd();
     if (out.code === 0) {
       return { verdict: VERDICTS.MISSED, evidence: '검증이 그대로 통과했다 — 이 검사는 장식이다' };
     }
@@ -163,7 +187,22 @@ const selfTest = async () => {
     ['변이미적용', { body: 'const a = "SAFE";\n', from: 'SAFE', to: 'SAFE', expect: '표식이 사라졌다' }, VERDICTS.NOOP],
     ['변이본깨짐', { body: 'const a = "SAFE";\n', from: 'const a', to: 'const const a', expect: '표식이 사라졌다' }, VERDICTS.BROKEN],
     ['놓쳤다', { body: 'const a = "SAFE"; const keep = 1;\n', from: 'const keep = 1', to: 'const keep = 2', expect: '표식이 사라졌다' }, VERDICTS.MISSED],
+    /* ⛔ 검증기를 **늘 죽게** 만들어 놓고 무해한 변이를 넣는다 — 예전엔 이것이 「✅ 물었다」였다. */
+    ['기준선빨강', { body: 'const a = "GONE"; const keep = 1;\n', from: 'const keep = 1', to: 'const keep = 2', expect: '표식이 사라졌다' }, VERDICTS.RED],
   ];
+
+  /**
+   * ⛔⛔ **말한 갈래와 만든 갈래가 같은가** — 옆 저장소 세션이 「여섯을 가른다」고 적고
+   * 일곱을 재고 있었다. **「검사가 무는가」의 한 단계 앞**, 「무엇을 만들었는지 세는 것」이다.
+   * ⇒ 갈래를 하나 더 만들고 시험을 안 붙이면 여기서 문다.
+   */
+  const covered = new Set(cases.map(([, , want]) => want));
+  const uncovered = Object.values(VERDICTS).filter((v) => !covered.has(v));
+  if (uncovered.length > 0) {
+    console.error(`⛔ **만들어 놓고 안 재는 갈래 ${uncovered.length}개**: ${uncovered.join(' · ')}`);
+    console.error('   갈래를 늘렸으면 시험도 늘려라 — 안 재는 갈래는 있는지 없는지 아무도 모른다(§8).');
+    process.exit(1);
+  }
 
   console.log('── 손 변이 틀 — 자기 시험 (임시 파일로만 돈다)');
   let failed = 0;
