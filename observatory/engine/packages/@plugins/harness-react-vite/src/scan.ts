@@ -84,11 +84,26 @@ export const scanCodebase = async (options: {
   rules: IStaticRule[];
   sampleCount?: number;
   ruleFilter?: string;
+  /**
+   * **분모에서 뺄 것** — 저장소 뿌리 기준 상대경로를 받아 참이면 안 훑는다.
+   *
+   * ⛔ 여기에 `dist`·`build` 같은 **이름 목록을 넣지 마라**(§9). 사람이 정한 이름을 열거하면
+   * 이름이 다른 저장소에서 조용히 새어 든다. 부르는 쪽이 **구조로 판정해서** 넘긴다 —
+   * 우주는 `git ls-files --others --ignored` 를 쓴다(`lib/git-ignored.mjs`).
+   *
+   * ⚠️ 실측(R163): 이 갈래가 없어서 벤더링된 엔진의 **`dist/` 생성물**이 훑혔고,
+   * 규칙이 **자기 예시 문자열을 물어** `.mjs` 도구 코드에서 「tailwind 임의 값 55건」이 나왔다.
+   * `census` 는 생성물을 분모 밖으로 뺐는데 `observe` 는 안 뺐다 — **두 도구가 반대말을 했다.**
+   */
+  ignore?: (relPath: string) => boolean;
 }): Promise<IScanResult> => {
   const walked = await Promise.all(options.targets.map((target) => walk(path.join(options.repoRoot, target))));
-  const files = walked.flatMap((w) => w.seen);
+  const keep = (full: string): boolean =>
+    !options.ignore || !options.ignore(path.relative(options.repoRoot, full).split(path.sep).join('/'));
+  const files = walked.flatMap((w) => w.seen).filter(keep);
   const blindCounts = new Map<string, number>();
-  for (const file of walked.flatMap((w) => w.blind)) {
+  /* ⛔ **못 읽는 것도 같은 축으로 뺀다.** 한쪽만 빼면 「못 읽는 비율」이 거짓이 된다. */
+  for (const file of walked.flatMap((w) => w.blind).filter(keep)) {
     const ext = path.extname(file);
     blindCounts.set(ext, (blindCounts.get(ext) ?? 0) + 1);
   }

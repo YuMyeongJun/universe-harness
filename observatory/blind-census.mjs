@@ -28,7 +28,7 @@
  *    「0건」을 기준선으로 심은 적이 있다(`galaxies/console.json` 의 `//appDir` 주석이 그 자국이다).
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
  */
-import { spawn } from 'node:child_process';
+import { gitIgnoredPaths } from '../lib/git-ignored.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -64,14 +64,7 @@ const BLIND_KINDS = ['코드', '설정', '스크립트', '생성물'];
  * 「git 에게 못 물었다」는 다르다(§8). git 저장소가 아니거나 git 이 없을 수 있다.
  * ⛔ 파이프 뒤에서 종료코드를 읽지 않는다(관측 법칙 §3) — spawn 으로 직접 받는다.
  */
-const ignoredPaths = async (root) => new Promise((resolve) => {
-  const child = spawn('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
-    { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] });
-  let out = '';
-  child.stdout.on('data', (d) => { out += d; });
-  child.on('close', (code) => resolve(code === 0 ? new Set(out.split('\0').filter(Boolean)) : null));
-  child.on('error', () => resolve(null));
-});
+const ignoredPaths = gitIgnoredPaths;
 
 export const census = async (root) => {
   const acc = {

@@ -28,6 +28,8 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { EXIT_UNMEASURED } from '../lib/gates.mjs';
+import { codeTargets, codeTargetLabel } from '../lib/galaxy-scan.mjs';
+import { gitIgnoredPaths } from '../lib/git-ignored.mjs';
 import { findGalaxyFile, loadGalaxy, saveGalaxy } from '../lib/galaxy-load.mjs';
 import { openNebulaRows } from '../lib/nebula-close.mjs';
 import { execFile } from 'node:child_process';
@@ -46,9 +48,10 @@ const run = promisify(execFile);
  *    **HEAD 이동은 안 보인다.** 실제 원인은 그 사이 들어온 커밋 하나였다.
  *    그래서 커밋 SHA 와 워킹트리 오염 여부를 함께 남긴다.
  */
-const provenance = async (repoRoot, target) => {
+const provenance = async (repoRoot, targets) => {
   const git = async (args) => (await run('git', args, { cwd: repoRoot }).catch(() => ({ stdout: '' }))).stdout.trim();
-  const dirty = (await git(['status', '--porcelain', '--', target])).split('\n').filter(Boolean).length;
+  /* ⚠️ 훑는 곳이 여럿일 수 있다 — git 은 `--` 뒤에 pathspec 을 여럿 받는다. */
+  const dirty = (await git(['status', '--porcelain', '--', ...targets])).split('\n').filter(Boolean).length;
   return {
     commit: (await git(['rev-parse', 'HEAD'])) || null,
     /** 0 이 아니면 이 측정은 **커밋에 귀속시킬 수 없다** — 기준선으로 심으면 안 된다. */
@@ -64,7 +67,7 @@ const provenance = async (repoRoot, target) => {
  *    두 측정 사이의 **HEAD 이동은 안 보인다.** 실제 원인은 그 사이 들어온 커밋 하나였다.
  *    그래서 이 함수가 기준선 커밋과 지금 HEAD 사이를 대신 훑는다. 사람에게 미루지 않는다.
  */
-const diagnoseDrift = async (repoRoot, target, baselineCommit) => {
+const diagnoseDrift = async (repoRoot, targets, baselineCommit) => {
   const git = async (args) => (await run('git', args, { cwd: repoRoot }).catch(() => ({ stdout: '' }))).stdout.trim();
 
   if (!baselineCommit) {
@@ -76,7 +79,7 @@ const diagnoseDrift = async (repoRoot, target, baselineCommit) => {
   if (head === baselineCommit) {
     lines.push(`HEAD 가 기준선과 같다(${head.slice(0, 8)}) — 커밋은 원인이 아니다.`);
   } else {
-    const log = await git(['log', '--oneline', `${baselineCommit}..HEAD`, '--', target]);
+    const log = await git(['log', '--oneline', `${baselineCommit}..HEAD`, '--', ...targets]);
     if (log) {
       const commits = log.split('\n').filter(Boolean);
       lines.push(`기준선 이후 이 경로를 건드린 커밋 ${commits.length}개:`);
@@ -84,7 +87,7 @@ const diagnoseDrift = async (repoRoot, target, baselineCommit) => {
         lines.push(`   ${c}`);
       }
       /* 어느 파일이 얼마나 바뀌었는지까지 짚어 준다 — 여기서 대개 답이 나온다. */
-      const stat = await git(['diff', '--numstat', baselineCommit, 'HEAD', '--', target]);
+      const stat = await git(['diff', '--numstat', baselineCommit, 'HEAD', '--', ...targets]);
       const files = stat.split('\n').filter(Boolean)
         .map((l) => { const [a, d, f] = l.split('\t'); return { f, n: Number(a) + Number(d) }; })
         .filter((x) => x.f && !Number.isNaN(x.n))
@@ -101,7 +104,7 @@ const diagnoseDrift = async (repoRoot, target, baselineCommit) => {
     }
   }
 
-  const dirty = (await git(['status', '--porcelain', '--', target])).split('\n').filter(Boolean).length;
+  const dirty = (await git(['status', '--porcelain', '--', ...targets])).split('\n').filter(Boolean).length;
   if (dirty > 0) {
     lines.push(`⚠️ 워킹트리에 커밋되지 않은 변경 ${dirty}건 — 지금 잰 수는 어느 커밋에도 귀속되지 않는다.`);
   }
@@ -572,14 +575,24 @@ const main = async () => {
     let diagnosed = false;
     const scannedPaths = [];
     const targets = g.solarSystems.map((s) => path.join(g.appDir, s.srcDir).split(path.sep).join('/'));
-    const wholeApp = `${g.appDir}/src`;
+    /* ⛔ **`src/` 를 여기서 만들지 않는다.** 세 자리에서 만들다가 「범용」의 경계가 됐다 —
+       `lib/galaxy-scan.mjs` 가 정본이고 은하가 `codeDirs` 로 덮어쓸 수 있다(R163). */
+    const wholeApp = codeTargets(g);
+    /**
+     * ⛔ **버려질 코드를 분모에 넣지 않는다** — `census` 와 **같은 축**을 쓴다.
+     * ⚠️ 못 물었으면(`null`) 「무시되는 것이 없다」가 아니라 **모른다**다(§8) — 화면에 말한다.
+     */
+    const ignoredSet = await gitIgnoredPaths(g.path);
+    if (ignoredSet === null) {
+      say('  ⚠️ git 에게 **못 물었다** — 생성물(`dist/`)이 분모에 섞였을 수 있다(§8).');
+    }
     gReport.path = g.path;
     gReport.appDir = g.appDir ?? '.';
-    gReport.target = wholeApp;
+    gReport.target = wholeApp.join(' · ');
     gReport.laws = [];
     /** 훑개가 한 번이라도 돌았는가. ⛔ 안 돌았으면 파일 수는 0 이 아니라 **모른다**(`null`). */
     let scanRan = false;
-    say(`\n── 은하 ${gname} — ${wholeApp}`);
+    say(`\n── 은하 ${gname} — ${codeTargetLabel(g)}`);
 
     for (const law of matter) {
       if (!g.laws.includes(law.name)) {
@@ -604,7 +617,8 @@ const main = async () => {
       const rules = Object.values(contracts.RULE_PRESETS).flat().filter((r) => law.rules.includes(r.id));
       const result = await scanCodebase({
         repoRoot: g.path,
-        targets: [wholeApp],
+        targets: wholeApp,
+        ignore: ignoredSet === null ? undefined : (rel) => ignoredSet.has(rel),
         rules,
         sampleCount: Number(flag('--sample') ?? 0),
       });
@@ -703,7 +717,7 @@ const main = async () => {
         /* 드리프트를 처음 만났을 때 한 번만 진단한다 — 법칙마다 git 을 훑을 이유가 없다. */
         if (drift !== null && !diagnosed) {
           diagnosed = true;
-          const why = await diagnoseDrift(g.path, `${g.appDir}/src`, g.observed?.commit);
+          const why = await diagnoseDrift(g.path, codeTargets(g), g.observed?.commit);
           /* 규칙이 바뀌었으면 **그것부터** 말한다 — 코드 이력보다 앞선 원인이다. */
           /* ⚠️ **법칙 목록이 바뀌어도 수치는 바뀐다.** R31 이 규칙 지문을 붙이며 남긴 구멍이다 —
              은하가 법칙을 켜거나 끄면 재는 대상이 통째로 달라지는데 진단은 **코드 이력만** 짚었다.
@@ -945,7 +959,7 @@ const main = async () => {
     };
     /* 기준선을 은하 파일에 심는다 — 실측의 주인은 은하다. */
     if (has('--update') && Object.keys(measuredNow).length > 0) {
-      const prov = await provenance(g.path, `${g.appDir}/src`);
+      const prov = await provenance(g.path, codeTargets(g));
       if (prov.dirtyFiles > 0 && !has('--force')) {
         say(`\n  ⛔ 워킹트리가 오염돼 있다(${prov.dirtyFiles}개 변경). 이 측정은 커밋에 귀속시킬 수 없다.`);
         say('     기준선은 깨끗한 트리에서 심어라. 굳이 심으려면 --force.');
