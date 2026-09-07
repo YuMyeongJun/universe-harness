@@ -285,6 +285,38 @@ const CASES = [
     cmd: ['node', ['lib/selftest.mjs']],
   },
   {
+    check: '부품 시험(parts)',
+    bite: '화면이 관문을 넘길 수 있게 된 것',
+    expect: '관문을 넘기는 갈래',
+    file: 'bin/menu.mjs',
+    /**
+     * ⛔⛔ **이 라운드의 제약 그 자체다.** 「외우지 않고 쓰게 한다」고 화면을 만들었는데
+     * 그 화면에 「무시하고 계속」이 생기면 **화면을 만든 것이 손해**다 —
+     * 「느려진 관문은 아무도 안 본다」의 사촌이 **「넘길 수 있는 관문」**이다.
+     * ⚠️ 검사는 **주석을 걷어내고** 잰다. 안 걷었을 때 첫 판에서 「이런 갈래를 만들지 않는다」고
+     *    적어 둔 그 문서 문구에 스스로 걸렸다 — 즉 **문구가 있으면 진짜 갈래를 못 알아본다.**
+     *    그래서 변이도 **코드 줄**로 넣는다. 주석으로 넣으면 무는지 안 무는지 못 가린다.
+     */
+    mutate: (t) => `${t}\nconst SKIP_GATES = true;\nexport const skip = () => SKIP_GATES;\n`,
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '부품 시험(parts)',
+    bite: '비-TTY 에서 대화형으로 새는 것',
+    expect: '비-TTY',
+    file: 'bin/universe.mjs',
+    /**
+     * ⛔⛔ **CI 가 통째로 죽는 자리다.** 인자 없이 `universe` 를 부르는 곳이 파이프나
+     * CI 안이면 대화형은 **답을 영영 기다린다.** 지금 자동 호출자들이 전부 플래그를 붙여
+     * 부르는 것은 **우연이지 설계가 아니다** — 그 우연에 기대지 않겠다는 것이 이 가드다.
+     * ⚠️ 그래서 검사는 소스를 읽지 않고 **진짜로 자식을 띄워서** 매달리는지 잰다.
+     *    소스에 `isTTY` 가 있는지만 보면 「쓰였지만 안 걸리는」 모양을 못 잡는다.
+     */
+    mutate: (t) => t.replace(
+      'if (!command && process.stdin.isTTY && process.stdout.isTTY) {', 'if (!command) {'),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
     check: '행동 계약 보호(behavior-contract)',
     expect: '별의 폴더',
     bite: '별의 폴더',
