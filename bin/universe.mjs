@@ -75,6 +75,8 @@ const SUBCOMMANDS = {
   liveness: 'observatory/liveness.mjs',
   /* 「범용」의 경계를 잰다 — 못 읽는 비율. ⛔ 판단은 사람이 한다. */
   census: 'observatory/blind-census.mjs',
+  /* 콘솔이 **뜨고, 못 찾은 것을 못 찾았다고 말하는가**. ⛔ 화면은 안 띄운다(브라우저는 e2e 축). */
+  console: 'observatory/probe-console.mjs',
   hooks: 'bin/hooks.mjs',
   learn: 'observatory/learn.mjs',
   /* 성공 궤적 → 지식 카드. ⛔ 기본은 모델을 안 부른다(`--write` 를 줘야 부른다 · R155). */

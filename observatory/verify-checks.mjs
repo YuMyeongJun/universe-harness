@@ -220,6 +220,22 @@ const CASES = [
     cmd: ['node', ['observatory/verify-names.mjs']],
   },
   {
+    check: '콘솔이 서는가(console)',
+    bite: '지식 저장소를 못 찾았는데 「ok」라고 답함',
+    expect: '없는데 「ok」라고 답한다',
+    file: 'app/universe/server/src/paths.ts',
+    /**
+     * ⛔⛔ **못 찾았을 때 「0개」로 답하면 그것이 사고다.** 빈 목록은 「도메인이 없다」로
+     * 읽히고, 그건 「못 읽었다」와 다른 말이다(§8). 콘솔은 사람의 계획이 전부 지나가는
+     * 자리인데 **아무 관문도 띄워 본 적이 없었다** — 시험이 하나도 없는 저장소였다.
+     *
+     * ⚠️ 이 변이는 **TypeScript 소스**를 건드린다. 그래서 탐침이 **낡으면 스스로 다시 짓는다** —
+     *    처음엔 「낡았으면 ⚪」로 했는데, 그러면 **소스를 고치는 변이가 판정을 못 바꾼다.**
+     */
+    mutate: (t) => t.replace('if (existsSync(dir)) return { ok: true, dir };', 'return { ok: true, dir };'),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
     check: '자리마다 분모(observe)',
     bite: '훑는다고 적어 놓고 비어 있는 자리를 그냥 지나감',
     expect: '훑는다고 적어 놓고 0개인 자리',
