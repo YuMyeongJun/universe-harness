@@ -25,7 +25,8 @@
 
 | 명령 | 하는 일 | 종료 코드 |
 |---|---|---|
-| `npm run lint:tickets -- <경로>` | TC 티켓 형식 관문 | `0` 통과 / `1` 위반 / **`3` 못 쟀다** |
+| `npm run lint:tickets -- <경로>` | TC 티켓(마크다운) 형식 관문 | `0` 통과 / `1` 위반 / **`3` 못 쟀다** |
+| `npm run lint:tickets -- --format sheet <경로>` | 16컬럼 시트 스펙 JSON 관문 (G0~G7) | 〃 |
 | `npm run gate:redfirst -- <spec> -- <실행명령>` | 생성된 spec 이 "처음부터 통과"하지 않는지 | `0` 수용 / `1` 거부 / **`3` 못 쟀다** |
 | `npm test` | 변이 시험 — 각 검사가 실제로 무는지 | |
 
@@ -37,7 +38,10 @@
 ```
 src/
 ├── config/types.ts      프로젝트별 설정 계약 (앱 고유값은 전부 여기로)
-├── lint/                ① TC 티켓 정적 관문 — 프로젝트 무관
+├── lint/                ① TC 정적 관문 — 프로젝트 무관
+│   ├── core.ts            판정 어휘(IFinding·Severity) — 입력 형식이 달라도 하나다
+│   ├── parse.ts/rules.ts  마크다운 티켓 (규칙 9종)
+│   └── sheet/             16컬럼 시트 스펙 (G0~G7 13종 + ⚪ 4종)
 ├── guards/              ② Playwright 가드 — config 주입식, 앱을 알지 않는다
 │   ├── measure.ts         assertMeasured / assertFollows / assertContrast
 │   └── reach.ts           createReach — 404·얇은 본문·의도치 않은 리다이렉트를 던진다
@@ -52,3 +56,18 @@ tests/                   변이 시험 (검사가 죽어 있는지 확인하는 
 - `universe-harness` — ⚪ "못 쟀다" 규율, 계약 우선 장치 (github.com/YuMyeongJun/universe-harness)
 - `harness-01` (whitehole-front) — Playwright 거짓 통과 4종 실측
 - `catalog-ppt-tc-case` — TC 150건 작성 경험, 분해 기준
+- `qa-workflow` (QA_WorkFlow v2) — 16컬럼 시트 규격 G0~G7, 실행 오케스트레이션. 시트 어댑터가 그쪽 규격을 기계로 내린 것이다
+
+## 시트 어댑터 (`--format sheet`)
+
+`qa-workflow` 의 TC 문장 작성 규격은 **749줄 SKILL.md 끝의 산문 체크리스트 15줄**이 유일한 관문이었다.
+산문 체크리스트는 모델이 바쁘면 흘린다. 그중 **기계로 잴 수 있는 13개**를 규칙으로 내렸다.
+
+핵심 개념은 **액션 그룹** — 판별 키가 `no` 가 아니라 **`content`(테스트항목) 문자열 완전 일치**다.
+그룹을 쪼개면 워커가 같은 액션을 여러 번 수행해 데이터가 파손되고 후속 행이 오판정된다.
+
+⛔ **지식 베이스가 있어야 재는 것**(인용 원문 대조 · 분류 사전 · 명칭 근거 · 사전조건 판단)은
+조용히 통과시키지 않고 **⚪ 로 이름을 부른다.** 조용히 넘기면 "다 쟀다"로 읽힌다.
+
+⚠️ **언어 종속**: G2·G3 의 종결 어미 규칙은 한국어 문형이다. 다른 언어 프로젝트엔 서지 않는다.
+조사 검출은 `을`·`를`·`에서`만 본다 — `이`·`가`는 `추가`·`참가` 같은 어절과 기계적으로 구별되지 않는다.

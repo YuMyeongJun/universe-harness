@@ -5,6 +5,8 @@
  * 양식: docs/tc-ticket-template.md (v1.1)
  */
 
+import { isBlank } from './core.js';
+
 export interface ISelectorRow {
   target: string;
   role: string;
@@ -46,22 +48,7 @@ const BULLET_RE = /^\s*[-*]\s+(?!\*\*\[Expected\]\*\*)(.*)$/;
 const isNoise = (line: string): boolean =>
   line.trim() === '' || line.trimStart().startsWith('>') || line.trimStart().startsWith('<!--');
 
-/** 값이 실질적으로 비어 있는가. 템플릿 잔재(`...`, `<...>`, 체크박스)도 빈 것으로 본다. */
-export const isBlank = (value: string): boolean => {
-  const v = value
-    .replace(/`[^`]*`/g, (m) => m.slice(1, -1))
-    .replace(/^\s*\[\s*[xX ]?\s*\]\s*/, '')
-    .trim();
-  if (v === '') return true;
-  if (/^\.{2,}$/.test(v)) return true;
-  if (/^<.*>$/.test(v)) return true; // <이 자리에 적으세요> 형태
-  if (/^(TBD|미정|미작성)$/i.test(v)) return true;
-  return false;
-};
-
-/** "미확인"으로 명시된 값 — 빈 것과 구별한다. 빈 칸은 위반, 미확인은 ⚪. */
-export const isDeclaredUnmeasured = (value: string): boolean =>
-  /(미확인|해당\s*없음|무관|N\/A)/i.test(value);
+export { isBlank, isDeclaredUnmeasured } from './core.js';
 
 const parseTableRows = (lines: string[]): ISelectorRow[] => {
   const rows: ISelectorRow[] = [];

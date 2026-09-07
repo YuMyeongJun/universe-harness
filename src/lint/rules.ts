@@ -4,36 +4,10 @@
  * ⛔ 못 잡는 것: 필드가 다 채워졌지만 **얕은 TC**.
  *    이 방법으로는 잡히지 않는다. 못 잡는다고 여기 적어 두는 것이 지금 할 수 있는 최선이다.
  */
-import { isBlank, isDeclaredUnmeasured, type IParsedTicket } from './parse.js';
+import { err, isBlank, isDeclaredUnmeasured, unmeasured, type IFinding, type IRule } from './core.js';
+import type { IParsedTicket } from './parse.js';
 
-/** ⚪ = 못 쟀다. 통과도 실패도 아니다. 통과율 분모에서 뺀다. */
-export type Severity = 'error' | 'unmeasured';
-
-export interface IFinding {
-  rule: string;
-  severity: Severity;
-  message: string;
-  /** 왜 이 검사가 있는가 — 근거를 잃으면 검사는 미신이 된다 */
-  why: string;
-}
-
-export interface IRule {
-  id: string;
-  check: (ticket: IParsedTicket) => IFinding[];
-}
-
-const err = (rule: string, message: string, why: string): IFinding => ({
-  rule,
-  severity: 'error',
-  message,
-  why,
-});
-const unmeasured = (rule: string, message: string, why: string): IFinding => ({
-  rule,
-  severity: 'unmeasured',
-  message,
-  why,
-});
+export type { IFinding, IRule, Severity } from './core.js';
 
 /** 라벨을 느슨하게 찾는다 — 이모지·공백·조사 차이를 흡수한다 */
 const find = (map: Map<string, string>, ...keywords: string[]): string | undefined => {
@@ -52,7 +26,7 @@ const REQUIRED_PRECONDITIONS: Array<{ id: string; keywords: string[]; label: str
   { id: 'branch', keywords: ['분기'], label: '분기 조건' },
 ];
 
-export const rules: IRule[] = [
+export const rules: Array<IRule<IParsedTicket>> = [
   {
     id: 'precondition-field-missing',
     check: (t) => {
