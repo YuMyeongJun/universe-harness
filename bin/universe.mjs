@@ -77,6 +77,11 @@ const SUBCOMMANDS = {
   census: 'observatory/blind-census.mjs',
   /* 콘솔이 **뜨고, 못 찾은 것을 못 찾았다고 말하는가**. ⛔ 화면은 안 띄운다(브라우저는 e2e 축). */
   console: 'observatory/probe-console.mjs',
+  /* ⛔ 이 둘은 **관문이 부르는데 사람이 칠 수는 없었다.** 그런데 도구 자신은 화면에서
+     `universe coordinates` · `universe qa` 라고 **말하고 있었다** — 시키는 대로 치면
+     「모르는 명령」이 났다. 도구가 화면에 적은 처방은 **그 도구가 실제로 지키는 것**이어야 한다. */
+  coordinates: 'observatory/verify-coordinates.mjs',
+  qa: 'observatory/verify-qa.mjs',
   hooks: 'bin/hooks.mjs',
   learn: 'observatory/learn.mjs',
   /* 성공 궤적 → 지식 카드. ⛔ 기본은 모델을 안 부른다(`--write` 를 줘야 부른다 · R155). */

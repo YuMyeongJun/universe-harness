@@ -325,7 +325,7 @@ export const censusExit = (acc, maxShare) => {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
   /* §7 — 자리를 찾기 **전에** 모르는 플래그를 거부한다. 삼키면 안 켜진 모드가 켜진 것처럼 보인다. */
-  rejectUnknownFlags(argv, ['--universe', '--galaxy', '--dir', '--max-blind-share'], 'universe blind-census');
+  rejectUnknownFlags(argv, ['--universe', '--galaxy', '--dir', '--max-blind-share'], 'universe census');
   const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
   const dir = flag('--dir');
   const gname = flag('--galaxy');
@@ -333,7 +333,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   /* ⛔ **부르는 법이 틀린 것은 측정이 아니다.** 짐작으로 은하 하나를 고르면 사람은 자기가
      겨눈 줄 모르는 자리의 수를 읽는다 — §7 과 같은 자리에서 사유를 대고 죽는다. */
   if ((dir === undefined) === (gname === undefined)) {
-    console.error('⛔ universe blind-census: 훑을 자리를 하나만 정해라 — `--dir <경로>` 또는 `--galaxy <이름>`');
+    console.error('⛔ universe census: 훑을 자리를 하나만 정해라 — `--dir <경로>` 또는 `--galaxy <이름>`');
     console.error('   (둘 다 주거나 둘 다 안 주면 무엇을 셌는지 사람이 못 가린다)');
     process.exit(1);
   }
