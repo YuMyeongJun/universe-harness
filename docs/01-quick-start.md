@@ -22,8 +22,22 @@ description: 설치부터 첫 별이 태어나기까지. 명령 다섯 줄.
 ## 1. 우주를 깐다
 
 ⛔ **`npx universe` 를 치지 마라.** npm 의 `universe` 는 **남의 패키지**다
-(crossfilter/universe — 데이터셋 탐색 도구). 이 우주는 아직 배포되지 않았다(`private: true`).
-실측(R52): 문서가 그렇게 시키고 있었고, 그대로 따라 하면 **엉뚱한 것을 내려받는다.**
+(crossfilter/universe — 데이터셋 탐색 도구). 이 우주는 **npm 에 배포되지 않았다** —
+GitHub 에서 클론해서 쓴다. 실측(R52): 문서가 `npx` 를 시키고 있었고, 그대로 따라 하면
+**엉뚱한 것을 내려받는다.**
+
+### 0-1. `universe` 명령을 이어 붙인다 (한 번만)
+
+⚠️ **이걸 안 하면 `universe` 를 쳐도 `command not found` 다.** 실측: 도움말과 대화형 입구가
+`universe …` 라고 **가르치는데** 정작 그 이름이 기계에 없었다 — **도구가 틀린 말을 했다.**
+(지금은 이어져 있지 않으면 도구가 `node …/bin/universe.mjs` 라고 **사실대로** 말한다.)
+
+```bash
+cd <우주-저장소>
+npm link          # 되돌리기: npm rm -g universe
+```
+
+⛔ 안 이어 붙여도 **전부 그대로 쓸 수 있다** — 아래의 `universe X` 를 `node <우주-저장소>/bin/universe.mjs X` 로 바꿔 치면 된다.
 
 ```bash
 cd <당신의 저장소>

@@ -25,11 +25,29 @@
  * 비어 있고 문서가 그것을 강점으로 적어 뒀다 — 입구 하나 때문에 깨지 않는다.
  */
 import { spawn } from 'node:child_process';
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
-import { COSTS_MONEY, dailyCommands, usageWidth } from '../lib/commands.mjs';
+import { COSTS_MONEY, dailyCommands, invocationLabel, usageWidth } from '../lib/commands.mjs';
+
+/**
+ * PATH 에서 `universe` 를 찾아 **실경로**를 준다. 못 찾으면 null.
+ * ⛔ `which` 를 부르지 않는다 — 셸마다 다르고, 이 저장소는 의존성도 자식 프로세스도 아낀다.
+ * ⚠️ 심링크를 **따라간다**(`npm link` 가 만드는 것이 심링크다). 안 따라가면 이어져 있는데도
+ *    「없다」고 말하게 된다 — 그 방향의 오류는 **더 긴 명령을 가르치는** 쪽이라 조용하다.
+ */
+const resolveOnPath = async (name) => {
+  for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    const candidate = path.join(dir, name);
+    /* eslint-disable-next-line no-await-in-loop */
+    const real = await realpath(candidate).catch(() => null);
+    if (real) {
+      return real;
+    }
+  }
+  return null;
+};
 
 /**
  * ⛔ **stdin 이 끝나면 곱게 나간다.** Ctrl-D 를 누르거나 입력이 파이프로 들어오다 끊기면
@@ -216,8 +234,11 @@ export const runMenu = async ({ root, packageHome, subcommands, ask: injectedAsk
       return 0;
     }
 
-    /* ⛔ **여기가 핵심이다** — 실행 전에 만든 명령줄을 찍는다. 그래야 다음엔 외운다. */
-    const shown = ['universe', name, ...args].map((token) => (/\s/.test(token) ? `"${token}"` : token)).join(' ');
+    /* ⛔ **여기가 핵심이다** — 실행 전에 만든 명령줄을 찍는다. 그래야 다음엔 외운다.
+       ⚠️ 그러니 **도는 것을 찍어야 한다.** `universe` 가 PATH 에 없으면 그 이름을 가르치는 것은
+          거짓말이다 — 실제로 도는 형태로 찍는다(`invocationLabel`). */
+    const how = invocationLabel(await resolveOnPath('universe'), packageHome);
+    const shown = [how, name, ...args].map((token) => (/\s/.test(token) ? `"${token}"` : token)).join(' ');
     console.log(`\n$ ${shown}\n`);
     if ((await askYes(askOne, '이대로 실행할까?')) !== true) {
       console.log('(그만둔다 — 위 명령을 직접 쳐도 된다)');

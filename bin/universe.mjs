@@ -100,7 +100,7 @@ if (!command && process.stdin.isTTY && process.stdout.isTTY) {
   process.exit(await runMenu({ root: process.cwd(), packageHome, subcommands: SUBCOMMANDS }));
 }
 if (!command || wantsHelp) {
-  const { dailyCommands, gateCommands, helpLine, usageWidth } = await import(path.join(packageHome, 'lib/commands.mjs'));
+  const { dailyCommands, gateCommands, helpLine, invocationLabel, usageWidth } = await import(path.join(packageHome, 'lib/commands.mjs'));
   /* `--all` 을 줘야 관문이 부르는 것까지 보인다 — 기본은 사람이 치는 것만. */
   const all = rest.includes('--all') || process.argv.includes('--all');
   const daily = dailyCommands();
@@ -119,9 +119,21 @@ if (!command || wantsHelp) {
   } else {
     lines.push('', `  (관문이 알아서 부르는 것 ${gates.length}개는 안 보인다 — \`universe --help --all\`)`);
   }
-  lines.push('', process.stdin.isTTY
+  /* ⛔ **도는 이름으로 말한다.** `universe` 가 PATH 에 없는데 그렇게 치라고 하면 거짓말이다
+     (실측: 사용자가 그대로 쳤고 `command not found` 가 났다 — 도구가 틀린 말을 했다). */
+  const { realpath } = await import('node:fs/promises');
+  let resolved = null;
+  for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    /* eslint-disable-next-line no-await-in-loop */
+    resolved = await realpath(path.join(dir, 'universe')).catch(() => null);
+    if (resolved) { break; }
+  }
+  const how = invocationLabel(resolved, packageHome);
+  lines.push('', how === 'universe'
     ? '  인자 없이 `universe` 를 치면 **고르면서** 쓸 수 있다 — 명령줄을 만들어 보여 준다.'
-    : '  터미널에서 인자 없이 `universe` 를 치면 고르면서 쓸 수 있다.');
+    : `  ⚠️ \`universe\` 는 아직 PATH 에 없다 — 지금은 \`${how} …\` 로 부른다.\n`
+      + `     이어 붙이려면: cd ${packageHome} && npm link   (되돌리기: npm rm -g universe)\n`
+      + '     이어 붙이고 나면 인자 없이 `universe` 를 쳐서 **고르면서** 쓸 수 있다.');
   console.log(lines.join('\n'));
   process.exit(0);
 }

@@ -302,6 +302,24 @@ const CASES = [
   },
   {
     check: '부품 시험(parts)',
+    bite: '못 부르는 이름을 가르치는 것',
+    expect: 'command not found',
+    file: 'lib/commands.mjs',
+    /**
+     * ⛔⛔ **도구가 틀린 말을 한 실측 사건이다.** 대화형 입구의 존재 이유가 「명령줄을
+     * 가르치는 것」인데, 가르치던 `universe …` 가 **그 기계에 없는 명령**이었다 —
+     * 사용자가 그대로 쳤고 `zsh: command not found: universe` 가 났다.
+     * 문서는 `node <저장소>/bin/universe.mjs` 라 하고 도움말은 `universe` 라 했다. **두 말이 달랐다.**
+     * ⚠️ 화면이 가르친 것이 안 도는 것은 **안 가르친 것만 못하다** — 사람이 도구를 안 믿게 된다.
+     * 변이는 「이어져 있든 말든 늘 `universe` 라 한다」로 되돌린다. 그 상태가 사건 당시다.
+     */
+    mutate: (t) => t.replace(
+      "  (resolved === `${packageHome}/bin/universe.mjs` ? 'universe' : `node ${packageHome}/bin/universe.mjs`);",
+      "  'universe';"),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '부품 시험(parts)',
     bite: '비-TTY 에서 대화형으로 새는 것',
     expect: '비-TTY',
     file: 'bin/universe.mjs',
