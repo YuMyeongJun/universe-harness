@@ -109,6 +109,34 @@ for (const dir of topDirs) {
    소스로 잡았더니 `lintTarget` 이 `./apps` 가 되어 **eslint 가 죽고 관측이 은하를 못 쟀다.**
    ⚠️ 워크스페이스가 있으면 소스는 **사람이 고른 앱 안**에 있다 — 여기서 정하지 않는다. */
 const srcDir = pkg.workspaces ? undefined : (codeDirs.includes('src') ? 'src' : codeDirs[0]);
+
+/**
+ * ⛔⛔ **초안이 「코드가 없는 자리」를 가리키지 않게 한다.**
+ *
+ * 관측은 기본으로 `<appDir>/src` 를 훑는다. 그런데 이 도구는 **코드가 어느 폴더에 있는지
+ * 이미 알아냈으면서**(`codeDirs`) 좌표에는 `src` 만 남겨 왔다. `src/` 관례를 안 쓰는
+ * 저장소에서는 **훑는 곳에 파일이 0개**가 된다.
+ * ⚠️ 실측: 이 저장소의 콘솔(`app/universe` — 코드가 `server/`·`web/` 에 있다)로 초안을
+ *    떠 보니 좌표가 `appDir: "."` 이었고, 그대로 등록하면 훑는 곳은 `./src` 다.
+ *    ⛔ 그 자리엔 아무것도 없다. 예전 관측은 그걸 **「0건」**이라고 말했다.
+ *
+ * ⛔ **여기서도 고르지 않는다**(§9). 찾은 것을 **전부** 싣고 왜 실었는지 적는다 —
+ * 화면만 재려고 줄이는 것은 사람의 판단이다. 폴더 이름을 열거해 짐작하지 않는다.
+ */
+const scanDirs = pkg.workspaces || codeDirs.length === 0
+  ? []
+  : await (async () => {
+    if (await exists('src')) {
+      return []; /* 관례를 쓰는 저장소다 — 기본값이 맞다. 좌표를 더럽히지 않는다. */
+    }
+    const out = [];
+    for (const dir of codeDirs) {
+      /* 그 폴더가 다시 `src/` 를 쓰면 거기를 가리킨다 — 아니면 폴더 자체다. */
+      /* eslint-disable-next-line no-await-in-loop */
+      out.push(await exists(path.join(dir, 'src')) ? `${dir}/src` : dir);
+    }
+    return out;
+  })();
 const children = srcDir
   ? (await fs.readdir(path.join(repo, srcDir), { withFileTypes: true }))
       .filter((e) => e.isDirectory()).map((e) => `${srcDir}/${e.name}`)
@@ -188,6 +216,12 @@ const draft = {
       ? `${pkg.packageManager?.startsWith('yarn') ? 'yarn exec' : 'npx'} eslint <TARGET> --report-unused-disable-directives --format json -o <OUT>`
       : TODO('lint 스크립트가 없다 — 관문이 lint 를 못 잰다'),
   },
+  ...(scanDirs.length > 0
+    ? {
+      '//codeDirs': '⛔ 이 저장소는 `src/` 관례를 안 쓴다 — 안 적으면 관측이 `./src` 를 훑고 **파일 0개**를 본다. 코드가 있는 곳을 전부 실었다. **고르지 않았다** — 줄일지는 당신이 정한다.',
+      codeDirs: scanDirs,
+    }
+    : {}),
   lintTargets: srcDir ? [{ workspace: '', target: `./${srcDir}` }] : [],
   '//thresholds': TODO('깨끗한 상태에서 빌드해 초기 로드(KB)를 재서 적어라 — 재기 전엔 못 적는다'),
   thresholds: {},
@@ -212,6 +246,11 @@ console.log(`   읽어낸 것: ${Object.keys(commands).join(' · ') || '(명령 
    ⚠️ 고르지는 않는다. **보여 주고 사람이 정한다**(§9 — 폴더 이름은 사람이 정한다). */
 if (codeDirs.length > 1) {
   console.log(`   🗂  코드가 든 꼭대기 폴더 ${codeDirs.length}개: ${codeDirs.map((d) => `${d}/`).join(' · ')}`);
+  if (scanDirs.length > 0) {
+    console.log(`   📐 \`codeDirs\` 를 적었다: ${scanDirs.join(' · ')}`);
+    console.log('      이 저장소엔 `src/` 가 없다 — 안 적으면 관측이 **파일 0개**를 본다.');
+    console.log('      ⛔ 고르지 않았다 — 화면만 재려면 줄여라.');
+  }
   console.log('      **고르지 않았다** — 태양계의 `srcDir` 에 무엇을 적을지는 당신이 정한다.');
 }if (workspaces.length > 0) {
   console.log(`   🧩 모노레포다 — 워크스페이스 ${workspaces.length}개를 찾았다. **고르지 않았다**:`);

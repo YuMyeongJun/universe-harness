@@ -220,6 +220,25 @@ const CASES = [
     cmd: ['node', ['observatory/verify-names.mjs']],
   },
   {
+    check: '좌표 초안(galaxy)',
+    bite: '코드가 없는 자리를 가리키는 좌표를 낸다',
+    expect: '훑은 파일이 0개다',
+    file: 'bin/galaxy.mjs',
+    /**
+     * ⛔⛔ **초안이 「0개를 보는 좌표」를 내면, 그 은하는 영원히 조용하다.**
+     *
+     * 실측(R163): 도구는 **코드가 어느 폴더에 있는지 이미 알아냈으면서**(`server/`·`web/`)
+     * 좌표에는 기본값(`<appDir>/src`)만 남겼다. `src/` 관례를 안 쓰는 저장소에서는
+     * 훑는 곳에 **파일이 0개**가 되고, 예전 관측은 그걸 **「0건」**이라고 말했다.
+     *
+     * ⚠️ 겨냥: `codeDirs` 를 안 싣게 만들고, **초안을 실제로 걸어** 관측을 돌린다.
+     *    화면 문구가 아니라 **관측이 무엇을 보는가**가 판정이다.
+     * ⛔ 은하는 `galaxies.local/`(gitignore)에 만들고 config 는 되돌린다 — 저장소를 안 더럽힌다.
+     */
+    mutate: (t) => t.replace('      codeDirs: scanDirs,', '      codeDirs: [],'),
+    cmd: ['bash', ['observatory/probe-draft.sh']],
+  },
+  {
     check: '새 사람의 길(quickstart)',
     bite: '문서대로 쳤는데 막힌다',
     expect: '새 사람의 길이',
