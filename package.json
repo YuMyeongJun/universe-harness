@@ -1,10 +1,9 @@
 {
   "name": "universe",
   "version": "0.9.0",
-  "private": true,
   "type": "module",
   "description": "빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스. 법칙(규칙)과 관측소(채점)를 배달하고, 힘과 은하는 배달하지 않는다.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "universe": "./bin/universe.mjs"
   },
@@ -28,7 +27,8 @@
     "observatory/README.md",
     "observatory/engine/packages/**/dist",
     "observatory/engine/packages/**/package.json",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22.6"
@@ -43,5 +43,9 @@
     "check": "npm run laws && npm run observe && npm run engine:selftest",
     "publish": "node beacon/publish.mjs"
   },
-  "//beacon-pages": "beacon/pages.json 은 싣지 않는다 — 사이트·페이지 id 는 은하 좌표와 같은 성질이라 소비 저장소가 갖는다."
+  "//beacon-pages": "beacon/pages.json 은 싣지 않는다 — 사이트·페이지 id 는 은하 좌표와 같은 성질이라 소비 저장소가 갖는다.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YuMyeongJun/universe-harness.git"
+  }
 }
