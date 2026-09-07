@@ -218,6 +218,20 @@ const CASES = [
     cmd: ['node', ['lib/selftest.mjs']],
   },
   {
+    check: '3차 배선(nebula-wiring)',
+    bite: '요구사항 신호가 성공 출구에서 사라진 것',
+    expect: '요구사항 신호',
+    file: 'bigbang/nebula.mjs',
+    /* R132 가 실제로 당한 결함을 그대로 되살린다 — 신호를 **성공 출구에서만** 뗀다.
+       게이트가 초록이면 그 앞에서 `return` 하므로, 성공한 주행에서는 신호가 영영 안 돌았다.
+       ⛔ 범위 관문(별의 폴더 밖 막기)을 변이 대상으로 삼지 않았다 — 그것을 끄면 대본의
+          patch 가 **픽스처의 `src/main.tsx` 를 덮어쓴다.** 변이가 저장소를 부수면 안 된다. */
+    mutate: (t) => t.replace(
+      "      await sayRequirementSignal();\n      await recorder.append({ kind: 'nebula-end', decision: 'GREEN', gateRuns, turns: turn });",
+      "      await recorder.append({ kind: 'nebula-end', decision: 'GREEN', gateRuns, turns: turn });"),
+    cmd: ['node', ['observatory/verify-nebula-wiring.mjs']],
+  },
+  {
     check: '행동 계약 보호(behavior-contract)',
     expect: '별의 폴더',
     bite: '별의 폴더',
