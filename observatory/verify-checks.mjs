@@ -237,6 +237,24 @@ const CASES = [
     cmd: ['node', ['observatory/verify-qa.mjs']],
   },
   {
+    check: '주소로 받아 오는가(clone)',
+    bite: '자격이 박힌 주소를 그대로 받아들임',
+    expect: '자격이 박힌 주소',
+    file: 'bin/clone.mjs',
+    /**
+     * ⛔⛔ **토큰이 인자로 들어오면 셸 히스토리와 `ps` 에 남는다.** 이 저장소는 공개 MIT 라
+     * 한 번 새면 되돌릴 수 없다. 그래서 `--token` 을 안 받는 것으로는 부족하다 —
+     * `https://<토큰>@github.com/...` 는 git 이 받아들이고, 그 순간 토큰이 **이 도구의 인자**다.
+     *
+     * ⚠️ 겨냥: 거절 갈래를 꺼서 **받아들이게** 만든다. 관문은 그 주소를 실제로 넣어 보고
+     *    「자격이 박혀 있다」가 안 나오면 문다 — 화면 문구가 아니라 **거절했는가**가 판정이다.
+     */
+    mutate: (t) => t.replace(
+      "if (/^[a-z+]+:\\/\\/[^/@]*[:@]/i.test(url) && !/^ssh:\\/\\//i.test(url)) {",
+      'if (false) {'),
+    cmd: ['bash', ['observatory/probe-clone.sh']],
+  },
+  {
     check: '콘솔이 서는가(console)',
     bite: '지식 저장소를 못 찾았는데 「ok」라고 답함',
     expect: '없는데 「ok」라고 답한다',

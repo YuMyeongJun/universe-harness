@@ -49,6 +49,9 @@ const [command, ...rest] = process.argv.slice(2);
 
 const SUBCOMMANDS = {
   init: 'bin/init.mjs',
+  /* **주소 하나로 받아 와 좌표 초안까지.** ⛔ 토큰을 인자로 안 받는다 — 셸 히스토리와
+     프로세스 목록에 남고, 이 저장소는 공개 MIT 다. 자격은 그 기계의 git 이 아는 것을 쓴다. */
+  clone: 'bin/clone.mjs',
   round: 'bin/round.mjs',
   observe: 'observatory/observe.mjs',
   verify: 'observatory/verify.mjs',
