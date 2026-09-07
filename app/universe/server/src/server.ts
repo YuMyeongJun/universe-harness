@@ -26,6 +26,14 @@ import {
   receiveRunResult,
   unwrapEnvelope,
 } from './run-result.js';
+import {
+  listRuns,
+  readRun,
+  recordVerdict,
+  runIdProblem,
+  saveRun,
+  verdictInputProblem,
+} from './run-store.js';
 import { detect } from './provenance.js';
 import { dataDir, locate, workflowRoot } from './paths.js';
 import {
@@ -47,6 +55,9 @@ import {
 const fail = (res: Response, code: number, message: string): void => {
   res.status(code).json({ error: message });
 };
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** 도메인 경로 파라미터를 한 자리에서 검증한다 — 경로 조작(`..`)도 여기서 막는다. */
 const domainOf = (req: Request, res: Response): string | null => {
@@ -492,12 +503,107 @@ export const createApp = (): express.Express => {
 
       const unwrapped = unwrapEnvelope(raw);
       void receiveRunResult(unwrapped.raw, { from, origins: unwrapped.origins }).then(
-        (receipt) => res.json(receipt),
+        (receipt) => {
+          /**
+           * ⭐ **남긴다.** 안 남기면 판정을 적을 자리가 없고, 그러면 「판단하지 않은 fail」은
+           *    영영 0이 안 된다 — 종료 조건이 있는데 그 조건에 닿을 길이 없는 상태가 된다.
+           * ⛔ 저장에 실패해도 **잰 결과를 삼키지 않는다.** 그것은 별개의 일이라
+           *    `notes` 에 적고 결과는 그대로 보낸다.
+           */
+          try {
+            const meta = saveRun(unwrapped.raw, receipt, { from });
+            res.json({ ...receipt, id: meta.id, run: { ...meta, remeasured: false } });
+          } catch (e) {
+            res.json({
+              ...receipt,
+              id: null,
+              run: null,
+              notes: [
+                ...receipt.notes,
+                `⚠️ 주행을 남기지 못했다 — 판정을 적을 자리가 없다: ${(e as Error).message}`,
+              ],
+            });
+          }
+        },
         /* 여기까지 오면 도구를 부르는 것조차 못 한 것이다 — 그것은 서버 잘못이라 5xx 다. */
         (e: unknown) => fail(res, 500, `주행 결과 도구를 부르지 못했습니다: ${(e as Error).message}`),
       );
     },
   );
+
+  /**
+   * `GET /api/runs` — 남아 있는 주행 목록.
+   * ⛔ 여기에 「끝났다/안 끝났다」는 없다. 그 답은 주행을 **열어서 다시 재야** 나온다.
+   */
+  app.get(RUNS_PATH, (_req: Request, res: Response) => {
+    try {
+      res.json(listRuns());
+    } catch (e) {
+      fail(res, 500, `주행 목록을 읽지 못했습니다: ${(e as Error).message}`);
+    }
+  });
+
+  /**
+   * `GET /api/runs/:id` — **판정이 붙은 채로** 다시 잰 주행.
+   *
+   * ⭐ 서버가 「판단하지 않은 fail 이 하나 줄었다」를 계산하지 않는다 — 저장해 둔 케이스에
+   *    판정을 붙여 **도구를 다시 부르고**, 그 답을 그대로 나른다. 그래야 화면의 수와
+   *    관문의 수가 갈리지 않는다.
+   * ⛔ 「그 주행의 전제가 안 섰다」는 여전히 **결과**(⚪)라 4xx 가 아니다. 404 는
+   *    **그런 주행이 없을 때**뿐이다.
+   */
+  app.get(`${RUNS_PATH}/:id`, (req: Request, res: Response) => {
+    const id = String(req.params['id'] ?? '');
+    const problem = runIdProblem(id);
+    if (problem !== null) return fail(res, 400, problem);
+    void readRun(id).then(
+      (run) => (run === null ? fail(res, 404, '그런 주행이 없습니다.') : res.json(run)),
+      (e: unknown) => fail(res, 500, `주행을 읽지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * `POST /api/runs/:id/verdict` — **사람이 내린 판정을 적는다.**
+   *
+   * 본문: `{ "caseId": "TC-102", "verdict": { "kind": "fixed", "why": "..." } }`
+   *       `{ "caseId": "TC-102", "verdict": null }` ← **지운다**(장부에는 남는다)
+   *
+   * ⛔ **판정이 판단인지 여기서 보지 않는다.** 「사유가 30자 미만이면 판단이 아니다」는
+   *    `qa/src/run/contract.ts` 가 아는 일이고, 서버가 그 규칙을 복사하면 두 자리가 갈린다.
+   *    ⇒ 짧은 사유도 **저장되고**(사람이 쓰던 중일 수 있다), 답으로 돌아오는 수는
+   *    도구를 다시 불러 받은 것이다 — 「판단하지 않은 fail」에 그대로 남아 있다.
+   * ⛔ **일괄 갈래가 없다.** caseId 는 하나다. 목록을 보내면 400 이다.
+   * ⛔ **화면이 보낸 「누가」를 믿지 않는다.** 서명은 서버가 아는 것(프로세스 사용자·시계)으로
+   *    적고, 화면이 보낸 이름은 `untrustedClientClaim` 에 증거로만 남는다.
+   * ⚠️ 404 는 **없는 것을 가리켰을 때**다 — 없는 주행 · 그 주행에 없는 케이스.
+   *    없는 케이스에 판정을 달면 **조용히 만들지 않고 거절한다**(만들면 분모 밖에서
+   *    「판정했다」만 남는다).
+   */
+  app.post(`${RUNS_PATH}/:id/verdict`, (req: Request, res: Response) => {
+    const id = String(req.params['id'] ?? '');
+    const idProblem = runIdProblem(id);
+    if (idProblem !== null) return fail(res, 400, idProblem);
+
+    const body: unknown = req.body;
+    const parsed = verdictInputProblem(body);
+    if ('problem' in parsed) return fail(res, 400, parsed.problem);
+
+    /* 화면이 스스로 밝힌 「누가」 — 받아만 두고 서명으로 쓰지 않는다. */
+    const claim = isRecord(body) ? body['by'] : undefined;
+
+    void recordVerdict(id, parsed.caseId, parsed.verdict, claim).then(
+      (result) => {
+        if (result.ok) return res.json(result.run);
+        if (result.kind === 'no-such-run') return fail(res, 404, '그런 주행이 없습니다.');
+        if (result.kind === 'no-such-case') {
+          return res.status(404).json({ error: result.why, knownIds: result.knownIds });
+        }
+        /* 판정을 붙일 칸 자체가 없다 — 요청이 잘못된 게 아니라 **그 주행의 상태**다. */
+        return res.status(409).json({ error: result.why });
+      },
+      (e: unknown) => fail(res, 500, `판정을 적지 못했습니다: ${(e as Error).message}`),
+    );
+  });
 
   return app;
 };
