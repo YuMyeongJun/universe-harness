@@ -29,5 +29,14 @@ node observatory/loop-state.mjs --galaxy whitehole >/tmp/loop3.txt 2>&1
   && say "✅ e2e 를 선언 안 하면 **못 쟀다**(exit 3) — 초록이 아니다" \
   || { say "⛔ 선언이 없는데 ⚪ 가 아니다"; cat /tmp/loop3.txt; fail=1; }
 
+# ④ ⛔ **못 읽는 입력은 ⚪ 다 — 날 스택이 아니다.**
+#    실측: JSON 이 아닌 파일을 주니 `JSON.parse` 가 그대로 터져 **스택만** 남았다(exit 1).
+#    사람은 그 화면에서 아무것도 못 하고, 그건 「끝났는가」의 답도 아니다.
+bad="$(mktemp -d)/notjson.json"; printf '%s\n' '이건 JSON 이 아니다' > "$bad"
+node observatory/loop-state.mjs --galaxy whitehole --report "$bad" >/tmp/loop4.txt 2>&1
+[ "$?" -eq 3 ] && grep -q '리포트를 못 읽었다' /tmp/loop4.txt \
+  && say "✅ 못 읽는 입력은 **⚪ 못 쟀다**로 말한다 (스택을 안 뱉는다)" \
+  || { say "⛔ 못 읽는 입력에 ⚪ 가 아니다"; cat /tmp/loop4.txt; fail=1; }
+
 [ "$fail" -ne 0 ] && { echo; echo "⛔ 「끝났는가」가 세 갈래로 안 갈린다."; exit 1; }
 echo; echo "✅ 끝났다(0) · 남았다(1) · 못 쟀다(3) — 셋 다 닿는다."

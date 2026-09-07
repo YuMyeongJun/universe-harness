@@ -106,7 +106,16 @@ if (!existsSync(report)) {
  *  · 콘솔이 **판정을 붙여 저장한 주행** → 그대로 넘긴다. 「끝났다」는 이쪽에서만 나온다.
  * ⚠️ 이 갈래가 없으면 「끝났다」 갈래는 **닿을 수 없는 코드**가 된다 — 그건 없는 것과 같다.
  */
-const raw = JSON.parse(await readFile(report, 'utf8').catch(() => 'null'));
+/* ⛔ **못 읽는 입력은 ⚪ 다 — 날 스택이 아니다.** 실측: JSON 이 아닌 파일을 주니
+   `JSON.parse` 가 그대로 터져 **스택만** 남았다(exit 1). 사람은 그 화면에서 아무것도 못 한다.
+   ⚠️ 그리고 그건 「끝났는가」의 답이 아니라 **「못 쟀다」**다. */
+let raw = null;
+try {
+  raw = JSON.parse(await readFile(report, 'utf8'));
+} catch (error) {
+  unmeasured(`리포트를 못 읽었다: ${path.relative(process.cwd(), report)}`,
+    `${error.message.split('\n')[0]} — Playwright 의 **JSON 리포터** 결과나 콘솔이 저장한 주행이어야 한다.`);
+}
 const isPlaywright = Boolean(raw && typeof raw === 'object' && Array.isArray(raw.suites) && raw.config);
 console.log(`   입력 — ${isPlaywright ? 'Playwright 리포트(판정은 비어 있다)' : '판정이 붙은 주행'}`);
 
