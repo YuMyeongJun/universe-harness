@@ -20,7 +20,7 @@ import { pathToFileURL } from 'node:url';
 import { requireUniverseHome } from '../lib/home.mjs';
 import { openEngine } from '../lib/engine.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
-import { resolveGalaxyPath } from '../lib/galaxy-load.mjs';
+import { findGalaxyFile, resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 import { cannotStandMessage, missingEnv } from '../lib/required-env.mjs';
 
 /** `--universe <경로>` 를 argv 에서 먼저 꺼낸다(우주의 집을 찾기 전에 필요하다). */
@@ -42,8 +42,10 @@ const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 
 const config = JSON.parse(await fs.readFile(path.join(root, 'universe.config.json'), 'utf8'));
 const gname = flag('--galaxy') ?? config.galaxies[0];
-const g = resolveGalaxyPath(root,
-  JSON.parse(await fs.readFile(path.join(root, 'galaxies', `${gname}.json`), 'utf8')));
+/* ⛔ 좌표 자리는 `findGalaxyFile` 하나가 정한다(로컬 명부 → 커밋본 · R152).
+   자리 찾는 규칙이 여러 곳에 생기면 조용히 갈린다 — R143 이 그것으로 물렸다. */
+const gfile = (await findGalaxyFile(root, gname)) ?? path.join(root, 'galaxies', `${gname}.json`);
+const g = resolveGalaxyPath(root, JSON.parse(await fs.readFile(gfile, 'utf8')));
 
 /* ⛔ **은하가 서는지 먼저 본다**(R149). 도구 사슬이 통째로 안 돌면 게이트는 깨진 채
    빨간불을 내고, 읽는 사람은 자기 코드를 뒤진다. 「여기선 못 잰다」와도 다른 사건이다. */

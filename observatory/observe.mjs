@@ -20,7 +20,7 @@ import { pathToFileURL } from 'node:url';
 
 import { createHash } from 'node:crypto';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
-import { loadGalaxy, saveGalaxy } from '../lib/galaxy-load.mjs';
+import { findGalaxyFile, loadGalaxy, saveGalaxy } from '../lib/galaxy-load.mjs';
 import { openNebulaRows } from '../lib/nebula-close.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -292,7 +292,7 @@ const main = async () => {
   for (const gname of galaxyNames) {
     /* 좌표 파일이 없는 은하는 **실측 대상이 아니다.** config 에 이름만 올라간 상태(영입 전)라
        여기서 죽으면 커버리지 검사까지 같이 죽는다 — 경고만 하고 넘어간다. */
-    const gfile = path.join(root, 'galaxies', `${gname}.json`);
+    const gfile = (await findGalaxyFile(root, gname)) ?? path.join(root, 'galaxies', `${gname}.json`);
     if (!(await fs.stat(gfile).catch(() => null))) {
       console.log(`\n  ⚠️ 은하 ${gname} — 좌표 파일이 없다(${path.relative(root, gfile)}). 실측을 건너뛴다.`);
       if (asked) {

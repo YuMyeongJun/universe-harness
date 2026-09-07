@@ -218,6 +218,16 @@ const CASES = [
     cmd: ['node', ['lib/selftest.mjs']],
   },
   {
+    check: '좌표 감사(coordinates)',
+    bite: '커밋되는 은하의 절대 경로',
+    expect: '절대 경로',
+    file: 'galaxies/tiny-galaxy.json',
+    /* 픽스처의 상대 좌표를 **절대 경로로** 바꾼다 — 그것이 정확히 막아야 하는 모양이다.
+       ⛔ 회사 이름을 심지 않는다. 구조(절대 경로)만으로 물려야 검사가 §9 를 지킨 것이다. */
+    mutate: (t) => t.replace('"path": "fixtures/tiny-galaxy"', '"path": "/Users/someone/fixtures/tiny-galaxy"'),
+    cmd: ['node', ['observatory/verify-coordinates.mjs']],
+  },
+  {
     check: '3차 배선(nebula-wiring)',
     bite: '요구사항 신호가 성공 출구에서 사라진 것',
     expect: '요구사항 신호',

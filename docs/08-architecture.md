@@ -161,6 +161,7 @@ universe/
 │   └── tiny-galaxy/
 ├── forces/  ← 누가 하는가 — 명부만 배달된다
 ├── galaxies/  ← 법칙이 적용되는 저장소의 좌표
+├── galaxies.local/
 ├── laws/  ← 무엇이 옳은가 — 문서가 아니라 관문
 ├── lib/  ← 부품 — 우주의 집 찾기 · 플래그 검사
 ├── log/  ← 라운드마다 무엇을 했고 어떻게 평가했나

@@ -14,3 +14,8 @@ observatory/engine/**/dist
 observatory/.mutation-rescue.json
 observatory/.mutation-lock
 observatory/engine/.build-stamp
+
+# 은하 로컬 명부 — **그 기계에만 있는 좌표**가 사는 곳(R152).
+# ⛔ 커밋되는 `galaxies/` 에는 상대 경로만 둔다. 절대 경로는 남에게 못 쓰는 좌표이고,
+#    공개 저장소에 실려 나가면 남의 홈 경로가 그대로 공개된다(실측: backoffice 가 그랬다).
+galaxies.local/
