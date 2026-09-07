@@ -18,6 +18,8 @@ import { join, resolve } from 'node:path';
 import { frontmatter } from '../lib/frontmatter.mjs';
 
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { GATES } from '../lib/gates.mjs';
+import { dailyCommands, gateCommands } from '../lib/commands.mjs';
 import { openEngine } from '../lib/engine.mjs';
 import { requireUniverseSource } from '../lib/home.mjs';
 
@@ -28,7 +30,7 @@ const ROOT = resolve(new URL('..', import.meta.url).pathname);
 /* 배달본에서 직접 부르면 사유를 대고 죽는다 — 생 스택트레이스 대신(R91). */
 await requireUniverseSource(ROOT, 'universe facts');
 /* ⚠️ README 의 상태 절도 **여덟 판 동안 낡아 있었다**(R84) — 가장 먼저 읽히는 자리다. */
-const DOCS = [join(ROOT, 'docs/04-results.md'), join(ROOT, 'README.md')];
+const DOCS = [join(ROOT, 'docs/04-results.md'), join(ROOT, 'README.md'), join(ROOT, 'docs/README.md'), join(ROOT, 'docs/02-usage.md')];
 const BEGIN = '<!-- FACTS:BEGIN -->';
 const END = '<!-- FACTS:END -->';
 
@@ -53,6 +55,18 @@ const body = [
   `| ↳ 법칙이 덮은 것 | ${rules.length - orphans.length} |`,
   `| ↳ 성운이 든 것(주인 없는 규칙) | ${orphans.length} |`,
   `| 등록된 은하 | ${config.galaxies.length} |`,
+  /**
+   * ⛔ **관문 수와 명령 수도 생성한다** — 둘 다 손으로 적혀 있다가 낡았다.
+   *   · `docs/04-results.md` 가 「관문은 **지금** 25개」라 했는데 26개였다.
+   *   · `docs/README.md` 가 「명령 **여섯 개**」라 했는데 32개였다 —
+   *     ⚠️ `docs/02-usage.md` 는 **자기 머리말에서 똑같은 일을 겪었다고 적어 두고도**
+   *        옆 문서의 같은 문장은 그대로였다(R53). 손 목록은 한 자리만 고쳐진다.
+   * ⇒ 「지금 상태다」라고 **주장하는 수치**는 전부 이 블록으로 들어온다.
+   */
+  `| 관문(\`universe check\`) | ${GATES.length} |`,
+  `| 명령 | ${dailyCommands().length + gateCommands().length} |`,
+  `| ↳ 사람이 치는 것 | ${dailyCommands().length} |`,
+  `| ↳ 관문이 알아서 부르는 것 | ${gateCommands().length} |`,
   `| 판 | ${config.version} |`,
 ].join('\n');
 

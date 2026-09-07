@@ -30,12 +30,20 @@ description: 우주에 무언가를 더할 때 지켜야 할 것 — 법칙·별
 **먼저 커밋 관문을 켜라.** 한 번만 하면 된다.
 
 ```bash
-node bin/universe.mjs hooks --install     # git config core.hooksPath .githooks
+npm link                                  # `universe` 를 잇는다 (한 번만 · 되돌리기: npm rm -g universe)
+universe hooks --install                  # git config core.hooksPath .githooks
 ```
 
-커밋마다 약 1.5초 동안 빠른 것만 본다 — 우주 형식 · 문서 링크 · 엔진 계약 규칙 ·
+⛔ `npm link` 를 안 하면 `universe` 는 **없는 명령**이다 — 그때는 아래의 `universe X` 를
+`node bin/universe.mjs X` 로 바꿔 친다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).
+
+커밋마다 빠른 것만 본다 — 우주 형식 · 문서 링크 · 부품 시험 · 엔진 계약 규칙 ·
 행동 계약 보호. 급할 때 `git commit --no-verify` 로 건너뛸 수 있지만 `round close` 가
 다시 문다.
+
+⛔ **여기 시간을 적지 않는다(R123).** 「약 1.5초」라고 적혀 있었는데 실측은 2.8초였고
+지금은 3.6초다 — **훅이 끝날 때 자기 시간을 스스로 찍는다.** 적으면 또 낡는다.
+(`lib/delivered.mjs` 가 같은 규율을 적어 뒀는데 **이 자리는 놓쳐 있었다** — 손 목록은 한 자리만 고쳐진다.)
 
 ⚠️ **왜 커밋 시점인가**: 관문이 `round close` 에만 있던 때, `a11y/img-alt` 의 패턴에
 `NEVERMATCH` 가 커밋돼 **그 규칙이 아무것도 잡지 못하는 상태로 HEAD 에 있었다.**
@@ -45,7 +53,7 @@ node bin/universe.mjs hooks --install     # git config core.hooksPath .githooks
 
 ```bash
 cd observatory/engine && npm install && npm run build && cd ../..   # 엔진이 없으면 절반을 못 잰다
-node bin/universe.mjs check                                          # 관문 **전부**
+universe check                                          # 관문 **전부**
 ```
 
 ⛔ **관문을 여기 나열하지 않는다.** 예전엔 다섯 개를 손으로 적어 뒀는데
@@ -92,7 +100,7 @@ node observatory/observe.mjs > /tmp/out.log 2>&1; echo "exit=$?"
 고친 뒤 실제로 하나 태워 보고 관문을 돌려라:
 
 ```bash
-node bin/universe.mjs new <은하> <태양계> <별> > /tmp/new.log 2>&1; echo "exit=$?"
+universe new <은하> <태양계> <별> > /tmp/new.log 2>&1; echo "exit=$?"
 ```
 
 ## 4. 스테이지를 더할 때 (에이전트가 풀 결함)
@@ -149,10 +157,10 @@ node bin/universe.mjs new <은하> <태양계> <별> > /tmp/new.log 2>&1; echo "
 큰 변경은 라운드로 감싼다.
 
 ```bash
-node bin/universe.mjs round new "무엇을 할 것인가"
+universe round new "무엇을 할 것인가"
 # … 작업 …
-node bin/universe.mjs round close     # 평가표 검증 + 최고 판정이 아닌 축을 성운으로 승격
-node bin/universe.mjs round audit     # 로그(정본)와 성운(파생)이 어긋나지 않는가
+universe round close     # 평가표 검증 + 최고 판정이 아닌 축을 성운으로 승격
+universe round audit     # 로그(정본)와 성운(파생)이 어긋나지 않는가
 ```
 
 평가표에는 **판정마다 근거**가 있어야 한다. 근거 없는 칸, 빈 판정, 여러 축을 뭉갠

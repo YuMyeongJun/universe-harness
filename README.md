@@ -10,6 +10,37 @@ description: 빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스.
 
 > **빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스.**
 
+## 시작하기
+
+```bash
+git clone https://github.com/YuMyeongJun/universe-harness.git
+cd universe-harness && npm link      # `universe` 명령을 잇는다 (되돌리기: npm rm -g universe)
+universe                             # 무엇을 할지 **고르면서** 쓴다
+```
+
+⛔ **`npx universe` 를 치지 마라.** npm 의 `universe` 는 **남의 패키지**다
+(crossfilter/universe — 데이터셋 탐색 도구). 이 우주는 npm 에 배포되지 않았다.
+
+**외울 필요 없다.** 인자 없이 `universe` 를 치면 사람이 치는 명령만 보여 주고, 고른 것에
+**필요한 것만** 묻고, **만들어진 명령줄을 찍고 나서** 실행한다:
+
+```
+$ universe new tiny-galaxy shop DashboardToday --expand
+이대로 실행할까? [y/N]:
+```
+
+다음엔 메뉴를 안 거치게 되는 것이 성공이다 — **화면이 목적이 아니라 입구다.**
+⛔ 그리고 화면은 **관문을 못 끈다.** 「무시하고 계속」 갈래가 없다.
+
+`npm link` 를 안 해도 전부 그대로 쓴다 — `universe X` 를 `node <저장소>/bin/universe.mjs X`
+로 바꿔 치면 된다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).
+
+당신의 저장소에 깔려면 → [docs/01-quick-start.md](docs/01-quick-start.md)
+
+⚠️ **모델이 없어도 대부분 돈다.** 별을 낳는 것(1차)도, 게이트까지 돌려 빨간 축을 스스로
+고치는 것(2차)도 결정론 규칙과 정적 레인만 쓴다 — 구독도 API 키도 필요 없다.
+모델이 필요한 것은 **3차(요구사항 한 줄 → 도는 화면)뿐**이고, 그것도 누가 답하는지는 사람이 고른다.
+
 ## 왜 정원이 아닌가
 
 앞선 하네스들(카카시 하네스 · Blumn Enterprise Harness)은 **정원**이다 — 햇빛·꽃·물길로
@@ -70,6 +101,10 @@ Blumn Enterprise Harness 의 「정원 헌법」에서 가져온 가장 중요�
 | ↳ 법칙이 덮은 것 | 20 |
 | ↳ 성운이 든 것(주인 없는 규칙) | 0 |
 | 등록된 은하 | 3 |
+| 관문(`universe check`) | 26 |
+| 명령 | 32 |
+| ↳ 사람이 치는 것 | 10 |
+| ↳ 관문이 알아서 부르는 것 | 22 |
 | 판 | 0.9.0 |
 <!-- FACTS:END -->
 
