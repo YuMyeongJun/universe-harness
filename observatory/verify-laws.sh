@@ -31,8 +31,33 @@ NODE_MODULES='*/node_modules/*'
 # ⚠️ 픽스처는 **시험 자산이지 별이 아니다.** 스테이지를 돌리려면 은하가 필요한데,
 #    실제 저장소를 쓰지 않으려면 저장소 안에 시험용 은하를 둘 수밖에 없다.
 #    보존 법칙의 「자산 vs 산출물」 구분이 여기까지 미친다 — 대신 배달되지 않는다(package.json files).
-FIXTURES='./fixtures/*'
-NOT_ASSET=( -not -path "$GENERATED" -not -path "$VENDORED" -not -path "$NODE_MODULES" -not -path './node_modules/*' -not -path "$FIXTURES" )
+# ⛔⛔ **은하의 집은 좌표에서 읽는다 — 손으로 적지 않는다.**
+#
+# 여기 `./fixtures/*` 라고 **손으로 적혀 있었다.** 그래서 우주 안에 은하를 하나 더
+# 벤더링하자(`app/universe` — 콘솔) 보존 법칙이 그 별들을 「우주 안에 별이 섞였다」로
+# 잡았다. ⚠️ 그때 사람이 배우는 것은 **예외를 하나 더 적는 법**이다.
+# ⛔ §9 가 네 번 잡은 형태다 — **사람이 정한 이름을 열거하면 그 밖은 안 보인다.**
+# ⇒ 등록된 은하 좌표(`galaxies/*.json` 의 `path`)가 곧 은하의 집이다. 법은 약해지지 않는다 —
+#   오히려 **「등록도 안 한 은하를 우주 안에 뒀다」가 이제 잡힌다.**
+# ⚠️ 같은 규칙이 `lib/selftest.mjs` 에도 있다. **두 자리에 있는 것을 알고 둔다** —
+#   집행자가 둘(bash·node)이라 합칠 수가 없다. 한쪽만 고치면 다른 쪽이 문다(실제로 그랬다).
+GALAXY_HOMES=()
+while IFS= read -r home; do
+  [ -n "$home" ] && GALAXY_HOMES+=( -not -path "./$home/*" )
+done < <(node -e '
+  const fs = require("node:fs");
+  for (const f of fs.readdirSync("galaxies").filter((x) => x.endsWith(".json"))) {
+    try {
+      const p = JSON.parse(fs.readFileSync(`galaxies/${f}`, "utf8")).path;
+      if (typeof p === "string" && p && !p.startsWith("/")) { console.log(p); }
+    } catch { /* 못 읽는 좌표는 건너뛴다 — 좌표 감사가 따로 문다 */ }
+  }' 2>/dev/null)
+# ⚠️ **가져온 도구** — `qa/`(TC 관문·린터)는 `qa-harness` 에서 흡수한 것이다.
+#    `observatory/engine` 과 같은 성질이라 우주의 문서 법칙(중력·frontmatter)을 걸지 않는다.
+#    ⛔ 특히 `qa/tests/fixtures/*.md` 는 **일부러 어긋나게 쓴 린터 입력**이다 —
+#       거기에 frontmatter 를 붙이면 그 시험이 재던 것이 사라진다.
+ABSORBED='./qa/*'
+NOT_ASSET=( -not -path "$GENERATED" -not -path "$VENDORED" -not -path "$NODE_MODULES" -not -path './node_modules/*' -not -path "$ABSORBED" ${GALAXY_HOMES[@]+"${GALAXY_HOMES[@]}"} )
 
 say() { printf '%s\n' "$1"; }
 bad() { printf '  ❌ %s\n' "$1"; fail=1; }

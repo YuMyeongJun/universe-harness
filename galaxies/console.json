@@ -1,0 +1,31 @@
+{
+  "name": "console",
+  "description": "우주 콘솔 — 사람이 화면을 보고 판정하는 자리. qa-harness 에서 흡수했다(원래 이름: 지식 실측 콘솔)",
+  "path": "app/universe",
+  "appWorkspace": "",
+  "appDir": "web",
+  "//laws": "form 은 opt-in 이다 — 팀의 합의가 있을 때만 켠다.",
+  "laws": [
+    "tokens",
+    "semantics",
+    "naming",
+    "flatness",
+    "cohesion"
+  ],
+  "commands": {
+    "typecheck": "cd .. && npm run typecheck",
+    "build": "cd .. && npm run build:server",
+    "//없는 명령": "⛔ lint · test 스크립트가 이 은하에 **없다** — 지어내지 않았다. 그 축은 ⚪ 「못 쟀다」로 남는다(§8)."
+  },
+  "//thresholds": "⛔ 아직 안 쟀다 — 빌드해서 초기 로드를 재기 전에는 적을 수 없다. 지어내면 그 순간부터 거짓이다.",
+  "thresholds": {},
+  "//solarSystems": "화면이 사는 곳만 태양계다 — 서버(`server/src`)는 별이 아니라 그 은하의 기계다.",
+  "solarSystems": [
+    {
+      "name": "console",
+      "description": "우주 콘솔의 화면 — 라우트 하나가 별 하나다",
+      "srcDir": "src/routes"
+    }
+  ],
+  "//appDir": "⚠️ 앱은 `web/` 다 — 뿌리에 `src/` 가 없어서 `appDir: \".\"` 로 두면 훑개가 **0개를 본다.** 실측으로 그랬다(files: 0 인데 「0건」이 기준선으로 심겼다)."
+}

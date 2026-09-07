@@ -19,3 +19,37 @@ observatory/engine/.build-stamp
 # ⛔ 커밋되는 `galaxies/` 에는 상대 경로만 둔다. 절대 경로는 남에게 못 쓰는 좌표이고,
 #    공개 저장소에 실려 나가면 남의 홈 경로가 그대로 공개된다(실측: backoffice 가 그랬다).
 galaxies.local/
+
+# ── 우주 안에 벤더링된 것 — 각자 자기 의존성을 갖는다(뿌리는 여전히 0) ──────────
+# ⛔ `app/universe`(콘솔)와 `qa/`(TC 관문)는 우주가 **재는 대상**이지 우주의 소스가 아니다.
+#    그래서 산출물은 커밋하지 않는다 — 커밋되면 워킹트리가 늘 더러워 게이트가 판정을 못 낸다.
+app/*/node_modules/
+app/*/dist/
+qa/node_modules/
+qa/dist/
+# ⛔ 티켓 본문에 계정 정보가 섞일 수 있다 — 원 저장소가 같은 이유로 무시하고 있었다.
+qa/tickets/
+
+# ⛔⛔ **Playwright 산출물 — 세션 쿠키·스크린샷·네트워크 헤더가 들어간다.**
+#   `.auth/storageState.json` 은 계정 정보가 아니라 **로그인된 세션 그 자체**다. 콘솔은
+#   브라우저를 headed 로 띄워 **사람이 직접 로그인**하므로 진짜 세션이 거기 떨어진다.
+#   트레이스(`*.zip`)에는 스크린샷과 네트워크 헤더가 통째로 들어간다.
+# ⚠️ 이 규칙들은 원 저장소(qa-harness)의 **루트** .gitignore 에 있었는데 이관에 안 따라왔다.
+#   ⇒ **옮겨진 파일은 세는데 옮겨지지 않은 「방어」는 아무도 안 센다.** 그리고 그 부재는
+#      **파일이 생기기 전까지 조용하다** — 지금 트리가 깨끗한 것은 막고 있다는 증거가 아니다.
+app/*/.auth/
+app/*/test-results/
+app/*/playwright-report/
+app/*/blob-report/
+app/*/*.zip
+qa/.auth/
+qa/test-results/
+qa/playwright-report/
+qa/blob-report/
+qa/*.zip
+
+# ⛔ 이 저장소는 **공개**다 — `.env` 가 뿌리에서도 안 막히고 있었다.
+.env
+.env.local
+**/.env
+**/.env.local

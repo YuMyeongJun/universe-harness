@@ -159,7 +159,21 @@ if (!test) { missing.push('test'); }
 const draft = {
   name,
   description: firstFilled(pkg.description, TODO('한 줄 설명을 적어라')),
-  path: repo,
+  /**
+   * ⛔ **우주 안에 있는 은하면 상대 경로를 쓴다.**
+   *
+   * ⚠️ 실측: 우주 저장소 안(`app/universe`)을 겨눠 좌표를 만들었더니 **절대 경로**가 나왔고,
+   * 그것을 커밋되는 `galaxies/` 에 쓰면 **좌표 감사가 바로 거부한다** —
+   * 「그 기계에만 있는 좌표 1건. 공개 저장소에 남의 자리가 실려 나간다.」
+   * ⇒ **도구가 자기 관문이 거부하는 것을 생성하고 있었다.** 그러면 사람은 손으로 고치는
+   *    법부터 배우고, 손으로 고친 것은 다음 번에 또 어긋난다.
+   *
+   * ⛔ 밖에 있는 은하는 **절대 경로 그대로 둔다.** 상대로 바꾸면 `../../..` 가 되어
+   *    남의 기계에서 못 쓰는 것은 마찬가지인데 **읽기만 더 어려워진다**(그건 `galaxies.local/` 몫이다).
+   */
+  path: (home && (repo === home || repo.startsWith(`${home}${path.sep}`)))
+    ? path.relative(home, repo) || '.'
+    : repo,
   ...(workspaces.length > 0
     ? { '//워크스페이스 후보': workspaces.map((w) => `${w.name} (${w.dir}) — ${w.declared.join(' · ') || '선언된 명령 없음'}`) }
     : {}),

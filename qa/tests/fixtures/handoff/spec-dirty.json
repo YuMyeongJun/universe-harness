@@ -1,0 +1,24 @@
+{
+  "title": "관문 회귀 표본 · 위반",
+  "path": "sample/01. TC 작성",
+  "project": { "name_ko": "위반 표본", "name_en": "Violation Sample", "code": "VS" },
+  "components": [
+    { "tab": "컴포넌트1", "desc": "",
+      "rows": [
+        { "major": "업무", "middle": "목록 화면", "minor": "목록", "no": "1.1",
+          "precondition": "1. 브라우저 실행됨",
+          "content": "1. 목록이 정상적으로 보이는지 확인한다", "expected": "2.1 목록이 노출된다",
+          "result": "Pass" },
+        { "major": "업무", "middle": "목록 화면", "minor": "목록",
+          "precondition": "",
+          "content": "", "expected": "1.2 검색 필드 노출 됨",
+          "result": "Incomplete" },
+        { "major": "_common", "middle": "로그인", "minor": "",
+          "content": "3. 저장 버튼을 선택", "expected": "3.1 토스트 노출 되며, 레이어 닫히며, 값 유지 됨",
+          "result": "Incomplete" },
+        { "major": "업 무", "middle": "목록 화면", "minor": "목록",
+          "content": "4. 목록 확인", "expected": "4.1 목록 노출",
+          "result": "Incomplete" }
+      ] }
+  ]
+}
