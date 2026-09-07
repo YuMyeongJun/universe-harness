@@ -34,6 +34,26 @@
 `exit 3` 은 실패도 통과도 아니다. 대상 파일이 0개이거나 spec 을 받지 못한 경우다.
 **0개는 "위반 없음"이 아니라 검사가 아무것도 안 본 것이다.**
 
+## 다른 저장소에서 부르기 (제로 런타임 의존)
+
+`dist/` 는 **커밋되지 않는다**(빌드 산출물). 클론한 뒤 한 번 빌드하면 `node` 로 바로 돈다 —
+`tsx` 도 다른 런타임 의존도 필요 없다.
+
+```bash
+git clone https://github.com/YuMyeongJun/qa-harness.git
+cd qa-harness && npm ci && npm run build
+```
+
+그 뒤 **형제 폴더 상대경로**로 부른다. 두 저장소를 같은 부모 폴더 아래 클론하는 것이 규약이다:
+
+```bash
+node ../qa-harness/dist/lint/cli.js --format sheet <스펙.json>
+node ../qa-harness/dist/lint/cli.js --format sheet --features-dir <지식폴더> <스펙.json>
+```
+
+⚠️ **절대경로를 호출하는 쪽에 박지 마라.** 팀원마다 홈 디렉토리가 다르고 Windows 가 섞인다.
+⚠️ 폴더 이름은 **저장소 이름(`qa-harness`)** 이다. 클론하면 그 이름이 된다.
+
 ## 구성
 
 ```
