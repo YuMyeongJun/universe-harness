@@ -170,10 +170,10 @@ describe('회귀 — 실사용에서 나온 버그', () => {
   it('NFD 폴더 이름을 NFC 스펙 값과 맞춘다 (macOS)', () => {
     // macOS 파일시스템은 한글을 NFD 로 돌려준다. 눈에는 같아 보여도 JS 문자열로는 다른 값이라
     // 정규화 없이는 **정상 대분류가 100% 오탐**이 된다 (실측: 지식 폴더 10개 중 7개가 NFD).
-    const nfd = '채팅'.normalize('NFD');
-    expect(nfd).not.toBe('채팅'); // 전제 확인 — 두 형식이 실제로 다르다
+    const nfd = '공지'.normalize('NFD');
+    expect(nfd).not.toBe('공지'); // 전제 확인 — 두 형식이 실제로 다르다
     const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
-    for (const row of spec.components[0].rows) row.major = '채팅';
+    for (const row of spec.components[0].rows) row.major = '공지';
     const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)), {
       majorDictionary: [nfd, '설정'.normalize('NFD')],
     });
@@ -181,9 +181,9 @@ describe('회귀 — 실사용에서 나온 버그', () => {
   });
 
   it('NFD 로 적힌 스펙 값도 길이 상한을 정확히 잰다', () => {
-    // `상담관리` 는 NFC 4자 / NFD 11자다. 정규화하지 않으면 대분류 상한(10)에 헛걸린다.
+    // `목록관리` 는 NFC 4자 / NFD 11자다. 정규화하지 않으면 대분류 상한(10)에 헛걸린다.
     const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
-    for (const row of spec.components[0].rows) row.major = '상담관리'.normalize('NFD');
+    for (const row of spec.components[0].rows) row.major = '목록관리'.normalize('NFD');
     const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)));
     expect(findings.filter((f) => f.rule === 'G5-category-form' && f.severity === 'error')).toEqual([]);
   });
