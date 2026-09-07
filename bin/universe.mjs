@@ -58,6 +58,9 @@ const SUBCOMMANDS = {
   laws: 'observatory/verify-laws.sh',
   links: 'observatory/verify-links.mjs',
   checks: 'observatory/verify-checks.mjs',
+  /* **손으로 거는 변이의 틀** — 「물었다」와 「사고로 죽었다」를 가른다.
+     ⛔ 종료코드로는 구별이 안 된다: 겨냥이 빗나가도, 파일이 깨져도, 남이 대신 죽어도 exit≠0 이다. */
+  mutate: 'observatory/mutate.mjs',
   beacon: 'observatory/verify-beacon.mjs',
   wiki: 'observatory/verify-wiki.mjs',
   structure: 'observatory/render-structure.mjs',

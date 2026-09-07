@@ -237,6 +237,20 @@ const CASES = [
     cmd: ['node', ['observatory/verify-qa.mjs']],
   },
   {
+    check: '손 변이 틀(mutate)',
+    bite: '「사고로 죽은 것」을 「물었다」로 셈',
+    expect: '사유불일치',
+    file: 'observatory/mutate.mjs',
+    /**
+     * ⛔⛔ **이 틀이 존재하는 이유 그 자체를 변이시킨다.**
+     * 판정을 **거부 사유**가 아니라 **종료코드**로 하게 만들면, 「겨냥이 빗나가 남이 대신 죽은 것」과
+     * 「내 검사가 문 것」이 **같은 초록**이 된다 — 이 세션에서만 네 번 밟은 자리다.
+     * ⚠️ 자기 시험의 「사유불일치」 갈래가 그때 **✅ 물었다**로 떨어지므로 그 줄이 빨개진다.
+     */
+    mutate: (t) => t.replace('if (!out.text.includes(expect)) {', 'if (false) {'),
+    cmd: ['node', ['observatory/mutate.mjs', '--self-test']],
+  },
+  {
     check: '주소로 받아 오는가(clone)',
     bite: '자격이 박힌 주소를 그대로 받아들임',
     expect: '자격이 박힌 주소',
