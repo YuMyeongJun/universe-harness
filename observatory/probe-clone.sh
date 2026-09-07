@@ -68,4 +68,69 @@ if [ "$fail" -ne 0 ]; then
   echo; echo "⛔ 사람의 계획 첫 칸(주소를 넣는다)이 거짓이다."
   exit 1
 fi
-echo; echo "✅ 주소 → 받기 → 좌표 초안. 그리고 토큰은 보지도 않는다."
+# ── 다섯째: **들이기까지 이어지는가** (`universe adopt`) ─────────────────────
+#
+# ⛔ 도구가 스스로 경고하던 자리다: 「목록에 이름을 안 올리면 관측이 **아무것도 안 재고 초록불**」.
+#    그 경고를 사람 손에 맡기고 있었다 — 손으로 두 자리를 고치는 일이고, 한 자리만 고치면 그 사고다.
+# ⛔ 우주의 진짜 `universe.config.json` 을 건드리지 않는다. **복사본 우주**를 만들어 거기서 잰다.
+home="$work/home"
+mkdir -p "$home/galaxies" "$home/galaxies.local"
+cp universe.config.json "$home/universe.config.json"
+node -e '
+const fs = require("node:fs");
+const c = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+c.galaxies = [];
+fs.writeFileSync(process.argv[1], `${JSON.stringify(c, null, 2)}\n`);
+' "$home/universe.config.json"
+
+# ① TODO 가 남았으면 **들이지 않는다**
+if node bin/adopt.mjs "$got/universe-galaxy.json" --universe "$home" >"$work/o5.txt" 2>&1; then
+  say "⛔ **TODO 가 남은 초안을 들였다** — 관문이 엉뚱한 것을 재게 된다"; fail=1
+else
+  grep -q '사람이 채울 자리가' "$work/o5.txt" \
+    && say "✅ TODO 가 남은 초안은 안 들인다" \
+    || { say "⛔ 거절 이유가 다르다"; cat "$work/o5.txt"; fail=1; }
+fi
+
+# ② 채우면 **좌표를 두고 목록에 올린다** — 두 자리가 같이 움직여야 한다
+node -e '
+const fs = require("node:fs");
+const p = process.argv[1];
+const fill = (o) => (typeof o === "string" ? (o.startsWith("TODO:") ? "채웠다" : o)
+  : Array.isArray(o) ? o.map(fill)
+  : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, fill(v)])) : o);
+const d = fill(JSON.parse(fs.readFileSync(p, "utf8")));
+d.solarSystems = [{ name: "pages", description: "화면", srcDir: "src/pages" }];
+fs.writeFileSync(p, JSON.stringify(d, null, 2));
+' "$got/universe-galaxy.json"
+
+if node bin/adopt.mjs "$got/universe-galaxy.json" --universe "$home" >"$work/o6.txt" 2>&1; then
+  listed=$(node -e 'process.stdout.write(String(JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).galaxies.includes("probeapp")))' "$home/universe.config.json")
+  if [ -f "$home/galaxies.local/probeapp.json" ] && [ "$listed" = "true" ]; then
+    say "✅ 좌표를 두고 **목록에도 올린다** (한 자리만 고쳐지면 그게 R121 의 사고다)"
+  else
+    say "⛔ 좌표와 목록이 **같이 안 움직였다** — 좌표 $( [ -f "$home/galaxies.local/probeapp.json" ] && echo 있음 || echo 없음) · 목록 $listed"; fail=1
+  fi
+else
+  cat "$work/o6.txt"; say "⛔ 채운 초안을 못 들였다"; fail=1
+fi
+
+# ③ ⛔ **커밋되는 자리에 쓰지 않는가** — 절대 경로가 든 좌표는 그 기계의 것이다
+[ -f "$home/galaxies/probeapp.json" ] \
+  && { say "⛔ **커밋되는 galaxies/ 에 썼다** — 좌표 감사가 무는 자리다"; fail=1; } \
+  || say "✅ 커밋되는 galaxies/ 에는 안 쓴다"
+
+# ④ ⛔ **덮어쓰지 않는가**
+if node bin/adopt.mjs "$got/universe-galaxy.json" --universe "$home" >"$work/o7.txt" 2>&1; then
+  say "⛔ **이미 있는 은하를 덮어썼다**"; fail=1
+else
+  grep -q '이미 있는 은하다' "$work/o7.txt" \
+    && say "✅ 이미 있는 은하는 안 덮어쓴다" \
+    || { say "⛔ 거절 이유가 다르다"; cat "$work/o7.txt"; fail=1; }
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo; echo "⛔ 사람의 계획 첫 칸(주소를 넣는다)이 거짓이다."
+  exit 1
+fi
+echo; echo "✅ 주소 → 받기 → 좌표 초안 → 들이기. 그리고 토큰은 보지도 않는다."

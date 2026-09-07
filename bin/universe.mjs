@@ -52,6 +52,9 @@ const SUBCOMMANDS = {
   /* **주소 하나로 받아 와 좌표 초안까지.** ⛔ 토큰을 인자로 안 받는다 — 셸 히스토리와
      프로세스 목록에 남고, 이 저장소는 공개 MIT 다. 자격은 그 기계의 git 이 아는 것을 쓴다. */
   clone: 'bin/clone.mjs',
+  /* 채운 초안을 **은하로 들인다**(좌표 두기 + 목록 올리기). ⛔ 한 자리만 고쳐지면
+     관측이 아무것도 안 재고 초록불을 낸다(R121) — 도구가 그 경고를 하고 사람에게 맡기고 있었다. */
+  adopt: 'bin/adopt.mjs',
   round: 'bin/round.mjs',
   observe: 'observatory/observe.mjs',
   verify: 'observatory/verify.mjs',
