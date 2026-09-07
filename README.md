@@ -54,9 +54,9 @@ tests/                   변이 시험 (검사가 죽어 있는지 확인하는 
 ## 참고
 
 - `universe-harness` — ⚪ "못 쟀다" 규율, 계약 우선 장치 (github.com/YuMyeongJun/universe-harness)
-- `harness-01` (whitehole-front) — Playwright 거짓 통과 4종 실측
+- `harness-01` — Playwright 거짓 통과 4종 실측
 - `catalog-ppt-tc-case` — TC 150건 작성 경험, 분해 기준
-- `qa-workflow` (QA_WorkFlow v2) — 16컬럼 시트 규격 G0~G7, 실행 오케스트레이션. 시트 어댑터가 그쪽 규격을 기계로 내린 것이다
+- `qa-workflow` — 16컬럼 시트 규격 G0~G7, 실행 오케스트레이션. 시트 어댑터가 그 규격을 기계로 내린 것이다
 
 ## 시트 어댑터 (`--format sheet`)
 

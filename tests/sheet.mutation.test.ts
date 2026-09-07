@@ -95,7 +95,7 @@ describe('액션 그룹', () => {
   it('연속한 동일 테스트항목을 한 그룹으로 묶는다', () => {
     const sheet = parseSheetSpec('good.json', readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
     const groups = sheet.components[0]?.groups ?? [];
-    // 1. 상담 목록 영역 확인 ×2 / 2. 저장 버튼 선택 ×1 / 1. 알림 토글 ×1
+    // 1. 게시글 목록 영역 확인 ×2 / 2. 저장 버튼 선택 ×1 / 1. 알림 토글 ×1
     expect(groups.map((g) => g.rowIndexes.length)).toEqual([2, 1, 1]);
   });
 });
