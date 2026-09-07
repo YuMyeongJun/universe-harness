@@ -49,6 +49,7 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { EXIT_UNMEASURED } from '../lib/gates.mjs';
 import { wikiRemoteOf } from '../lib/wiki-remote.mjs';
 
 const run = promisify(execFile);
@@ -136,10 +137,23 @@ for (const file of localFiles) {
   console.log(`     위키  : ${(bLines[firstDiff] ?? '(없음)').slice(0, 90)}`);
 }
 
-/* 관측 법칙 §8 — 한 장도 못 받았으면 「같다」가 아니라 「못 쟀다」이다. */
+/**
+ * 관측 법칙 §8 — 한 장도 못 받았으면 「같다」가 아니라 「못 쟀다」이다.
+ *
+ * ⛔⛔ **종료코드도 그렇게 말해야 한다.** 예전엔 이 자리가 **1** 이었다 — 그런데 1 은
+ * 이 우주에서 **「어긋난 곳이 있다」**의 코드다. 「본문을 못 받았다」와 「본문이 다르다」가
+ * **종료코드로 구별되지 않았다.** 화면은 옳게 말하는데 **기계는 틀리게 말한 것**이다.
+ * ⚠️ 옆 저장소 세션이 자기 검사기 둘에서 같은 충돌을 찾아(입력 없음 → 「한도 초과」와 같은 코드)
+ * 규약에 맞춰 옮겼다는 말을 듣고, 여기서도 셌다.
+ *
+ * ⚠️ 가르는 기준을 적어 둔다(아홉 자리를 다 읽고 정했다):
+ *   · **입력이 안 왔다 · 환경이 없다** → ⚪ **못 쟀다**(3). 도구는 멀쩡하다.
+ *   · **훑개가 고장 났다 · 배분표를 못 읽었다** → ❌(1). 도구가 낡은 것이라 **고쳐야 한다.**
+ */
 if (missing === localFiles.length) {
-  console.error('\n⛔ 본문을 한 장도 못 받았다 — 통과가 아니라 **아무것도 못 잰 것**이다.');
-  process.exit(1);
+  console.error('\n⚪ **못 쟀다** — 본문을 한 장도 못 받았다. 통과가 아니라 **아무것도 못 잰 것**이다.');
+  console.error('   본문을 받아다 주고 다시 불러라 — 이 도구는 위키를 스스로 못 읽는다.');
+  process.exit(EXIT_UNMEASURED);
 }
 if (differing > 0) {
   console.error(`\n⛔ 위키가 손으로 고쳐진 장 ${differing}개. 저장소를 고치고 다시 발행하라 — 위키가 정본이 아니다.`);

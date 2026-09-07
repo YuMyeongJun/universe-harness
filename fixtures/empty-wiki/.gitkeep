@@ -1,0 +1,4 @@
+⛔ 일부러 **비어 있는 위키 본문 폴더**다. 「본문을 한 장도 못 받았다」 갈래(⚪ 3)가 닿는지 재려고 둔다.
+⚠️ `.md` 를 두면 우주 형식 검사가 **frontmatter 를 요구한다**(실측으로 걸렸다) — 그 검사가 옳다.
+   그래서 이 자리는 마크다운이 아니어야 한다.
+   재는 법: node observatory/verify-wiki.mjs fixtures/empty-wiki   → exit 3

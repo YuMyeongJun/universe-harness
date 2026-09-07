@@ -195,6 +195,7 @@ universe/
 ├── examples/
 ├── fixtures/  ← 시험용 은하 — 배달되지 않는다
 │   ├── agent-scripts/
+│   ├── empty-wiki/
 │   ├── loop/
 │   ├── messy-galaxy/
 │   ├── probe/
