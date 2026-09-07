@@ -353,6 +353,7 @@ universe round audit     # 로그(정본)와 성운(파생)이 어긋나지 않�
 | `universe enumeration` | 규칙이 **사람이 정한 이름**을 열거하는가 | 열거 밖은 영영 안 보인다(관측 법칙 §9) |
 | `universe fix` | 규칙이 **무엇을 하라**고 말하는가 | 처방 없는 관문은 무시하는 법부터 가르친다(R35) |
 | `universe learn [--check]` | 궤적이 낸 후보를 **판단했는가** · 고친 것이 **재발했는가** | 궤적에만 남은 관측은 실행되지 않는다(R48·R49) |
+| `universe extract` | **성공** 궤적에서 지식 카드를 뽑는다 — 학습 고리의 **돌아오는 절반**(R155). ⛔ 기본은 **모델을 안 부른다**(무엇이 될지만 보여 준다) | 실패는 성운으로 가는 길이 있었는데(`learn`) **성공은 갈 곳이 없었다** — 엔진에 코드가 있는데 아무도 안 불렀다 |
 | `universe messy [--check]` | **일부러 더러운 은하**가 규칙 표와 맞는가 | 깨끗한 은하만으로는 재는 장치가 도는지 모른다(R37) |
 | `universe facts [--check]` | 문서의 **「지금 상태」 수치**를 생성한다 | 수치를 손으로 적었다가 여섯 번 낡았다(R55) |
 | `universe structure [--check]` | 폴더 그림이 낡았는가 | 생성된 그림은 낡을 수 없지만 폴더는 바뀐다 |
@@ -399,9 +400,14 @@ universe round audit     # 로그(정본)와 성운(파생)이 어긋나지 않�
 | `universe round close` | (frontmatter `closes:`) | 로그에 `closes: R89 변경 정직성 -> R95` 를 적으면 **성운 줄에 줄을 긋는다.** 못 찾으면 거부한다 — 「닫았다」고 적고 아무것도 안 닫히는 것을 막는다(R96) |
 | `universe round` `universe lint` `universe observe` | `--why "<왜>"` | **기준선을 올릴 때** 사유. 없으면 안 올라간다 — 톱니는 내려가기만 쉽다 |
 | `universe learn` | `--promote` | 궤적이 낸 후보를 성운에 붙인다 |
+| `universe extract` | `--write` | **진짜로 뽑는다 — 모델을 궤적 한 건에 한 번 부른다.** 안 주면 무엇이 될지만 본다 |
+| `universe extract` | `--galaxy <이름>` | 어느 은하의 궤적을 볼 것인가 |
+| `universe extract` | `--model <별칭>` | 카드를 뽑는 모델 (안 주면 엔진 기본) |
 | `universe learn` | `--since <날짜>` | 볼 궤적의 범위를 자른다 (기본은 전부, 범위를 항상 찍는다) |
 | `universe learn` `universe fix` `universe names` `universe enumeration` | `--update` | 지금 실측을 기준선으로 적는다 |
 | `universe new` | `--base <커밋>` | 무엇이 새로 생겼는지 견줄 기준 커밋 |
+| `universe new` | `--max-turns <수>` | (3차) 턴 예산. 기본 10 · 1~40. ⚠️ 진짜 은하는 조사에 턴이 많이 든다(실측: 10턴 중 7턴) |
+| `universe new` | `--skills` | (3차) 지난 주행에서 뽑은 지식 카드를 브리핑에 넣는다. ⛔ **기본 꺼짐** — 결과를 낫게 하는지 아직 안 쟀다 |
 | 전부 | `--universe <경로>` | 우주의 집을 직접 지정한다 (기본은 cwd 에서 탐색) |
 
 내부 손잡이(`--model`·`--judge`·`--keep` 등)는 **문서에 안 적는 대신 사유를 적는다** —

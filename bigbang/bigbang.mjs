@@ -51,11 +51,11 @@ const root = await requireUniverseHome(argvUniverse());
 const argv = process.argv.slice(2);
 /* 관측 법칙 §7 — 은하를 찾기 **전에** 거부한다.
    전엔 없는 은하 오류가 먼저 나서 「플래그 때문에 죽었는지」를 가릴 수 없었다. */
-rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base', '--lane'], 'bigbang new');
+rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base', '--lane', '--max-turns', '--skills'], 'bigbang new');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
 /** 값을 받는 플래그. ⚠️ 여기 빠뜨리면 그 값이 **위치 인자로 오해**된다(예: `--base HEAD~1` 의 HEAD~1). */
-const VALUE_FLAGS = ['--out', '--base', '--universe', '--from', '--model', '--agent-script', '--lane'];
+const VALUE_FLAGS = ['--out', '--base', '--universe', '--from', '--model', '--agent-script', '--lane', '--max-turns'];
 const positionals = argv.filter((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(argv[i - 1]));
 
 const readJson = async (p) => JSON.parse(await fs.readFile(p, 'utf8'));
@@ -81,6 +81,9 @@ const usage = () => {
     '  --judge         관문/게이트의 판정 레인(LLM)까지 켠다 (기본은 결정론 레인만)',
     `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL} · 게이트웨이 레인은 슬러그를 준다)`,
     `  --lane <레인>   (3차) 누가 답하는가: subscription(기본) · ${GATEWAY_LANES.join(' · ')} · script`,
+    `  --max-turns <수> (3차) 턴 예산 (기본 ${MAX_TURNS} · 1~40). 진짜 은하는 조사에 턴이 많이 든다`,
+    '  --skills        (3차) 지난 주행에서 뽑은 지식 카드를 브리핑에 넣는다 (**기본 꺼짐**)',
+    '                  ⚠️ 이것이 결과를 낫게 하는지는 **아직 안 쟀다** — 켜면 궤적에 무엇이 들어갔는지 남는다.',
     '                  ⛔ 자동으로 갈아타지 않는다 — 구독이 없어도 openrouter 로 몰래 안 넘어간다.',
     `  --base <ref>    게이트가 볼 변경분 기준 (기본 ${DEFAULT_BASE})`,
     '',
@@ -115,6 +118,40 @@ if (wantsGate && flag('--out')) {
   process.exit(1);
 }
 
+/**
+ * **턴 예산을 사람이 올릴 수 있게 연다**(R155).
+ *
+ * ⚠️⚠️ 예산을 **조사/수정으로 나누고 싶었지만 안 했다.** 실측이 그럴 근거를 못 줬다:
+ *   · 진짜 은하 실주행 **1건** — 10턴 중 7턴이 probe, 첫 patch 가 8번째 턴, 게이트 빨간불 뒤 남은 턴 0
+ *   · 픽스처 대본 31건 — **전부 같은 주행이다**(결정론 대본이라 실질 N=1이고, 모델을 안 부르니
+ *     「조사에 몇 턴이 필요한가」를 아예 못 말한다)
+ * ⇒ **N=1 로 예산을 나누면 짐작을 숫자로 위장하는 것**이다(§9 · 「짐작해 적지 않는다」).
+ *
+ * 대신 **통제권을 준다.** 진짜 은하는 읽을 것이 많다는 것은 쟀으므로, 그 사람이 자기 은하를
+ * 보고 올릴 수 있게 한다. 기본값은 그대로다 — 아무것도 조용히 바뀌지 않는다.
+ */
+const parseMaxTurns = () => {
+  const raw = flag('--max-turns');
+  if (raw === undefined) {
+    return MAX_TURNS;
+  }
+  const parsed = Number(raw);
+  /* ⛔ 이상한 값을 삼키면 **예산이 0이 되어 한 턴도 안 돌고 끝난다** — 그런데 화면은
+     「다 썼다」라고 말한다(§8: 안 돈 것이 통과처럼 보인다). 삼키지 않고 거절한다. */
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    console.error(`⛔ --max-turns 는 1 이상의 정수다: ${raw}`);
+    process.exit(2);
+  }
+  /* ⚠️ 상한을 둔다. 턴은 **모델 호출**이라 그대로 돈이다 — 오타 하나로 100턴을 태우지 않게 한다. */
+  const CEILING = 40;
+  if (parsed > CEILING) {
+    console.error(`⛔ --max-turns 가 너무 크다(${parsed} > ${CEILING}). 턴은 모델 호출이라 그대로 비용이다.`);
+    console.error('   정말 필요하면 왜 필요한지 재고 나서 이 상한을 올려라 — 숫자를 늘리는 것이 답인 적은 드물다.');
+    process.exit(2);
+  }
+  return parsed;
+};
+
 const config = await readJson(path.join(root, 'universe.config.json'));
 
 const galaxyFile = path.join(root, 'galaxies', `${galaxyName}.json`);
@@ -143,6 +180,9 @@ if (missing.length > 0) {
  */
 const LANES = ['subscription', ...GATEWAY_LANES, 'script'];
 const laneName = flag('--lane') ?? (flag('--agent-script') ? 'script' : 'subscription');
+/* ⛔ **별을 쓰기 전에** 판다 — 뒤에서 부르면 「거절한다」고 말해 놓고 별을 남긴다.
+   레인에서 한 번 밟은 자리라 같은 실수를 두 번 하지 않으려고 여기 붙여 둔다(R155). */
+const maxTurns = requirement === undefined ? MAX_TURNS : parseMaxTurns();
 if (requirement !== undefined) {
   if (!LANES.includes(laneName)) {
     console.error(`⛔ 모르는 레인: ${laneName}\n   아는 것: ${LANES.join(' · ')}`);
@@ -560,7 +600,8 @@ if (requirement !== undefined) {
       base: flag('--base') ?? DEFAULT_BASE,
       judge: has('--judge'),
       keepOnFail: has('--keep-on-fail'),
-      maxTurns: MAX_TURNS,
+      maxTurns,
+      useSkills: has('--skills'),
       maxGateRuns: MAX_GATE_RUNS_THIRD,
       dirtyBefore,
     }),

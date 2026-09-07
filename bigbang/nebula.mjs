@@ -269,7 +269,33 @@ export const admitPatch = async ({ action, starDir, starName, targetBase, files,
  * 에이전트에게 주는 관측
  * ──────────────────────────────────────────────────────────────────── */
 
-const firstObservation = async ({ requirement, galaxyName, solarName, starName, starDir, targetBase, files, laws, maxTurns, canRunTests }) => {
+/**
+ * **쌓인 지식 카드를 읽는다** — 학습 고리의 돌아오는 절반(R155).
+ *
+ * ⛔ **기본은 안 읽는다.** 카드를 넣으면 에이전트 행동이 **쌓인 카드에 따라 달라진다** —
+ *    나쁜 카드 하나가 다음 주행들을 오염시킬 수 있고, **좋아졌는지는 아직 아무도 안 쟀다**.
+ *    재지 못하는 채로 행동을 바꾸는 것이 이 저장소가 가장 하면 안 되는 일이다(§8).
+ * ⇒ `--skills` 를 줘야 들어간다. 그리고 **무엇이 들어갔는지 궤적에 남긴다** —
+ *    그래야 나중에 「카드 있이/없이」를 비교할 수 있다. 비교할 수 없으면 영영 못 잰다.
+ */
+const loadSkillCards = async (galaxyPath, wanted) => {
+  if (!wanted) {
+    return { cards: [], why: '--skills 를 안 줬다(기본은 꺼져 있다)' };
+  }
+  const dir = path.join(galaxyPath, 'universe', 'knowledge');
+  const names = (await fs.readdir(dir).catch(() => null));
+  if (names === null) {
+    /* ⛔ 없는 것을 「없어서 괜찮다」로 넘기지 않는다 — 켰는데 안 들어간 것은 말해야 한다. */
+    return { cards: [], why: `카드가 없다(${path.relative(galaxyPath, dir)}) — \`universe extract --write\` 로 뽑는다` };
+  }
+  const cards = [];
+  for (const name of names.filter((n) => n.endsWith('.md')).sort()) {
+    cards.push({ id: name.replace(/\.md$/, ''), text: await fs.readFile(path.join(dir, name), 'utf8') });
+  }
+  return { cards, why: cards.length === 0 ? '카드 폴더는 있는데 비어 있다' : '' };
+};
+
+const firstObservation = async ({ requirement, galaxyName, solarName, starName, starDir, targetBase, files, laws, maxTurns, canRunTests, skillCards = [] }) => {
   const shown = [];
   for (const file of files) {
     const content = await fs.readFile(path.join(targetBase, file.path), 'utf8').catch(() => '(못 읽음)');
@@ -293,6 +319,14 @@ const firstObservation = async ({ requirement, galaxyName, solarName, starName, 
     '',
     '[이 은하가 켠 법칙]',
     laws.join(' · ') || '(없음)',
+    /* ⚠️ 카드는 **참고**지 법칙이 아니다. 카드와 법칙이 부딪히면 **법칙이 이긴다** —
+       카드는 지난 주행에서 뽑은 것이라 틀렸을 수 있고, 법칙은 관문이 집행한다. */
+    ...(skillCards.length === 0 ? [] : [
+      '',
+      `[지난 주행에서 뽑은 지식 ${skillCards.length}장]`,
+      '⚠️ 이것은 **참고다.** 법칙과 부딪히면 법칙이 이긴다 — 카드는 틀렸을 수 있고 관문은 결정론이다.',
+      ...skillCards.map((card) => `--- ${card.id}\n${card.text}`),
+    ]),
     '',
     '[3차 팽창의 규칙]',
     `1. patch 의 path 는 **은하 기준 상대경로**다(예: ${starDir}/${starName}.tsx). 슬래시가 없으면 별의 폴더 안으로 읽는다.`,
@@ -438,6 +472,8 @@ export const runThirdExpansion = async ({
   root,
   galaxyName,
   galaxy,
+  /** 쌓인 지식 카드를 브리핑에 넣을 것인가. ⛔ 기본은 **끈다**(위 `loadSkillCards` 의 ⛔). */
+  useSkills = false,
   solarName,
   files,
   relDir,
@@ -501,7 +537,11 @@ export const runThirdExpansion = async ({
   console.log(`   상한: 턴 ${maxTurns} · 게이트 ${maxGateRuns}`);
   console.log(`   궤적: ${recorder.path}`);
 
-  await recorder.append({ kind: 'nebula-start', requirement, star: relDir, maxTurns, maxGateRuns, judge });
+  /* ⛔ 무엇이 들어갔는지 **궤적에 남긴다.** 안 남기면 「카드 있이/없이」를 영영 비교 못 한다. */
+  const skills = await loadSkillCards(galaxy.path, useSkills);
+  console.log(`   지식 카드: ${skills.cards.length}장${skills.why ? ` (${skills.why})` : ''}`);
+
+  await recorder.append({ kind: 'nebula-start', requirement, star: relDir, maxTurns, maxGateRuns, judge, skillCards: skills.cards.map((c) => c.id) });
 
   let observation = await firstObservation({
     requirement,
@@ -516,6 +556,7 @@ export const runThirdExpansion = async ({
     /* 1차가 `canRunTests` 로 계약 파일을 만들지 말지 정한 것과 **같은 근거**를 쓴다 —
        두 자리가 다른 근거를 쓰면 브리핑이 프로그램의 판단을 뒤집는다(R148). */
     canRunTests: Boolean(galaxy.commands?.test),
+    skillCards: skills.cards,
   });
   let sessionId = null;
   let gateRuns = 0;
