@@ -147,8 +147,19 @@ if (count < min) throw new Error(
 - **fixture가 이긴 자리:** spec이 `test`를 `@playwright/test`가 아니라 `./errorSignals`에서 import.
   `auto: true`라 모든 spec이 자동으로 에러 신호를 듣는다.
   **"까먹으면 안 되는 것"은 픽스처로 내린다.**
-- **`waitForTimeout`:** 커밋본 5건 / 임시 스크립트 162건. 남은 5건은 전부 **기하를 재기 직전**이고
-  주석이 붙어 있다. **"보인다"와 "위치가 확정됐다"는 다른 사건**이고 후자엔 auto-waiting이 없다.
+- **대기 전략은 2층이 아니라 3층이다** (⚠️ 정정 — §14 참고). 관측 대상이 **어디 있느냐**로 갈린다:
+
+  | 관측 대상 | 도구 | 커밋본 실측 |
+  |---|---|---|
+  | **DOM 안** ("보인다/숨는다") | web-first assertion (`toBeVisible`/`toBeHidden`) | 23 |
+  | **DOM 밖** (쿠키·에러 수집기·외부 사건) | **`expect.poll`** (커스텀 timeout·interval) | 3 |
+  | **프레임 정착** (기하 확정 — 대응 단언이 없다) | `waitForTimeout` + 이유 주석 | 5 |
+
+  `waitForTimeout` 5건은 전부 `toBeVisible()`로 존재를 잡은 **직후**, `getBoundingClientRect()`를
+  **재기 직전**이다. **"보인다"와 "위치가 확정됐다"는 다른 사건**이고 후자엔 auto-waiting이 없다.
+
+  ⚠️ 숫자를 갈라 봐야 한다 — 규율이 걸린 **커밋본은 5건**이고 gitignore되는 임시 스크립트는 **162건**이다.
+  후자만 보면 "이 저장소는 고정 대기 범벅"이라는 틀린 결론이 나온다.
 - **모달:** `getByRole('dialog')`로 스코프를 잡고 그 안에서 찾은 뒤 **`toBeHidden()`으로 닫힘까지 단언.**
 - **테이블:** `getByRole('columnheader', { name })` 루프.
 - **retries 0** → retry가 버그를 덮은 사례 없음. 다만 `trace: 'on-first-retry'`와 모순이라
@@ -239,3 +250,62 @@ if (count < min) throw new Error(
 
 `universe-harness`는 하루 동안 변이 조준을 **여섯 번** 다시 했고, "검사를 넣었는데 사실 죽어 있었다"가
 **두 번** 있었다고 합니다.
+
+
+---
+
+## 14. 정정 — 우리가 옮겨 적은 수치가 틀렸다
+
+`harness-01`이 자기 실측을 정정해 왔다. **§7에 "`expect.poll` 0건"으로 적혀 있던 것이
+실제로는 3건**이었다. 원인은 grep이다 — 코드가 `await expect` / `.poll(`로 줄바꿈돼 있어
+한 줄 grep이 놓쳤다.
+
+**이 정정이 결론을 바꾼다.** "대기 주력은 `toBeVisible`, 나머지는 고정 대기"가 아니라
+**관측 대상이 DOM 밖에 있으면 `expect.poll`을 쓴다**는 3층 구조였다.
+
+```ts
+// 외부 사건 — 사람이 OTP를 넣어 쿠키가 생기기를 기다린다
+await expect.poll(async () => {
+  const cookies = await page.context().cookies();
+  return cookies.some((c) => c.name === 'loginInfo');
+}, { timeout: 5 * 60 * 1000, intervals: [1000] }).toBe(true);
+```
+
+⚠️ **우리 쪽 교훈**: 남의 저장소를 재서 옮겨 적을 때 **grep 한 줄로 센 수치는 근거가 약하다.**
+줄바꿈·별칭·주석 처리에 걸린다. 0건이 나왔을 때 그것이 "없다"인지 "못 찾았다"인지
+구별하지 않은 것 — 이 저장소가 계속 경계해 온 바로 그 실패를 우리가 **인용 단계에서** 했다.
+
+## 15. Playwright 규격에 추가 반영한 것
+
+### 관측 위치 (DOM 안/밖) — v1.2에서 TC 필드로 추가
+
+위 3층이 **TC에 무엇이 적혀 있느냐로 결정된다.** "쿠키가 생긴다"와 "배지가 보인다"는
+생성될 spec의 대기 도구가 다르다. 적혀 있지 않으면 변환하는 쪽이 추측한다.
+
+### `waitForTimeout`은 금지가 아니라 "이유 없으면 error"
+
+`harness-01`은 금지하지 않았고 **남은 5건이 전부 정당했다.** 금지하면 정당한 5건이
+다른 방식으로 숨는다. 규칙은 **주석 없는 고정 대기를 막는 것**이어야 한다.
+
+### ⚠️ JSON 리포터가 태그의 `@`를 벗긴다 (실측, Playwright 1.62.1)
+
+```ts
+test('[TC-016] …', { tag: ['@TC-016', '@wallet'] }, async () => { … })
+```
+
+- `--grep "@TC-016"`으로 선별 실행 ✅
+- JSON 리포트의 spec 레벨 `tags` 값은 **`["TC-016","wallet"]`** — `@`가 없다
+
+**역추적 스크립트를 `@TC-`로 grep하면 0건이 나오고, 그 0건이 "문제 없음"으로 읽힌다.**
+"결과 0건"이 미도달과 구별되지 않는 자리가 여기 또 있다.
+
+### `testMatch` 미등록 spec
+
+`harness-01`의 `testMatch`는 명시 정규식이라 **새 spec을 등록 안 하면 조용히 안 돌고,
+안 도는 건 실패하지 않으니 통과처럼 보인다.** 린트 규칙으로 잡을 자리다 —
+「`e2e/**/*.spec.ts` 중 `testMatch`에 안 걸리는 파일이 있으면 error」.
+
+### TC ID는 태그로, 주석은 실행 중에 알게 된 사실로
+
+`test(title, { tag: ['@TC-016'] }, fn)` 하나로 **선별 실행과 역추적이 둘 다 된다.**
+`annotations`를 TC ID에 쓰면 중복이다 — 주석은 404·리다이렉트처럼 **실행 중에 알게 된 것**에 쓴다.
