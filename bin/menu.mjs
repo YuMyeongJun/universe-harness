@@ -190,6 +190,18 @@ const askArgs = async (askOne, root, name) => {
     return sub === 'new' ? [sub, await askRequired(askOne, '라운드 제목')] : [sub];
   }
 
+  /**
+   * ⛔ **어디에 깔리는지 먼저 보여 준다.** `init` 은 메뉴의 첫 줄이라 **그냥 엔터**로도 골라진다 —
+   * 고르기 쉬운 만큼 실수도 쉽다. 실측: 사용자가 1번을 눌렀고 파일 1MB 가 생겼다.
+   * ⚠️ 우주 저장소 안에서는 `init` 자체가 거절한다(`bin/init.mjs`) — 여기는 **그 앞단**이다.
+   *    막는 자리를 화면에만 두면 화면을 안 거치는 사람은 그대로 당한다.
+   */
+  if (name === 'init') {
+    console.log(`\n   깔릴 곳: ${path.join(root, 'universe')}`);
+    console.log('   ⚠️ `init` 은 **소비 저장소**(우주를 쓰는 당신의 저장소)에 까는 명령이다.');
+    return (await askYes(askOne, '여기가 그 저장소가 맞나?')) === true ? [] : null;
+  }
+
   if (name === 'observe' || name === 'learn') {
     return [];
   }
