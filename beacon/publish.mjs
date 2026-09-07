@@ -278,7 +278,11 @@ const mdToStorage = (md) => {
 
 /* ── 발행 대상 모으기 ─────────────────────────────────────── */
 
-const pagesJson = await readJson(pagesFile).catch(() => null);
+/* ⛔ **좌표는 저장소에 두지 않는다**(R151). 커밋된 `beacon/pages.json` 에는 장 이름표만 있고,
+   사이트·스페이스·페이지 id 는 `.secret/confluence-pages.json`(gitignore) 에 둔다.
+   ⚠️ 기본 전파 경로는 이제 **git 위키**다(`beacon/wiki.mjs`) — 거기엔 적을 좌표가 아예 없다. */
+const localPages = await readJson(path.join(root, '.secret/confluence-pages.json')).catch(() => null);
+const pagesJson = localPages ?? await readJson(pagesFile).catch(() => null);
 if (!pagesJson) {
   die(`발행 좌표를 읽지 못했다: ${path.relative(root, pagesFile)}`);
 }

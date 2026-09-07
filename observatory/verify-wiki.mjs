@@ -5,10 +5,18 @@
  * ⚠️ `universe beacon` 은 「내가 보낸 것 ↔ 렌더 결과」만 본다. **위키 본문을 안 읽는다.**
  * 이 검사가 그 구멍을 메운다.
  *
- * ⛔ **이 스크립트는 위키를 못 가져온다.** Confluence 는 MCP 를 통해서만 읽히고
- * 그건 스크립트의 손이 닿는 곳이 아니다. 그래서 **누군가 받아다 줘야 한다** —
- * 에이전트가 `getConfluencePage` 로 `contentFormat: "markdown"` 을 받아
- * `<디렉터리>/<slug>.md` 로 저장하면 이 스크립트가 대조한다.
+ * ## 이제 **혼자 돈다** (R151)
+ *
+ * ⚠️⚠️ 예전엔 못 돌았다: 「Confluence 는 MCP 로만 읽히고 스크립트의 손이 안 닿는다 —
+ * 누군가 받아다 줘야 한다」(R17). 그래서 이 검사는 관문 밖에 있었다.
+ * 위키를 **git 위키**로 옮기고 나서 그 전제가 사라졌다 — `clone` 하면 된다.
+ *
+ *   node observatory/verify-wiki.mjs              ← 스스로 클론해서 **바이트로** 대조한다
+ *   node observatory/verify-wiki.mjs <디렉터리>    ← 받아 둔 본문과 대조한다(예전 길)
+ *
+ * ⛔ git 위키에는 **정규화를 걸지 않는다.** git 은 바이트를 그대로 들고 있어서 왕복이
+ *    글자를 안 바꾼다(실측: 7장 전부 정규화 없이 동일). 정규화는 **사람 수정이 숨을 수 있는
+ *    곳**이라, 필요 없어졌으면 걷어내는 것이 맞다. 아래 `normalize` 는 **예전 길에서만** 쓴다.
  *
  * ## 왜 정규화가 필요한가 — 실측
  *
@@ -34,20 +42,52 @@
  *   node observatory/verify-wiki.mjs <위키본문디렉터리>
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
  */
-import { readFile, readdir } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
+
 import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { wikiRemoteOf } from '../lib/wiki-remote.mjs';
+
+const run = promisify(execFile);
 
 const argv = process.argv.slice(2);
 rejectUnknownFlags(argv, ['--universe'], 'universe wiki');
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
-const wikiDir = argv.find((token) => !token.startsWith('--'));
+let wikiDir = argv.find((token) => !token.startsWith('--'));
 
+/**
+ * 디렉터리를 안 주면 **스스로 가져온다.** 주소는 `origin` 에서 파생한다 — 좌표를 안 적는다.
+ * ⛔ 못 가져오면 「다르다」가 아니라 **「못 쟀다」**다(§8). 위키가 아직 없을 수도,
+ *    자격증명이 없을 수도 있는데 둘 다 **발행본이 틀렸다는 뜻이 아니다.**
+ */
+let fetchedDir = null;
 if (!wikiDir) {
-  console.error('⛔ 위키 본문을 받아 둔 디렉터리를 달라: node observatory/verify-wiki.mjs <디렉터리>');
-  console.error('   에이전트가 getConfluencePage 로 contentFormat "markdown" 을 받아 <slug>.md 로 저장해야 한다.');
-  process.exit(1);
+  const originUrl = await run('git', ['remote', 'get-url', 'origin'], { cwd: ROOT })
+    .then((r) => r.stdout.trim())
+    .catch(() => '');
+  const derived = wikiRemoteOf(originUrl);
+  if (derived === null) {
+    console.log('⚠️ **못 쟀다** — `origin` 이 GitHub 이 아니거나 비어 있어 위키 주소를 못 세웠다.');
+    console.log('   ⛔ 모르는 호스트의 위키 주소를 지어내지 않는다. 받아 둔 디렉터리를 주면 그것과 대조한다.');
+    process.exit(0);
+  }
+  fetchedDir = await mkdtemp(join(tmpdir(), 'universe-wiki-verify-'));
+  const cloned = await run('git', ['clone', '--depth', '1', derived.url, fetchedDir], {
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  }).then(() => true).catch(() => false);
+  if (!cloned) {
+    console.log(`⚠️ **못 쟀다** — 위키를 못 가져왔다: ${derived.url}`);
+    console.log('   위키가 아직 한 장도 없거나(Wiki 탭에서 첫 장을 만들어야 git 저장소가 생긴다),');
+    console.log('   자격증명이 없다. ⛔ 둘 다 **발행본이 틀렸다는 뜻이 아니다** — 통과로도 실패로도 세지 않는다.');
+    await rm(fetchedDir, { recursive: true, force: true }).catch(() => {});
+    process.exit(0);
+  }
+  wikiDir = fetchedDir;
+  console.log(`── 위키를 스스로 가져왔다 — ${derived.url}`);
 }
 
 /** 왕복이 바꾸는 것만 지운다. **F 는 여기 없다** — 소스에서 안 만들기 때문이다. */
@@ -79,8 +119,10 @@ for (const file of localFiles) {
     continue;
   }
   const localText = await readFile(join(pagesDir, file), 'utf8');
-  const a = normalize(localText);
-  const b = normalize(wikiText);
+  /* ⛔ 스스로 클론해 온 것(git 위키)은 **바이트 그대로** 본다 — 정규화할 이유가 없고,
+     정규화는 사람 수정이 숨는 곳이다. 받아 둔 본문(예전 길)만 왕복 정규화를 건다. */
+  const a = fetchedDir ? localText.trim() : normalize(localText);
+  const b = fetchedDir ? wikiText.trim() : normalize(wikiText);
   if (a === b) {
     console.log(`  ✅ ${slug}`);
     continue;
@@ -102,5 +144,8 @@ if (missing === localFiles.length) {
 if (differing > 0) {
   console.error(`\n⛔ 위키가 손으로 고쳐진 장 ${differing}개. 저장소를 고치고 다시 발행하라 — 위키가 정본이 아니다.`);
   process.exit(1);
+}
+if (fetchedDir) {
+  await rm(fetchedDir, { recursive: true, force: true }).catch(() => {});
 }
 console.log(`\n✅ 받아 온 ${localFiles.length - missing}장이 발행본과 같다${missing > 0 ? ` (${missing}장은 못 받아 못 쟀다)` : ''}.`);

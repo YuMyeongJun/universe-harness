@@ -43,14 +43,5 @@
     "//attached": "P2 에서 연결. observe.mjs 가 이 경로의 dist 를 직접 import 한다."
   },
   "created": "2026-09-04",
-  "lastUpdated": "2026-09-04",
-  "//beacon": "전파 — 저장소가 정본, 컨플루언스는 뷰. 방향은 한쪽뿐이다(보존 법칙).",
-  "beacon": {
-    "site": "blumnai.atlassian.net",
-    "spaceKey": "~621c3303a12450006885ce30",
-    "spaceName": "루이.유명준 (개인)",
-    "pageId": "416383013",
-    "pageUrl": "https://blumnai.atlassian.net/wiki/spaces/~621c3303a12450006885ce30/pages/416383013/Universe",
-    "//pageId": "이미 만든 페이지다. 다음 발행은 create 가 아니라 update — 안 그러면 중복 페이지가 쌓인다."
-  }
+  "lastUpdated": "2026-09-04"
 }
