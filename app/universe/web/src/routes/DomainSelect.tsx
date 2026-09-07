@@ -107,6 +107,11 @@ export function DomainSelect() {
         sub="로컬 폴더를 지정하면 서버가 그 저장소를 읽어 좌표 초안을 만듭니다. 초안은 초안입니다 — 도구가 못 읽은 자리는 사람이 채웁니다."
       />
 
+      <p className={`mb-4.5 ${HELP_TEXT}`}>
+        <Link to="/violations">위반 목록과 처방 보기 →</Link> — 무엇이 위반인지, 무엇을 고쳐야
+        하는지. 건수는 언제나 <strong>훑은 파일 수와 함께</strong> 나온다.
+      </p>
+
       <div className={CARD}>
         <TextField
           id="repo-dir"

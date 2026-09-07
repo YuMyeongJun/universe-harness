@@ -94,6 +94,10 @@ export default {
           'bad-face': channel('tone-bad-face'),
           'bad-line': channel('tone-bad-line'),
           'bad-ink': channel('tone-bad-ink'),
+          /** ⚪ 못 쟀다 — 초록도 빨강도 아니다. 판정 어휘가 셋이라 신호도 넷이다. */
+          'unknown-face': channel('tone-unknown-face'),
+          'unknown-line': channel('tone-unknown-line'),
+          'unknown-ink': channel('tone-unknown-ink'),
         },
       },
       /**

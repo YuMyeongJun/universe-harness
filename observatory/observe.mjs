@@ -6,6 +6,7 @@
  *   node observatory/observe.mjs --galaxy <이름>
  *   node observatory/observe.mjs --law tokens --sample 10
  *   node observatory/observe.mjs --update              은하의 observed 를 실측으로 갱신
+ *   node observatory/observe.mjs --json                기계가 읽는 형태(사람용 줄은 stderr 로)
  *
  * 이 스크립트가 `verify-laws.sh` 와 다른 점: 저쪽은 **형식**(frontmatter·필수 절)을 보고,
  * 이쪽은 **동작**(실제 코드의 위반 건수)을 본다. 앞선 정원들이 갖지 못한 축이 이것이다.
@@ -13,6 +14,12 @@
  * 종료 코드
  *   0  법칙이 규칙을 빠짐없이 덮고, 문서의 수치가 실측과 같다
  *   1  주인 없는 규칙이 있거나(커버리지 구멍), 문서 수치가 낡았다(관측 법칙 위반)
+ *
+ * 쓰는 법: `universe observe --json` — stdout 은 통째로 기계 몫이고 사람용 줄은 stderr 로 간다.
+ *
+ * ⛔ `--json` 은 **더하는 것**이지 대체하는 것이 아니다 — 사람용 출력의 문구도, 종료코드도
+ *    그대로다. 문구가 바뀌면 그것을 읽는 검사와 문서가 조용히 갈리고, 종료코드가 바뀌면
+ *    화면은 초록인데 관문은 빨간 상태가 생긴다.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -150,9 +157,63 @@ const argv = process.argv.slice(2);
    더러운 트리에서 도구가 스스로 「굳이 심으려면 --force」라고 **권했다.**
    권한 대로 치면 「모르는 플래그」로 죽는다 — 도구가 알려 준 탈출구가 제 파서에 없었다.
    §7 이 잡아 준 것은 맞지만, 잡힌 것은 **사용자가 아니라 도구 자신의 안내**였다. */
-rejectUnknownFlags(argv, ['--universe', '--update', '--galaxy', '--law', '--sample', '--why', '--force'], 'universe observe');
+/* ⛔ `--json` 을 여기 안 더하면 §7 이 「모르는 플래그」로 죽인다 — 안 켜진 모드가 켜진 것처럼
+   보이는 것을 막는 자리라, 새 모드를 더할 때 **같이** 더해야 한다. */
+rejectUnknownFlags(argv, ['--universe', '--update', '--galaxy', '--law', '--sample', '--why', '--force', '--json'], 'universe observe');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
+
+/**
+ * `--json` — **기계가 읽는 형태를 더한다.**
+ *
+ * ⛔⛔ 화면이 **사람용 출력을 파싱하게 두면 안 된다.** 문구를 한 글자만 고쳐도 파싱이 빗나가
+ * 화면은 조용히 **빈 목록**을 그리고, 그것은 「위반이 없다」로 보인다 — 이 저장소가 가장
+ * 싫어하는 모양이다(「0건」이 「위반이 없다」인지 「안 봤다」인지 구별이 안 되는 것).
+ *
+ * ⛔ **사람용 출력을 바꾸지 않는다.** 문구는 한 글자도 안 건드리고 stderr 로 보낸다 —
+ *    그것을 읽는 다른 검사와 문서가 조용히 갈리면 안 된다. stdout 은 통째로 기계 몫이다.
+ * ⛔ **종료코드도 안 바꾼다.** `--json` 을 줬다고 늘 0 으로 끝나면 화면은 초록인데 관문은
+ *    빨간 상태가 생긴다.
+ */
+const jsonMode = has('--json');
+const say = jsonMode ? (...args) => console.error(...args) : (...args) => console.log(...args);
+
+/**
+ * 기계에 넘길 문서.
+ *
+ * ⛔ **분모 없는 수를 내지 않는다.** `violations: 24` 만 있으면 24/24 인지 24/1400 인지
+ *    아무도 모른다. 실측(R162): 파일 **0개**를 훑고 「0건」을 기준선으로 심은 적이 있다.
+ * ⛔ **못 잰 것을 0 이나 빈 값으로 접지 않는다.** `null` 은 「안 쟀다」이고 `0` 은 「재서 없다」다.
+ */
+const report = {
+  schema: 'universe.observe/v1',
+  command: {
+    argv: [...argv],
+    galaxy: flag('--galaxy') ?? null,
+    law: flag('--law') ?? null,
+    sample: Number(flag('--sample') ?? 0),
+    update: has('--update'),
+    force: has('--force'),
+    why: flag('--why') ?? null,
+  },
+  /** 0 통과 · 1 위반 · (그 밖) — 사람용 출력과 **같은 값**이다. */
+  exitCode: null,
+  ok: null,
+  /** 규칙에 주인이 있는가. 아직 안 쟀으면 `null`. */
+  coverage: null,
+  galaxies: [],
+  /** 우주 층에서 **못 잰 것**. 빈 배열은 「전부 쟀다」는 뜻이다. */
+  unmeasured: [],
+};
+/** 못 잰 것 한 줄. ⛔ 이것을 안 적고 0 으로 접으면 「안 봤다」가 「위반 없음」이 된다. */
+const cannotMeasure = (into, kind, what, why) => { into.push({ kind, what, why }); };
+/** ⛔ 종료코드는 사람용과 **같아야 한다** — 여기서 갈리면 화면과 관문이 다른 말을 한다. */
+const emit = (code) => {
+  report.exitCode = code;
+  report.ok = code === 0;
+  if (jsonMode) { process.stdout.write(`${JSON.stringify(report, null, 2)}\n`); }
+  process.exit(code);
+};
 
 const readJson = async (p) => JSON.parse(await fs.readFile(p, 'utf8'));
 
@@ -187,10 +248,12 @@ const main = async () => {
   /* ── 커버리지: 모든 규칙에 주인(법칙)이 있는가. 없으면 성운에 있어야 한다. */
   const allRules = Object.values(contracts.RULE_PRESETS).flat().map((r) => r.id);
   const owned = new Map();
+  const duplicated = [];
   for (const law of matter) {
     for (const id of law.rules) {
       if (owned.has(id)) {
-        console.log(`  ⚠️ 규칙을 두 법칙이 주장한다: ${id} (${owned.get(id)} · ${law.name})`);
+        duplicated.push({ rule: id, laws: [owned.get(id), law.name] });
+        say(`  ⚠️ 규칙을 두 법칙이 주장한다: ${id} (${owned.get(id)} · ${law.name})`);
       }
       owned.set(id, law.name);
     }
@@ -210,13 +273,24 @@ const main = async () => {
   const orphans = allRules.filter((id) => !owned.has(id) && !openNebula.includes(id));
 
   let failed = false;
-  console.log(`── 커버리지 — 규칙 ${allRules.length} · 법칙이 덮은 것 ${owned.size} · 성운 ${allRules.length - owned.size - orphans.length}`);
+  /* ⛔ **분모를 같이 낸다** — 「주인 없는 규칙 0개」는 규칙이 20개일 때와 0개일 때가 다른 말이다. */
+  const coverage = {
+    rules: allRules.length,
+    ownedByLaw: owned.size,
+    inNebula: allRules.length - owned.size - orphans.length,
+    orphans,
+    duplicated,
+    /** 법칙↔규칙↔config↔목차가 어긋난 자리. 전부 **조용히 약해지는** 고장이다. */
+    problems: [],
+  };
+  report.coverage = coverage;
+  say(`── 커버리지 — 규칙 ${allRules.length} · 법칙이 덮은 것 ${owned.size} · 성운 ${allRules.length - owned.size - orphans.length}`);
   for (const id of orphans) {
-    console.log(`  ❌ 주인 없는 규칙: ${id} — 법칙으로 덮거나 성운에 올려라`);
+    say(`  ❌ 주인 없는 규칙: ${id} — 법칙으로 덮거나 성운에 올려라`);
     failed = true;
   }
   if (orphans.length === 0) {
-    console.log('  ✅ 주인 없는 규칙 없음');
+    say('  ✅ 주인 없는 규칙 없음');
   }
 
   /**
@@ -232,8 +306,9 @@ const main = async () => {
   for (const law of matter) {
     const ghosts = law.rules.filter((id) => !realRules.has(id));
     if (ghosts.length > 0) {
-      console.log(`  ❌ 법칙 ${law.name} 이 없는 규칙을 가리킨다: ${ghosts.join(' · ')}`);
-      console.log('     그 법칙은 자기가 말한 것보다 **적게 막는다.**');
+      coverage.problems.push({ kind: 'law-points-at-missing-rules', law: law.name, rules: ghosts });
+      say(`  ❌ 법칙 ${law.name} 이 없는 규칙을 가리킨다: ${ghosts.join(' · ')}`);
+      say('     그 법칙은 자기가 말한 것보다 **적게 막는다.**');
       failed = true;
     }
   }
@@ -241,21 +316,24 @@ const main = async () => {
     .filter((f) => f.endsWith('.md') && f !== 'README.md').map((f) => f.replace(/\.md$/, '')));
   const declared = new Set(config.laws);
   for (const name of [...declared].filter((n) => !lawFiles.has(n))) {
-    console.log(`  ❌ config 가 켠 법칙에 파일이 없다: ${name}`);
+    coverage.problems.push({ kind: 'law-declared-but-no-file', law: name });
+    say(`  ❌ config 가 켠 법칙에 파일이 없다: ${name}`);
     failed = true;
   }
   for (const name of [...lawFiles].filter((n) => !declared.has(n))) {
-    console.log(`  ❌ 법칙 파일이 있는데 config 에 없다: ${name} — 아무 은하도 켤 수 없다`);
+    coverage.problems.push({ kind: 'law-file-not-in-config', law: name });
+    say(`  ❌ 법칙 파일이 있는데 config 에 없다: ${name} — 아무 은하도 켤 수 없다`);
     failed = true;
   }
   const lawIndex = await fs.readFile(path.join(root, 'laws/README.md'), 'utf8');
   const unlisted = [...declared].filter((n) => !new RegExp(`\\(${n}\\.md\\)`).test(lawIndex));
   if (unlisted.length > 0) {
-    console.log(`  ❌ 목차(laws/README.md)에 없는 법칙: ${unlisted.join(' · ')} — 있는데 아무도 모른다`);
+    coverage.problems.push({ kind: 'law-not-in-index', laws: unlisted });
+    say(`  ❌ 목차(laws/README.md)에 없는 법칙: ${unlisted.join(' · ')} — 있는데 아무도 모른다`);
     failed = true;
   }
   if (!failed) {
-    console.log(`  ✅ 법칙 ${declared.size}개가 실재하는 규칙만 가리키고, 파일·config·목차가 서로 맞다`);
+    say(`  ✅ 법칙 ${declared.size}개가 실재하는 규칙만 가리키고, 파일·config·목차가 서로 맞다`);
   }
 
   /* ── 은하마다 실측 */
@@ -270,13 +348,15 @@ const main = async () => {
   if (asked && !config.galaxies.includes(asked)) {
     console.error(`⛔ 그런 은하가 없다: ${asked}`);
     console.error(`   아는 은하는 이것뿐이다: ${config.galaxies.join(' · ') || '(없음)'}`);
-    process.exit(1);
+    cannotMeasure(report.unmeasured, 'unknown-galaxy', asked, '그런 은하가 없다 — 아무것도 재지 않았다(R77: 오타 하나에 초록불이 떴다)');
+    emit(1);
   }
   const galaxyNames = asked ? [asked] : config.galaxies;
   const lawFilter = flag('--law');
 
   if (galaxyNames.length === 0) {
-    console.log('\n── 은하 없음 — 실측할 대상이 없다. 커버리지만 본다.');
+    cannotMeasure(report.unmeasured, 'no-galaxies', null, '실측할 은하가 하나도 없다 — 커버리지만 봤다');
+    say('\n── 은하 없음 — 실측할 대상이 없다. 커버리지만 본다.');
     /* ⛔ **좌표 파일이 있는데 목록이 비었으면 그것은 「없는 것」이 아니라 「빠뜨린 것」이다(R121).**
        실측: 새 사람이 문서대로 `init` → `galaxy` → `observe` 를 쳤더니 **초록불인데 아무것도
        안 쟀다.** 좌표는 만들어져 있었고 `config.galaxies` 만 비어 있었다(§8). */
@@ -290,11 +370,37 @@ const main = async () => {
   }
 
   for (const gname of galaxyNames) {
+    /**
+     * 이 은하에 대해 기계에 넘길 칸. **처음부터 「안 쟀다」로 둔다** —
+     * ⛔ 재고 나서 채워지지 않으면 `null` 로 남아야 한다. 빈 배열이나 0 으로 시작하면
+     *    건너뛴 은하가 「위반 없는 은하」로 보인다.
+     */
+    const gReport = {
+      name: gname,
+      /** 실제로 훑었는가. false 면 `laws` 는 `null` 이다. */
+      observed: false,
+      /** 왜 못 쟀는가. `null` 이면 「잤다」는 뜻이다. */
+      notObserved: null,
+      path: null,
+      appDir: null,
+      target: null,
+      scanned: null,
+      laws: null,
+      /** 잰 적 없는 법칙 — ⛔ 0건으로 접지 않는다. 안 켰거나 필터에서 빠진 것이다. */
+      lawsNotObserved: [],
+      silentRules: null,
+      baselineNotes: null,
+      updated: false,
+      unmeasured: [],
+    };
+    report.galaxies.push(gReport);
     /* 좌표 파일이 없는 은하는 **실측 대상이 아니다.** config 에 이름만 올라간 상태(영입 전)라
        여기서 죽으면 커버리지 검사까지 같이 죽는다 — 경고만 하고 넘어간다. */
     const gfile = (await findGalaxyFile(root, gname)) ?? path.join(root, 'galaxies', `${gname}.json`);
     if (!(await fs.stat(gfile).catch(() => null))) {
-      console.log(`\n  ⚠️ 은하 ${gname} — 좌표 파일이 없다(${path.relative(root, gfile)}). 실측을 건너뛴다.`);
+      say(`\n  ⚠️ 은하 ${gname} — 좌표 파일이 없다(${path.relative(root, gfile)}). 실측을 건너뛴다.`);
+      gReport.notObserved = { kind: 'no-coordinate-file', file: path.relative(root, gfile), why: '좌표 파일이 없다 — config 에 이름만 올라간 상태다' };
+      cannotMeasure(gReport.unmeasured, 'no-coordinate-file', path.relative(root, gfile), '좌표가 없어 아무 법칙도 재지 않았다');
       if (asked) {
         console.error('     ⛔ 이름을 짚어 물었는데 잴 것이 없다 — 통과가 아니다(§8).');
         failed = true;
@@ -305,6 +411,8 @@ const main = async () => {
        「어느 좌표의 몇 번째 글자가 문제인지」를 아무도 안 말해 줬다. */
     const loaded = await loadGalaxy(root, gname, config.galaxies ?? []);
     if (loaded.problem) {
+      gReport.notObserved = { kind: 'coordinate-unreadable', file: path.relative(root, gfile), why: loaded.problem };
+      cannotMeasure(gReport.unmeasured, 'coordinate-unreadable', path.relative(root, gfile), '좌표를 읽지 못해 아무 법칙도 재지 않았다');
       console.error(`  ${loaded.problem}`);
       failed = true;
       continue;
@@ -414,30 +522,40 @@ const main = async () => {
       const judged = g.sharedPackagesJudged ?? {};
       const unlinted = deps.filter((name) => owned.has(name) && !linted.has(name) && !judged[name]);
       if (unlinted.length > 0) {
-        console.log(`\n  ⛔ 은하 ${gname} — 앱이 쓰는 **워크스페이스 패키지 ${unlinted.length}개가 lint 밖**이다.`);
+        say(`\n  ⛔ 은하 ${gname} — 앱이 쓰는 **워크스페이스 패키지 ${unlinted.length}개가 lint 밖**이다.`);
         for (const name of unlinted) {
-          console.log(`     · ${name} (${owned.get(name)}) — 별이 이것을 망가뜨려도 **초록불이 난다**`);
+          say(`     · ${name} (${owned.get(name)}) — 별이 이것을 망가뜨려도 **초록불이 난다**`);
         }
-        console.log('     좌표에 넣어라: `lintTargets` 에 `{ "workspace": "<이름>", "target": "./src" }`');
-        console.log('     이 은하의 몫이 아니면 그렇게 적어라: `"sharedPackagesJudged": { "<이름>": "왜 안 재는가" }`');
+        say('     좌표에 넣어라: `lintTargets` 에 `{ "workspace": "<이름>", "target": "./src" }`');
+        say('     이 은하의 몫이 아니면 그렇게 적어라: `"sharedPackagesJudged": { "<이름>": "왜 안 재는가" }`');
+        gReport.notObserved = {
+          kind: 'shared-packages-unlinted',
+          packages: unlinted.map((name) => ({ name, dir: owned.get(name) })),
+          why: '앱이 쓰는 워크스페이스 패키지가 lint 밖이다 — 은하가 판단하기 전에는 재지 않는다',
+        };
+        cannotMeasure(gReport.unmeasured, 'shared-packages-unlinted', unlinted, '별이 이것을 망가뜨려도 초록불이 난다');
         failed = true;
         continue;
       }
     }
 
     if (missingPaths.length > 0) {
-      console.log(`\n  ⛔ 은하 ${gname} — 좌표가 없는 자리를 가리킨다 ${missingPaths.length}건`);
+      say(`\n  ⛔ 은하 ${gname} — 좌표가 없는 자리를 가리킨다 ${missingPaths.length}건`);
       for (const line of missingPaths) {
-        console.log(`     · ${line}`);
+        say(`     · ${line}`);
       }
+      gReport.notObserved = { kind: 'coordinate-points-nowhere', places: missingPaths, why: '좌표가 없는 자리를 가리킨다' };
+      cannotMeasure(gReport.unmeasured, 'coordinate-points-nowhere', missingPaths, '가리키는 자리가 없어 재지 않았다');
       failed = true;
       continue;
     }
 
     const todoFields = findTodo(g);
     if (todoFields.length > 0) {
-      console.log(`\n  ⛔ 은하 ${gname} — 좌표에 아직 안 채운 자리 ${todoFields.length}곳: ${todoFields.join(' · ')}`);
-      console.log('     초안 그대로는 재지 않는다. 채우고 다시 불러라.');
+      say(`\n  ⛔ 은하 ${gname} — 좌표에 아직 안 채운 자리 ${todoFields.length}곳: ${todoFields.join(' · ')}`);
+      say('     초안 그대로는 재지 않는다. 채우고 다시 불러라.');
+      gReport.notObserved = { kind: 'coordinate-draft', fields: todoFields, why: '좌표에 아직 안 채운 자리가 있다 — 초안은 재지 않는다' };
+      cannotMeasure(gReport.unmeasured, 'coordinate-draft', todoFields, '초안 좌표라 재지 않았다');
       failed = true;
       continue;
     }
@@ -454,13 +572,32 @@ const main = async () => {
     const scannedPaths = [];
     const targets = g.solarSystems.map((s) => path.join(g.appDir, s.srcDir).split(path.sep).join('/'));
     const wholeApp = `${g.appDir}/src`;
-    console.log(`\n── 은하 ${gname} — ${wholeApp}`);
+    gReport.path = g.path;
+    gReport.appDir = g.appDir ?? '.';
+    gReport.target = wholeApp;
+    gReport.laws = [];
+    /** 훑개가 한 번이라도 돌았는가. ⛔ 안 돌았으면 파일 수는 0 이 아니라 **모른다**(`null`). */
+    let scanRan = false;
+    say(`\n── 은하 ${gname} — ${wholeApp}`);
 
     for (const law of matter) {
       if (!g.laws.includes(law.name)) {
+        /* ⛔ 안 켠 법칙을 「0건」으로 내면 안 켠 것과 위반 없는 것이 같아 보인다. */
+        gReport.lawsNotObserved.push({
+          name: law.name,
+          title: law.title,
+          why: '이 은하가 켜지 않은 법칙이다',
+          baseline: typeof g.observed?.laws?.[law.name] === 'number' ? g.observed.laws[law.name] : null,
+        });
         continue;
       }
       if (lawFilter && law.name !== lawFilter) {
+        gReport.lawsNotObserved.push({
+          name: law.name,
+          title: law.title,
+          why: `--law ${lawFilter} 필터에서 빠졌다 — 이번 실행은 이 법칙을 안 쟀다`,
+          baseline: typeof g.observed?.laws?.[law.name] === 'number' ? g.observed.laws[law.name] : null,
+        });
         continue;
       }
       const rules = Object.values(contracts.RULE_PRESETS).flat().filter((r) => law.rules.includes(r.id));
@@ -481,13 +618,13 @@ const main = async () => {
         : drift === 0
           ? '기준선과 같다'
           : `기준선 ${baseline} → 실측 ${result.total} (${drift > 0 ? '+' : ''}${drift})`;
-      console.log(`  ${mark} ${law.title.padEnd(12)} ${String(result.total).padStart(5)}건  ${driftText}`);
+      say(`  ${mark} ${law.title.padEnd(12)} ${String(result.total).padStart(5)}건  ${driftText}`);
       for (const rule of rules) {
         enabledRules.add(rule.id);
       }
       for (const [rule, count] of result.byRule) {
         firedRules.add(rule);
-        console.log(`        ${String(count).padStart(5)}  ${rule}`);
+        say(`        ${String(count).padStart(5)}  ${rule}`);
       }
       /* ⛔ **자리는 보여 주고 처방은 안 보여 줬다(R94).** R35 가 「처방 없는 관문은 무시하는
          법부터 가르친다」로 규칙마다 `fix:` 를 강제해 놨는데(`universe fix` 가 그것을 지킨다),
@@ -500,9 +637,59 @@ const main = async () => {
         if (s.rule !== lastRule) {
           lastRule = s.rule;
           const prescription = s.fix;
-          console.log(`        ▸ ${s.rule}${prescription ? ` — ${prescription}` : ' (처방이 없다 — `universe fix` 가 잡아야 한다)'}`);
+          say(`        ▸ ${s.rule}${prescription ? ` — ${prescription}` : ' (처방이 없다 — `universe fix` 가 잡아야 한다)'}`);
         }
-        console.log(`          · ${s.where}\n              ${s.evidence.slice(0, 100)}`);
+        say(`          · ${s.where}\n              ${s.evidence.slice(0, 100)}`);
+      }
+
+      /**
+       * 기계 몫 — **사람용 줄과 같은 재료**로 만든다. 따로 재면 둘이 갈린다.
+       *
+       * ⛔ 훑은 파일이 0개면 `violations` 는 `0` 이 아니라 `null` 이다 —
+       *    「위반이 없다」가 아니라 **「안 봤다」**이기 때문이다(§8 · R162).
+       *    분모(`files`)를 늘 같이 낸다. 24 라는 수 하나로는 24/24 인지 24/1400 인지 모른다.
+       * ⛔ `samples: null` 은 「표본을 요청하지 않았다」이고 `[]` 는 「요청했는데 없다」다.
+       * ⛔ 표본에는 **처방(`fix`)을 반드시 싣는다**(R94) — 자리와 코드만 주면 사람은
+       *    무엇을 고쳐야 하는지 모른 채 목록만 본다.
+       */
+      scanRan = true;
+      const sampleCount = Number(flag('--sample') ?? 0);
+      const sawNothing = result.fileCount === 0;
+      const samples = result.samples.map((sample) => ({
+        rule: sample.rule,
+        where: sample.where,
+        evidence: sample.evidence,
+        /** `null` 이면 그 규칙에 처방이 없다는 뜻이다 — `universe fix` 가 잡아야 한다. */
+        fix: sample.fix ?? null,
+      }));
+      gReport.laws.push({
+        name: law.name,
+        title: law.title,
+        violations: sawNothing ? null : result.total,
+        /** 훑개가 실제로 낸 수. `violations` 가 `null` 이어도 여기엔 남는다 — 숨기지 않는다. */
+        rawTotal: result.total,
+        /** ⛔ **분모.** 0 이면 「위반 없음」이 아니라 「안 봤다」다. */
+        files: result.fileCount,
+        baseline: typeof baseline === 'number' ? baseline : null,
+        drift: sawNothing ? null : drift,
+        status: sawNothing
+          ? 'not-observed'
+          : drift === null ? 'no-baseline' : drift === 0 ? 'same' : 'drift',
+        rulesEnabled: rules.map((rule) => rule.id),
+        rules: result.byRule.map(([id, count]) => ({ id, count })),
+        samples: sampleCount > 0 ? samples : null,
+        samplesRequested: sampleCount,
+        /** 표본이 왔는데 처방이 빈 규칙. 비어 있어야 정상이다(R94). */
+        prescriptionMissing: [...new Set(samples.filter((x) => !x.fix).map((x) => x.rule))],
+        driftDiagnosis: null,
+      });
+      if (sawNothing) {
+        cannotMeasure(gReport.unmeasured, 'scanned-zero-files', law.name,
+          `훑은 파일이 0개다 — 「위반이 없다」가 아니라 「안 봤다」이다(appDir: ${JSON.stringify(g.appDir ?? '.')} 아래 src/ 를 보라)`);
+      }
+      if (typeof baseline !== 'number') {
+        cannotMeasure(gReport.unmeasured, 'no-baseline', law.name,
+          '기준선이 없다 — 실측은 했지만 드리프트는 잴 수 없다. `--update` 로 심어라');
       }
 
       /* ⚠️ **드리프트가 없어도 실측은 기록한다.** 예전엔 `drift !== 0` 일 때만 담았고,
@@ -534,11 +721,13 @@ const main = async () => {
           } else if (!g.observed?.rulesFingerprint) {
             why.unshift('⚠️ 기준선에 규칙 지문이 없다 — 규칙이 바뀌었는지 알 수 없다. `--update` 로 다시 심어라.');
           }
-          console.log('\n     ── 왜 달라졌나 (자동 진단)');
+          const entry = gReport.laws.find((x) => x.name === law.name);
+          if (entry) { entry.driftDiagnosis = why; }
+          say('\n     ── 왜 달라졌나 (자동 진단)');
           for (const line of why) {
-            console.log(`     ${line}`);
+            say(`     ${line}`);
           }
-          console.log('');
+          say('');
         }
       }
       fileCountNow = result.fileCount;
@@ -558,16 +747,16 @@ const main = async () => {
     const blindTotal = blindNow.reduce((sum, [, n]) => sum + n, 0);
     if (blindTotal > 0) {
       const share = Math.round((blindTotal / (fileCountNow + blindTotal)) * 100);
-      console.log(`\n  ⚠️ 코드인데 **규칙이 못 읽은 파일 ${blindTotal}개** (${share}%) — ${blindNow.map(([ext, n]) => `${ext} ${n}`).join(' · ')}`);
+      say(`\n  ⚠️ 코드인데 **규칙이 못 읽은 파일 ${blindTotal}개** (${share}%) — ${blindNow.map(([ext, n]) => `${ext} ${n}`).join(' · ')}`);
       const judged = g.blindJudged ?? {};
       const unjudged = blindNow.filter(([ext]) => !judged[ext]);
       if (unjudged.length > 0) {
-        console.log(`     이 은하는 ${unjudged.map(([ext]) => ext).join(' · ')} 를 아직 판단하지 않았다.`);
-        console.log(`     ${path.basename(galaxyFile)} 에 적어라 — 예: "blindJudged": { "${unjudged[0][0]}": "왜 안 재도 되는가, 아니면 언제 재게 할 것인가" }`);
+        say(`     이 은하는 ${unjudged.map(([ext]) => ext).join(' · ')} 를 아직 판단하지 않았다.`);
+        say(`     ${path.basename(galaxyFile)} 에 적어라 — 예: "blindJudged": { "${unjudged[0][0]}": "왜 안 재도 되는가, 아니면 언제 재게 할 것인가" }`);
         failed = true;
       } else {
         for (const [ext] of blindNow) {
-          console.log(`     · ${ext} — ${judged[ext]}`);
+          say(`     · ${ext} — ${judged[ext]}`);
         }
       }
     }
@@ -585,18 +774,62 @@ const main = async () => {
     const wasFingerprint = g.observed?.fingerprint;
     const wasFiles = g.observed?.files;
     if (wasFingerprint && !wasFingerprint.startsWith(`${FINGERPRINT_VERSION}:`)) {
-      console.log(`  ⓘ 지문 **방식**이 바뀌었다(R54: 중복을 걷어냈다) — 옛 지문 ${wasFingerprint} 은 지금 것과 비교할 수 없다.`);
-      console.log('     이것은 「대상이 바뀌었다」가 아니다. `--update` 로 다시 심어라.');
+      say(`  ⓘ 지문 **방식**이 바뀌었다(R54: 중복을 걷어냈다) — 옛 지문 ${wasFingerprint} 은 지금 것과 비교할 수 없다.`);
+      say('     이것은 「대상이 바뀌었다」가 아니다. `--update` 로 다시 심어라.');
       /* ⚠️ **방식을 말하느라 진짜 신호를 가리지 않는다.** 파일 수는 방식과 무관하게 비교된다 —
          지문을 못 믿는다고 해서 「파일이 3개 늘었다」까지 숨기면 그건 다른 종류의 거짓말이다. */
       if (typeof wasFiles === 'number' && wasFiles !== fileCountNow) {
-        console.log(`     (그와 별개로 파일은 ${wasFiles} → ${fileCountNow} 로 바뀌었다 — 이건 방식과 무관하다.)`);
+        say(`     (그와 별개로 파일은 ${wasFiles} → ${fileCountNow} 로 바뀌었다 — 이건 방식과 무관하다.)`);
       }
     } else if (wasFingerprint && wasFingerprint !== nowFingerprint) {
       const delta = typeof wasFiles === 'number' ? fileCountNow - wasFiles : null;
       const how = delta === null ? '' : delta > 0 ? ` (파일 ${wasFiles} → ${fileCountNow}, +${delta})` : delta < 0 ? ` (파일 ${wasFiles} → ${fileCountNow}, ${delta})` : ' (파일 수는 같은데 **어떤 파일인지가 달라졌다**)';
-      console.log(`  ⓘ 잰 대상이 바뀌었다${how} — 지문 ${wasFingerprint} → ${nowFingerprint}`);
-      console.log('     수치가 같아도 **같은 것을 잰 게 아니다.** 새 코드가 법을 지켰거나, 재던 코드가 사라졌거나 둘 중 하나다.');
+      say(`  ⓘ 잰 대상이 바뀌었다${how} — 지문 ${wasFingerprint} → ${nowFingerprint}`);
+      say('     수치가 같아도 **같은 것을 잰 게 아니다.** 새 코드가 법을 지켰거나, 재던 코드가 사라졌거나 둘 중 하나다.');
+    }
+
+    /**
+     * 기계 몫 — **무엇을 몇 개 훑었는가.**
+     *
+     * ⛔ `files` 는 이 문서에서 가장 중요한 수다. 이것이 **0 이면 「위반 없음」이 아니라
+     *    「안 봤다」**이고, 훑개가 아예 안 돌았으면 0 도 아니라 **모르는 것(`null`)**이다.
+     */
+    gReport.observed = scanRan;
+    gReport.scanned = {
+      /** ⛔ 분모. `null` = 훑개가 안 돌았다 · `0` = 돌았는데 파일이 없었다(안 봤다). */
+      files: scanRan ? fileCountNow : null,
+      sawNothing: scanRan ? fileCountNow === 0 : null,
+      fingerprint: scanRan ? nowFingerprint : null,
+      targetChanged: wasFingerprint && scanRan ? wasFingerprint !== nowFingerprint : null,
+      baseline: {
+        files: typeof wasFiles === 'number' ? wasFiles : null,
+        fingerprint: wasFingerprint ?? null,
+        commit: g.observed?.commit ?? null,
+        measuredAt: g.observed?.measuredAt ?? null,
+        /** 0 이 아니면 그 기준선은 **어느 커밋에도 귀속되지 않는다**(R65). */
+        dirtyFilesWhenPlanted: g.observed?.dirtyFiles ?? null,
+      },
+      /**
+       * **조용한 부분 실명** — 코드인데 규칙이 못 읽은 파일. 0건보다 위험하다(§8).
+       * `unjudged` 가 비어 있지 않으면 이 은하는 아직 그것을 **판단하지 않았다.**
+       */
+      blind: {
+        files: scanRan ? blindTotal : null,
+        share: scanRan && blindTotal > 0 ? Math.round((blindTotal / (fileCountNow + blindTotal)) * 100) : (scanRan ? 0 : null),
+        byExt: Object.fromEntries(blindNow),
+        judged: g.blindJudged ?? {},
+        unjudged: blindNow.filter(([ext]) => !(g.blindJudged ?? {})[ext]).map(([ext, n]) => ({ ext, files: n })),
+      },
+    };
+    if (!scanRan) {
+      /* ⛔ 빈 배열은 「법칙마다 재 봤는데 아무것도 없다」로 읽힌다. 안 쟀으면 `null` 이다. */
+      gReport.laws = null;
+      cannotMeasure(gReport.unmeasured, 'no-law-observed', lawFilter ?? null,
+        '이 은하에서 잰 법칙이 하나도 없다 — 훑개가 안 돌았으므로 파일 수도 모른다(0 이 아니다)');
+    }
+    for (const [ext, n] of blindNow.filter(([ext]) => !(g.blindJudged ?? {})[ext])) {
+      cannotMeasure(gReport.unmeasured, 'blind-files-unjudged', ext,
+        `코드인데 규칙이 못 읽는 파일 ${n}개 — 은하가 아직 판단하지 않았다(blindJudged)`);
     }
 
     /* ⚠️ **써지기만 하는 값은 죽은 값이다**(R44 에서 지문이 그랬다). 올린 이력을 읽어 말한다 —
@@ -605,15 +838,15 @@ const main = async () => {
        읽는 곳이 한 군데도 없었다(실측 R65) — 더러운 트리에서 심긴 기준선은
        **어느 커밋에도 귀속되지 않는데** 아무도 그 말을 안 했다. */
     if (g.observed?.dirtyFiles > 0) {
-      console.log(`  ⚠️ 이 기준선은 **더러운 트리에서 심겼다**(그때 변경 ${g.observed.dirtyFiles}개 · \`--force\`).`);
-      console.log('     어느 커밋에도 귀속되지 않는 수다. 깨끗한 상태에서 다시 심어라.');
+      say(`  ⚠️ 이 기준선은 **더러운 트리에서 심겼다**(그때 변경 ${g.observed.dirtyFiles}개 · \`--force\`).`);
+      say('     어느 커밋에도 귀속되지 않는 수다. 깨끗한 상태에서 다시 심어라.');
     }
 
     const raisedLog = g.observed?.raised ?? [];
     if (raisedLog.length > 0) {
       const last = raisedLog[raisedLog.length - 1];
-      console.log(`  ⓘ 이 은하는 기준선을 **${raisedLog.length}번 올렸다** — 마지막: ${last.laws.join(' · ')} (${last.why})`);
-      console.log('     올린 것은 빚이다. 내려가는 방향으로 돌려놓는 것이 목표다.');
+      say(`  ⓘ 이 은하는 기준선을 **${raisedLog.length}번 올렸다** — 마지막: ${last.laws.join(' · ')} (${last.why})`);
+      say('     올린 것은 빚이다. 내려가는 방향으로 돌려놓는 것이 목표다.');
     }
 
     /**
@@ -627,44 +860,74 @@ const main = async () => {
     const staleBaselines = Object.keys(g.observed?.laws ?? {})
       .filter((name) => !(g.laws ?? []).includes(name));
     if (staleBaselines.length > 0) {
-      console.log(`  ⚠️ 이제 안 켜진 법칙의 기준선이 좌표에 남아 있다: ${staleBaselines.join(' · ')}`);
-      console.log('     다시 켜면 **낡은 기준선과 견주게 된다.** 지우거나, 왜 남겨 두는지 적어라.');
+      say(`  ⚠️ 이제 안 켜진 법칙의 기준선이 좌표에 남아 있다: ${staleBaselines.join(' · ')}`);
+      say('     다시 켜면 **낡은 기준선과 견주게 된다.** 지우거나, 왜 남겨 두는지 적어라.');
     }
 
     const silent = [...enabledRules].filter((id) => !firedRules.has(id));
+    /* ⛔ 전엔 여기서 「따로 재야 안다」로 끝났다(R93). **옳은 말이지만 답이 아니다** —
+       소비 팀은 그 「따로」를 할 수 없다. 더러운 은하는 배달되지 않기 때문이다.
+       발동이 증명된 규칙 명부는 배달되므로, 여기서 갈라 준다.
+       ⚠️ 명부는 **무발동이 있든 없든** 읽는다 — 기계 몫 문서가 「갈라 줄 수 있었는가」를 말해야 한다. */
+    const provenText = await fs.readFile(path.join(root, 'observatory/rules-proven.json'), 'utf8').catch(() => null);
+    const proven = new Set(JSON.parse(provenText ?? '{}').provenRules ?? []);
     if (silent.length > 0) {
-      console.log(`  ⓘ 한 번도 발동하지 않은 규칙 ${silent.length}/${enabledRules.size}: ${silent.join(' · ')}`);
-      /* ⛔ 전엔 여기서 「따로 재야 안다」로 끝났다(R93). **옳은 말이지만 답이 아니다** —
-         소비 팀은 그 「따로」를 할 수 없다. 더러운 은하는 배달되지 않기 때문이다.
-         발동이 증명된 규칙 명부는 배달되므로, 여기서 갈라 준다. */
-      const proven = new Set(JSON.parse(
-        await fs.readFile(path.join(root, 'observatory/rules-proven.json'), 'utf8').catch(() => '{}'),
-      ).provenRules ?? []);
+      say(`  ⓘ 한 번도 발동하지 않은 규칙 ${silent.length}/${enabledRules.size}: ${silent.join(' · ')}`);
       const unproven = silent.filter((id) => !proven.has(id));
       if (proven.size === 0) {
-        console.log('     0건은 무죄가 아니다 — 규칙이 약한 것인지 위반이 없는 것인지는 따로 재야 안다(§8).');
-        console.log('     ⚠️ 발동 증명 명부를 못 읽었다(observatory/rules-proven.json) — 갈라 줄 수가 없다.');
+        say('     0건은 무죄가 아니다 — 규칙이 약한 것인지 위반이 없는 것인지는 따로 재야 안다(§8).');
+        say('     ⚠️ 발동 증명 명부를 못 읽었다(observatory/rules-proven.json) — 갈라 줄 수가 없다.');
       } else if (unproven.length === 0) {
-        console.log(`     이 ${silent.length}개는 **더러운 은하에서 발동함이 확인된 규칙**이다 — 여기 0건은 위반이 없다는 뜻이다(§8).`);
+        say(`     이 ${silent.length}개는 **더러운 은하에서 발동함이 확인된 규칙**이다 — 여기 0건은 위반이 없다는 뜻이다(§8).`);
       } else {
-        console.log(`     ⛔ 그중 ${unproven.length}개는 **발동한 적이 증명되지 않았다**: ${unproven.join(' · ')}`);
-        console.log('        규칙이 약한 것인지 위반이 없는 것인지 아직 모른다(§8).');
+        say(`     ⛔ 그중 ${unproven.length}개는 **발동한 적이 증명되지 않았다**: ${unproven.join(' · ')}`);
+        say('        규칙이 약한 것인지 위반이 없는 것인지 아직 모른다(§8).');
       }
       /* **일부러 더러운 은하**는 여기서 초록불을 줄 수 없다 — 그 은하의 존재 이유가
          「규칙 전부를 파이프라인에서 발동시키는 것」이라, 무발동은 곧 **그 규칙이
          파이프라인 층에서 죽었다**는 뜻이다(문자열로 먹이는 selftest 는 이 층을 못 본다). */
       if (g.expectAllRulesFire) {
-        console.log('     ⛔ 이 은하는 규칙 전부가 발동해야 한다(`expectAllRulesFire`). 위 규칙은 파이프라인 층에서 죽었다.');
+        say('     ⛔ 이 은하는 규칙 전부가 발동해야 한다(`expectAllRulesFire`). 위 규칙은 파이프라인 층에서 죽었다.');
         failed = true;
       }
     }
+    /**
+     * 기계 몫 — **한 번도 발동 안 한 규칙**과, 그것이 「위반이 없다」인지
+     * **「규칙이 약한 것」**인지 가릴 재료.
+     *
+     * ⛔ `proven: null` 은 **갈라 줄 수 없었다**는 뜻이다(명부를 못 읽었다). `false` 와 다르다.
+     * ⛔ 분모(`of`)를 같이 낸다 — 「무발동 9개」는 켠 규칙이 13개일 때와 9개일 때가 다른 말이다.
+     */
+    gReport.silentRules = {
+      count: silent.length,
+      of: enabledRules.size,
+      provenListRead: provenText !== null,
+      rules: silent.map((id) => ({ id, proven: provenText === null ? null : proven.has(id) })),
+      expectAllRulesFire: Boolean(g.expectAllRulesFire),
+    };
+    for (const id of silent.filter((x) => provenText === null || !proven.has(x))) {
+      cannotMeasure(gReport.unmeasured, 'rule-never-fired-unproven', id,
+        provenText === null
+          ? '발동 증명 명부를 못 읽었다 — 규칙이 약한 것인지 위반이 없는 것인지 갈라 줄 수 없다'
+          : '이 규칙은 발동한 적이 증명되지 않았다 — 0건이 「위반 없음」인지 「규칙이 약한 것」인지 모른다(§8)');
+    }
+    /** 기준선에 붙은 빚과 흠 — 써지기만 하고 안 읽히는 값을 만들지 않는다(R44·R65). */
+    gReport.baselineNotes = {
+      dirtyFilesWhenPlanted: g.observed?.dirtyFiles ?? null,
+      raisedCount: raisedLog.length,
+      raised: raisedLog,
+      /** 이제 안 켜진 법칙인데 기준선만 남은 것 — 다시 켜면 낡은 기준선과 견주게 된다(R74). */
+      staleBaselines,
+    };
     /* 기준선을 은하 파일에 심는다 — 실측의 주인은 은하다. */
     if (has('--update') && Object.keys(measuredNow).length > 0) {
       const prov = await provenance(g.path, `${g.appDir}/src`);
       if (prov.dirtyFiles > 0 && !has('--force')) {
-        console.log(`\n  ⛔ 워킹트리가 오염돼 있다(${prov.dirtyFiles}개 변경). 이 측정은 커밋에 귀속시킬 수 없다.`);
-        console.log('     기준선은 깨끗한 트리에서 심어라. 굳이 심으려면 --force.');
-        process.exit(1);
+        say(`\n  ⛔ 워킹트리가 오염돼 있다(${prov.dirtyFiles}개 변경). 이 측정은 커밋에 귀속시킬 수 없다.`);
+        say('     기준선은 깨끗한 트리에서 심어라. 굳이 심으려면 --force.');
+        cannotMeasure(gReport.unmeasured, 'update-refused-dirty-tree', prov.dirtyFiles,
+          '워킹트리가 오염돼 기준선을 심지 않았다 — 어느 커밋에도 귀속되지 않는 수다');
+        emit(1);
       }
       /**
        * **기준선은 한 방향으로만 움직여야 한다** — 내리는 것은 목표, 올리는 것은 **빚**이다.
@@ -689,12 +952,14 @@ const main = async () => {
        * 판정의 근거가 되므로, 거짓 근거는 「조용히 지나가는 것」보다 나쁘다.
        */
       if (fileCountNow === 0) {
-        console.log('\n  ⛔ **훑은 파일이 0개다 — 기준선을 심지 않는다.**');
-        console.log('     이것은 「위반이 없다」가 아니라 **「안 봤다」**이다(관측 법칙 §8).');
-        console.log('     0건을 심으면 그 은하는 **영원히 초록불**이 된다 — 코드가 나빠져도 0과 0은 같다.');
-        console.log(`     → 좌표의 \`appDir\` 이 소스가 있는 곳을 가리키는지 보라(지금: ${JSON.stringify(g.appDir ?? '.')}).`);
-        console.log('       그 아래에 `src/` 가 있어야 한다. 모노레포면 앱의 폴더를 적어라.');
-        process.exit(1);
+        say('\n  ⛔ **훑은 파일이 0개다 — 기준선을 심지 않는다.**');
+        say('     이것은 「위반이 없다」가 아니라 **「안 봤다」**이다(관측 법칙 §8).');
+        say('     0건을 심으면 그 은하는 **영원히 초록불**이 된다 — 코드가 나빠져도 0과 0은 같다.');
+        say(`     → 좌표의 \`appDir\` 이 소스가 있는 곳을 가리키는지 보라(지금: ${JSON.stringify(g.appDir ?? '.')}).`);
+        say('       그 아래에 `src/` 가 있어야 한다. 모노레포면 앱의 폴더를 적어라.');
+        cannotMeasure(gReport.unmeasured, 'update-refused-zero-files', gReport.appDir,
+          '훑은 파일이 0개라 기준선을 심지 않았다 — 「위반이 없다」가 아니라 「안 봤다」이다(§8)');
+        emit(1);
       }
 
       const raised = Object.entries(measuredNow)
@@ -702,10 +967,12 @@ const main = async () => {
         .filter((r) => typeof r.was === 'number' && r.now > r.was);
       const why = flag('--why');
       if (raised.length > 0 && !why) {
-        console.log(`\n  ⛔ 기준선을 **올리려** 한다 — ${raised.map((r) => `${r.law} ${r.was}→${r.now}`).join(' · ')}`);
-        console.log('     내리는 것은 목표고 올리는 것은 **빚**이다. 사유 없이 올리면 관문이 도장이 된다.');
-        console.log('     `--why "<왜 올리는가>"` 를 붙여라. 막지는 않는다 — **기록 없이** 올리지 못하게 할 뿐이다.');
-        process.exit(1);
+        say(`\n  ⛔ 기준선을 **올리려** 한다 — ${raised.map((r) => `${r.law} ${r.was}→${r.now}`).join(' · ')}`);
+        say('     내리는 것은 목표고 올리는 것은 **빚**이다. 사유 없이 올리면 관문이 도장이 된다.');
+        say('     `--why "<왜 올리는가>"` 를 붙여라. 막지는 않는다 — **기록 없이** 올리지 못하게 할 뿐이다.');
+        cannotMeasure(gReport.unmeasured, 'update-refused-raise-without-why', raised.map((r) => `${r.law} ${r.was}→${r.now}`),
+          '기준선을 올리려 했는데 사유(--why)가 없다 — 기록 없이 올리면 관문이 도장이 된다');
+        emit(1);
       }
 
       g.observed = {
@@ -731,18 +998,19 @@ const main = async () => {
       };
       delete g.observed.date;
       await saveGalaxy(galaxyFile, g);
-      console.log(`  ↳ ${path.basename(galaxyFile)} 의 observed 를 실측으로 갱신했다`);
+      gReport.updated = true;
+      say(`  ↳ ${path.basename(galaxyFile)} 의 observed 를 실측으로 갱신했다`);
     }
 
-    console.log(`\n  태양계: ${g.solarSystems.map((s) => s.name).join(' · ')} (별 채점은 P3 빅뱅에서)`);
+    say(`\n  태양계: ${g.solarSystems.map((s) => s.name).join(' · ')} (별 채점은 P3 빅뱅에서)`);
     void targets;
   }
 
   if (has('--update')) {
-    console.log('\n은하의 기준선을 실측으로 갱신했다. 다시 돌리면 초록불이어야 한다.');
-    process.exit(0);
+    say('\n은하의 기준선을 실측으로 갱신했다. 다시 돌리면 초록불이어야 한다.');
+    emit(0);
   }
-  console.log(failed
+  say(failed
     ? [
         '\n⛔ 관측 법칙 위반 — 은하의 기준선이 낡았거나 주인 없는 규칙이 있다.',
         '',
@@ -750,7 +1018,7 @@ const main = async () => {
         '   ⛔ 원인을 모른 채 덮으면 다음 드리프트도 원인을 모른다.',
       ].join('\n')
     : '\n✅ 법칙이 규칙을 빠짐없이 덮고, 은하의 기준선이 실측과 같다.');
-  process.exit(failed ? 1 : 0);
+  emit(failed ? 1 : 0);
 };
 
 await main();

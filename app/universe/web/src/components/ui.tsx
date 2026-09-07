@@ -68,13 +68,21 @@ export function Empty({ children }: { children: ReactNode }) {
 /** 배너 안의 인라인 `code` 는 바탕을 깐다 — 원래 `.banner code` 셀렉터가 하던 일이다. */
 const BANNER_CODE = '[&_code]:rounded-chip [&_code]:bg-ui-shade/30 [&_code]:px-1.25 [&_code]:py-px';
 
-const BANNER_TONE: Record<'ok' | 'warn' | 'bad', string> = {
+/**
+ * ⛔⛔ **판정 어휘는 셋이 아니라 넷이 그려진다** — ✅ · ❌ · ⚠️(경고) · ⚪ **못 쟀다.**
+ * `unknown` 을 warn 이나 bad 로 접으면 「못 쟀다」가 「실패했다」로 보이고,
+ * ok 로 접으면 「안 봤다」가 「위반이 없다」로 보인다. 둘 다 이 저장소가 데인 자리다.
+ */
+export type BannerTone = 'ok' | 'warn' | 'bad' | 'unknown';
+
+const BANNER_TONE: Record<BannerTone, string> = {
   ok: 'border-tone-ok-line bg-tone-ok-face text-tone-ok-ink',
   warn: 'border-tone-warn-line bg-tone-warn-face text-tone-warn-ink',
   bad: 'border-tone-bad-line bg-tone-bad-face text-tone-bad-ink',
+  unknown: 'border-tone-unknown-line bg-tone-unknown-face text-tone-unknown-ink',
 };
 
-export function Banner({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: ReactNode }) {
+export function Banner({ tone, children }: { tone: BannerTone; children: ReactNode }) {
   return (
     <div className={`mb-4.5 rounded-card border px-3.5 py-3 ${BANNER_CODE} ${BANNER_TONE[tone]}`}>
       {children}
@@ -88,13 +96,18 @@ export function Banner({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; childr
  * ⚠️ 글자색은 **면(`tone-*-face`)이 아니라 신호 원색(`ui-ok` …)** 이다. 배너와 다른 짝인데,
  * 원래 그렇게 그려져 있었다 — 배지는 작아서 더 밝은 글자가 아니면 안 읽힌다.
  */
-export type PillTone = Fill | 'auto';
+/**
+ * ⚠️ `auto`(자동수집)와 `unknown`(⚪ 못 쟀다)은 **다른 말**이다 — 색이 비슷해도 합치지 마라.
+ * `auto` 는 「기계가 넣었다」이고 `unknown` 은 「아무도 모른다」다.
+ */
+export type PillTone = Fill | 'auto' | 'unknown';
 
 const PILL_TONE: Record<PillTone, string> = {
   filled: 'border-tone-ok-line bg-tone-ok-face text-ui-ok',
   partial: 'border-tone-warn-line bg-tone-warn-face text-ui-warn',
   stub: 'border-tone-bad-line bg-tone-bad-face text-ui-bad',
   auto: 'border-ui-line bg-ui-surface-raised text-ui-ink-dim',
+  unknown: 'border-tone-unknown-line bg-tone-unknown-face text-tone-unknown-ink',
 };
 
 export function Pill({

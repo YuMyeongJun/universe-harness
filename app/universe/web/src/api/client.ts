@@ -1,4 +1,11 @@
-import type { IDomainSummary, IEmitFile, IGalaxyDraftResult, IProgress, ISurvey } from './types';
+import type {
+  IDomainSummary,
+  IEmitFile,
+  IGalaxyDraftResult,
+  IObservation,
+  IProgress,
+  ISurvey,
+} from './types';
 
 /** 서버가 준 오류 메시지를 **그대로** 던진다 — 화면에서 삼키지 않는다. */
 const req = async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -120,3 +127,24 @@ export const writeGalaxyCoordinates = (
     method: 'PUT',
     body: JSON.stringify({ filled }),
   });
+
+/**
+ * ── 위반 목록 ── 이 은하를 **다시 재서** 위반과 처방을 받아 온다.
+ *
+ * ⛔⛔ **아직 서버에 없다. 껍데기다.**
+ * `app/universe/server/` 는 지금 다른 손이 잡고 있어 열 수 없었고,
+ * 도구 쪽(`universe observe --json`)도 자식 D 가 만드는 중이라 **모양이 확정이 아니다.**
+ * ⇒ 화면은 **없는 대로** 만들었다. 눌러 보면 404 가 오고, 화면은 그것을
+ *   **⚪ 「못 쟀다」**로 그린다 — ❌ 「위반이 없다」로도, ✅ 초록으로도 그리지 않는다.
+ *
+ * 서버가 생기면 여기를 그 응답에 맞춘다. 맞출 때 볼 자리는 `@api/types` 의 `IObservation` 주석이다 —
+ * 칸마다 **도구의 무엇과 대응하는지**를 적어 두었다.
+ *
+ * @param galaxy `galaxies/<이름>.json` 의 은하 이름 (`console`).
+ * @param sample 표본을 몇 건까지 받을 것인가 — 관측소의 `--sample` 그대로.
+ *   ⚠️ `0` 이면 표본이 **하나도 안 온다.** 그러면 건수는 있는데 **처방이 없다**(R94 의 그 형태).
+ */
+export const getObservation = (galaxy: string, sample: number): Promise<IObservation> =>
+  req<IObservation>(
+    `/api/observations/${encodeURIComponent(galaxy)}?sample=${encodeURIComponent(String(sample))}`,
+  );
