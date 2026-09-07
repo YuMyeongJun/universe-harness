@@ -77,37 +77,58 @@ const readOption = (argv: string[], name: string, consumed: Set<string>): string
 
 const main = (): number => {
   const argv = process.argv.slice(2);
+  const asJson = argv.includes('--json');
+
+  /**
+   * 린터가 **스스로 판정한** 모든 종료는 여기를 지난다.
+   *
+   * ⭐ **계약: `--json` 이면 린터가 돈 이상 stdout 은 항상 유효 JSON 이다.**
+   *    stdout 이 비어 있다는 것은 오직 **린터가 아예 안 돌았다**는 뜻이다
+   *    (빌드 안 됨 · 클론 안 됨 — 그때 `node` 가 자기 에러로 exit 1 을 낸다).
+   *    소비 쪽이 종료 코드가 아니라 **stdout 파싱**을 판별자로 쓸 수 있어야 한다.
+   */
+  const bail = (code: number, reason: string): number => {
+    if (asJson) {
+      process.stdout.write(
+        `${JSON.stringify(
+          { tool: 'tc-lint', ok: false, exitCode: code, ran: true, unmeasuredReason: reason, findings: [] },
+          null,
+          2,
+        )}\n`,
+      );
+    } else {
+      console.error(reason);
+    }
+    return code;
+  };
+
   const consumed = new Set<string>();
   const rawFormat = readOption(argv, 'format', consumed) ?? 'markdown';
   if (rawFormat !== 'markdown' && rawFormat !== 'sheet') {
-    console.error(`⚪ [tc-lint] 알 수 없는 형식: ${rawFormat} (markdown | sheet)`);
-    return EXIT_UNMEASURED;
+    return bail(EXIT_UNMEASURED, `⚪ [tc-lint] 알 수 없는 형식: ${rawFormat} (markdown | sheet)`);
   }
   const format: Format = rawFormat;
 
-  const asJson = argv.includes('--json');
   const requireFeaturesDir = argv.includes('--require-features-dir');
   const featuresDir = readOption(argv, 'features-dir', consumed);
   let majorDictionary: string[] | undefined;
   if (featuresDir !== undefined) {
     majorDictionary = readFeatureNames(resolve(process.cwd(), featuresDir));
     if (majorDictionary === undefined) {
-      console.error(`⚪ [tc-lint] --features-dir 를 읽지 못했다: ${featuresDir}`);
-      return EXIT_UNMEASURED;
+      return bail(EXIT_UNMEASURED, `⚪ [tc-lint] --features-dir 를 읽지 못했다: ${featuresDir}`);
     }
     if (majorDictionary.length === 0) {
       // 폴더가 0개면 "모든 대분류가 틀렸다"가 아니라 **잘못 겨눈 경로**다.
-      console.error(`⚪ [tc-lint] --features-dir 에 하위 폴더가 0개다: ${featuresDir}`);
-      return EXIT_UNMEASURED;
+      return bail(EXIT_UNMEASURED, `⚪ [tc-lint] --features-dir 에 하위 폴더가 0개다: ${featuresDir}`);
     }
   }
   // 호출부를 고치다 플래그를 빠뜨리면 **검사가 조용히 사라진다.** 그 자리를 3 으로 만든다.
   if (requireFeaturesDir && majorDictionary === undefined) {
-    console.error(
+    return bail(
+      EXIT_UNMEASURED,
       '⚪ [tc-lint] --require-features-dir 인데 --features-dir 가 없다.\n' +
         '   검사가 조용히 사라지는 것을 막기 위해 통과시키지 않는다.',
     );
-    return EXIT_UNMEASURED;
   }
   const adapter = makeAdapters(majorDictionary)[format];
 
@@ -121,17 +142,16 @@ const main = (): number => {
     try {
       files.push(...collect(abs, adapter.ext));
     } catch {
-      console.error(`⚪ [tc-lint] 대상을 읽지 못했다: ${target}`);
-      return EXIT_UNMEASURED;
+      return bail(EXIT_UNMEASURED, `⚪ [tc-lint] 대상을 읽지 못했다: ${target}`);
     }
   }
 
   if (files.length === 0) {
-    console.error(
+    return bail(
+      EXIT_UNMEASURED,
       `⚪ [tc-lint] 대상 파일이 0개다 (${format} / ${targets.join(', ')}).\n` +
         '   0개는 "위반 없음"이 아니라 **검사가 아무것도 안 본 것**이다. 통과로 세지 않는다.',
     );
-    return EXIT_UNMEASURED;
   }
 
   let errorCount = 0;
@@ -189,8 +209,10 @@ const main = (): number => {
     process.stdout.write(
       `${JSON.stringify(
         {
+          tool: 'tc-lint',
           ok: errorCount === 0,
           exitCode,
+          ran: true,
           format,
           files: files.length,
           violations: errorCount,
