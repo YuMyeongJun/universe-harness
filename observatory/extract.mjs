@@ -26,6 +26,13 @@
  *   node observatory/extract.mjs --galaxy tiny-galaxy            # 무엇이 될지만 본다(모델 0회)
  *   node observatory/extract.mjs --galaxy tiny-galaxy --write    # 진짜로 뽑는다(모델 N회)
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
+ *
+ * ## ⛔ 성공했다고 다 카드가 아니다 — **대본 주행은 뺀다**(R160)
+ *
+ * 실측(R159): 성공 궤적 **176건 중 175건이 같은 대본**(`--lane script`)이었다. 관문이
+ * 커밋마다 돌리는 그 대본이다. 결정론이라 175번 돌려도 하는 말이 같은데, 그대로 뽑으면
+ * **같은 카드 175장에 모델 175번**이다. ⇒ 기본으로 뺀다(`--include-script` 로 되돌린다).
+ * ⚠️ 레인이 **안 적힌 옛 궤적**은 「모른다」다 — 통과로도 제외로도 안 센다(§8).
  */
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -35,9 +42,10 @@ import { requireUniverseHome } from '../lib/home.mjs';
 import { findGalaxyFile, resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 import { openEngine } from '../lib/engine.mjs';
 import { EXIT_UNMEASURED } from '../lib/gates.mjs';
+import { laneOf, partitionByLane, SCRIPT_LANE } from '../lib/trajectory-lane.mjs';
 
 const argv = process.argv.slice(2);
-rejectUnknownFlags(argv, ['--universe', '--galaxy', '--write', '--model'], 'universe extract');
+rejectUnknownFlags(argv, ['--universe', '--galaxy', '--write', '--model', '--include-script'], 'universe extract');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 
 const root = await requireUniverseHome(flag('--universe'));
@@ -84,13 +92,55 @@ for (const target of files) {
   const green = rows.some((r) => (r.kind === 'nebula-end' && r.decision === 'GREEN')
     || (r.kind === 'submit' && r.decision === 'SOLVED'));
   if (green) {
-    solved.push(target);
+    /* ⛔ 레인은 **궤적에서 읽는다**(`nebula-start.lane`) — 파일 이름으로 짐작하지 않는다.
+       이름은 사람이 정하는 것이라 대본 별을 `RealRun` 이라 부르면 그대로 속는다. */
+    solved.push({ file: target, lane: laneOf(rows) });
   }
 }
 
 console.log(`   궤적 ${files.length}건 중 **성공 ${solved.length}건** — 카드는 성공에서만 나온다.`);
 if (solved.length === 0) {
   console.log('\n⚠️ **뽑을 것이 없다** — 성공한 궤적이 없다. 실패는 카드가 아니라 성운으로 간다(`universe learn`).');
+  process.exit(0);
+}
+
+/* ── ⛔ 대본 주행을 뺀다 — 그리고 **몇 건을 왜 뺐는지 말한다**(R160) ──────── */
+
+const { model, script, unknown } = partitionByLane(solved);
+const includeScript = argv.includes('--include-script');
+
+console.log(`\n── 레인으로 갈랐다 (궤적의 \`nebula-start.lane\`)`);
+console.log(`   ✅ 모델 레인 ${model.length}건 — 사람이 부른 주행이다. 카드 후보다.`);
+/* ⛔ **조용히 빼지 않는다.** 0건이어도 말한다 — 안 말하면 「원래 없었다」와 구별이 안 된다(§8). */
+if (includeScript) {
+  console.log(`   ⚠️ 대본(${SCRIPT_LANE}) ${script.length}건 — \`--include-script\` 를 줘서 **안 뺐다.**`);
+  console.log('      대본은 결정론이라 같은 대본이 **같은 카드**를 낸다 — 그만큼 모델을 더 부른다.');
+} else {
+  console.log(`   ⛔ 대본(${SCRIPT_LANE}) ${script.length}건 — **뺐다.**`);
+  console.log('      관문이 커밋마다 돌리는 그 대본이다. 결정론이라 몇 번을 돌려도 하는 말이 같다 —');
+  console.log('      그대로 뽑으면 **같은 카드가 그 수만큼** 나오고 모델도 그만큼 부른다(R159 실측).');
+  console.log(`      그래도 뽑으려면: --include-script`);
+}
+/**
+ * ⚪ **레인이 안 적힌 궤적** — 「모른다」다.
+ *
+ * ⛔ 통과로도 제외로도 세지 않는다. 레인을 적기 시작한 것은 R160 이라 그 앞의 궤적에는
+ * 이 칸이 아예 없다. 없는 것을 「모델 주행이었다」로 읽으면 옛 대본이 그대로 카드가 되고,
+ * 「대본이었다」로 읽으면 **진짜 모델 주행까지 조용히 사라진다.** 어느 쪽도 짐작이다.
+ * ⇒ 뺄 근거가 없으므로 후보에는 남기되, **모델 레인과 같은 칸에 세지 않는다.**
+ */
+if (unknown.length > 0) {
+  console.log(`   ⚪ 레인을 **모르는** 궤적 ${unknown.length}건 — 레인을 적기 전(R160)의 옛 궤적이다.`);
+  console.log('      **통과도 제외도 아니다**(§8). 뺄 근거가 없어 후보에는 남기지만,');
+  console.log('      「모델 주행이었다」는 뜻이 **아니다** — 이 안에 대본이 섞여 있을 수 있다.');
+}
+
+const candidates = includeScript ? solved : [...model, ...unknown];
+console.log(`\n   ⇒ 카드 후보 **${candidates.length}건** (모델 ${model.length} + 모름 ${unknown.length}${includeScript ? ` + 대본 ${script.length}` : ''})`);
+
+if (candidates.length === 0) {
+  console.log('\n⚠️ **뽑을 것이 없다** — 성공한 궤적이 전부 대본이다. 모델 주행을 한 번 돌린 뒤에 다시 불러라.');
+  console.log('   ⛔ 이것은 「배울 것이 없다」가 아니라 **「같은 대본만 있다」**다.');
   process.exit(0);
 }
 
@@ -101,19 +151,20 @@ const indexPath = path.join(galaxy.path, 'universe', 'KNOWLEDGE.md');
 
 if (!argv.includes('--write')) {
   console.log('\n(--write 를 안 줬다 — **모델을 부르지 않는다.** 뽑으면 이렇게 된다:)');
-  for (const target of solved) {
-    console.log(`   · ${path.basename(target)}`);
+  for (const target of candidates) {
+    /* 후보마다 **레인을 같이 찍는다** — 「왜 이것이 후보인가」를 사람이 그 줄에서 본다. */
+    console.log(`   · ${path.basename(target.file)}   (레인 ${target.lane ?? '⚪ 모름'})`);
   }
   console.log(`\n   카드가 쌓일 곳: ${path.relative(process.cwd(), knowledgeDir)}`);
   console.log(`   진짜로 뽑으려면: node observatory/extract.mjs --galaxy ${galaxyName} --write`);
-  console.log(`   ⛔ 그때 **모델을 ${solved.length}번** 부른다 — 궤적 한 건에 한 번이다.`);
+  console.log(`   ⛔ 그때 **모델을 ${candidates.length}번** 부른다 — 궤적 한 건에 한 번이다.`);
   process.exit(0);
 }
 
-console.log(`\n⛔ **모델을 ${solved.length}번 부른다** (궤적 한 건에 한 번).`);
+console.log(`\n⛔ **모델을 ${candidates.length}번 부른다** (궤적 한 건에 한 번).`);
 
 const { contracts } = await openEngine(root, config, ['contracts']);
-const cards = await contracts.extractWikiCards(solved, {
+const cards = await contracts.extractWikiCards(candidates.map((c) => c.file), {
   repoRoot: galaxy.path,
   knowledgeDir,
   indexPath,

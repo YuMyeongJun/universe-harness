@@ -260,6 +260,31 @@ const CASES = [
     cmd: ['node', ['observatory/verify-nebula-wiring.mjs']],
   },
   {
+    check: '3차 배선(nebula-wiring)',
+    bite: '궤적에 레인을 안 적는 것',
+    expect: '레인이 안 적혔다',
+    file: 'bigbang/nebula.mjs',
+    /**
+     * R159 가 실측으로 잡은 그 자리를 되살린다 — 화면에는 「🛤 레인 — 대본」이라고 찍으면서
+     * **궤적에는 안 적던** 상태다. 그러면 성공 궤적 176건 중 175건이 같은 대본인 것을
+     * 나중에 **아무도 못 가린다**(⑦ 이 죽으면 ⑧ 도 같이 죽는다 — 가릴 재료가 없어지므로).
+     * ⚠️ 겨냥은 `nebula-start` 를 적는 **그 한 줄**이다. 파라미터 쪽을 지우면 문법이 깨져
+     *    「다른 이유로 죽음」이 된다 — 그건 내 검사를 시험한 것이 아니다.
+     */
+    mutate: (t) => t.replace('maxGateRuns, judge, lane, skillCards:', 'maxGateRuns, judge, skillCards:'),
+    cmd: ['node', ['observatory/verify-nebula-wiring.mjs']],
+  },
+  {
+    check: '부품 시험(parts)',
+    bite: '대본 레인을 모델 주행과 한 칸에 세는 것',
+    expect: '대본이 안 갈렸다',
+    file: 'lib/trajectory-lane.mjs',
+    /* ⛔ 가르는 재료가 조용히 틀리면 `extract` 는 **여전히 초록불로** 대본을 카드로 뽑는다.
+       ⚠️ `laneOf` 가 아니라 **가르는 자리**를 겨냥한다 — 읽기는 멀쩡한데 분류만 틀리는 모양이다. */
+    mutate: (t) => t.replace("} else if (lane === SCRIPT_LANE) {", "} else if (lane === '아무도-안-쓰는-레인') {"),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
     check: '행동 계약 보호(behavior-contract)',
     expect: '별의 폴더',
     bite: '별의 폴더',

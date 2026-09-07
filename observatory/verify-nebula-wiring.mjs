@@ -10,12 +10,21 @@
  * ⛔ 이것은 관문의 우회로가 **아니다.** 대본의 patch 도 `parseAction` → 범위 관문 →
  *    엔진 관문 → 파일 순서를 똑같이 지난다. 대본이 바꾸는 것은 **누가 말하는가**뿐이다.
  *
- * 재는 것 여섯(하나라도 조용하면 빨간불):
+ * 재는 것 여덟(하나라도 조용하면 빨간불):
  *   ① 범위 관문이 **별의 폴더 밖**을 막는가        — 대본 2턴이 일부러 `src/main.tsx` 를 쓴다
  *   ② 게이트가 **실제로 도는가**                    — lint·build·test·typecheck 신호가 찍히는가
  *   ③ 요구사항 신호가 **성공 출구에서** 찍히는가    — R132 가 남긴 자리(초록이면 앞에서 return 한다)
  *   ④ **빈 계약을 거부하는가**                      — 처음부터 통과하는 계약은 아무것도 안 잰다
  *   ⑤ **받은 계약을 못 고치게 막는가**              — 자기 채점을 막는 자리(R156 · R23)
+ *   ⑥ **재라고 했는데 못 쟀으면 초록불로 안 끝내는가** — 계약을 못 받으면 exit 3(R158)
+ *   ⑦ **궤적에 레인이 적히는가**                    — 안 적으면 나중에 대본 주행을 못 가린다(R160)
+ *   ⑧ **`extract` 가 그 대본을 카드에서 빼는가**    — 뺀 건수를 화면에 말하는지까지 본다
+ *
+ * ⚠️ ⑦⑧ 을 **여기** 둔 이유: 둘 다 「대본으로 돈 궤적」이라는 증거가 있어야 잴 수 있는데,
+ *    이 관문은 **자기가 그 증거를 만든다.** 다른 관문에 뒀으면 궤적이 없는 깨끗한 CI 에서
+ *    조용히 「못 쟀다」가 되고, 그건 R154 가 잡은 그 모양이다(증거에 기대는 검사).
+ * ⛔ ⑧ 은 `extract` 를 **`--write` 없이** 부른다 — 모델 호출 0회다. 관문에 든 것은
+ *    `extract` 전체가 아니라 **「대본을 빼는가」 한 가지**다(`extract` 자신은 관문 밖이다).
  *
  * ⚠️ ④⑤ 가 이 관문에서 가장 값지다. 그 둘이 죽으면 「요구사항 충족을 잰다」가 **거짓이 된다** —
  *    에이전트가 통과하기 쉬운 계약을 쓰거나, 쓴 뒤 느슨하게 고쳐 버린다.
@@ -71,6 +80,20 @@ const contractRun = async (star, script, extra = []) => {
   return out;
 };
 
+/* ── ⑦⑧ 레인 — 이 관문이 **자기가 만든 궤적**으로 잰다(R160) ─────
+   ⛔ 궤적 경로를 짐작하지 않는다 — 주행이 화면에 적은 그 경로를 읽는다.
+      파일 이름으로 찾으면 **앞선 실행이 남긴 옛 궤적**을 읽고도 초록불이 난다. */
+const trajectoryPath = result.out.match(/궤적:\s*(\S+\.jsonl)/)?.[1] ?? null;
+const startRow = trajectoryPath
+  ? await fs.readFile(trajectoryPath, 'utf8')
+    .then((t) => JSON.parse(t.split('\n').find((l) => l.includes('"nebula-start"')) ?? 'null'))
+    .catch(() => null)
+  : null;
+
+/* ⑧ `--write` 없이 부른다 — **모델 호출 0회**다. 방금 만든 대본 궤적이 후보에서 빠져야 한다. */
+const extracted = await run(['observatory/extract.mjs', '--galaxy', 'tiny-galaxy']);
+const excludedCount = Number(extracted.out.match(/대본\(script\)\s*(\d+)건 — \*\*뺐다/)?.[1] ?? 0);
+
 const vacuous = await contractRun('VacuousProbe', 'fixtures/agent-scripts/vacuous-contract.jsonl');
 const noContract = await contractRun('NoContractProbe', 'fixtures/agent-scripts/no-contract.jsonl');
 const loosen = await contractRun('LoosenProbe', 'fixtures/agent-scripts/loosen-contract.jsonl');
@@ -122,6 +145,31 @@ const checks = [
     ok: noContract.code === 3 && /재라고 했는데 못 쟀다/.test(noContract.out),
     why: `계약을 못 받았는데 exit ${noContract.code} 로 끝냈다 — 안 재고 통과로 보인다`,
   },
+  {
+    label: '⑦ 궤적에 레인이 적힌다',
+    /**
+     * ⛔ 화면에 「🛤 레인 — 대본」이라고 찍는 것만으로는 **모자란다.** 화면은 흘러가고 궤적은 남는다.
+     * 실측(R159): 성공 궤적 176건 중 175건이 같은 대본이었는데, 궤적만 보고는 **가릴 방법이 없었다**.
+     * ⚠️ `nebula-start` 줄에 `lane` 이 **있고 값이 `script`** 여야 한다 — 칸만 있고 비면 「모른다」다.
+     */
+    ok: startRow?.lane === 'script',
+    why: trajectoryPath === null
+      ? '궤적 경로를 화면에서 못 찾았다 — 레인을 잴 자리가 없다'
+      : `궤적의 \`nebula-start\` 에 레인이 안 적혔다(lane=${JSON.stringify(startRow?.lane)}) — 나중에 대본 주행을 못 가린다`,
+  },
+  {
+    label: '⑧ extract 가 대본 주행을 카드 후보에서 뺀다',
+    /**
+     * ⛔ 「뺐다」만으로는 모자란다 — **몇 건을 뺐는지 말해야** 한다(조용히 빼면 §8 위반이다).
+     * ⚠️ 방금 만든 그 궤적이 후보 목록에 **없어야** 한다. 수만 세면 다른 것이 빠져도 초록이 된다.
+     */
+    ok: excludedCount > 0
+      && trajectoryPath !== null
+      && !extracted.out.includes(`· ${path.basename(trajectoryPath)}`),
+    why: excludedCount === 0
+      ? '대본을 뺐다는 말이 화면에 없다 — 조용히 빼거나 아예 안 뺀다(같은 카드에 모델을 그만큼 부른다)'
+      : '방금 만든 대본 궤적이 카드 후보 목록에 그대로 있다 — 세기만 하고 안 뺐다',
+  },
 ];
 
 let red = 0;
@@ -149,4 +197,4 @@ if (red > 0) {
   console.log(`     node bigbang/bigbang.mjs new tiny-galaxy shop ${STAR} --from "${REQUIREMENT}" --agent-script ${SCRIPT}`);
   process.exit(1);
 }
-console.log('\n✅ 3차 배선 여섯이 전부 살아 있다 (모델 호출 0회 · 별은 치웠다).');
+console.log('\n✅ 3차 배선 여덟이 전부 살아 있다 (모델 호출 0회 · 별은 치웠다).');

@@ -598,6 +598,9 @@ if (requirement !== undefined) {
       harness,
       rules,
       ask,
+      /* ⛔ **레인을 궤적으로 넘긴다**(R160). 화면에만 말하면 나중에 못 잰다 —
+         실측(R159)에서 성공 궤적 175건이 대본인 것을 궤적만 보고는 가릴 수 없었다. */
+      lane: laneName,
       model: flag('--model') ?? DEFAULT_MODEL,
       base: flag('--base') ?? DEFAULT_BASE,
       judge: has('--judge'),

@@ -607,6 +607,17 @@ export const runThirdExpansion = async ({
    *    ⚠️ 끄면 요구사항 충족은 **여전히 아무도 안 잰다.** 그것이 지금의 기본값이다.
    */
   useContractFirst = false,
+  /**
+   * **누가 답했는가** — `bigbang.mjs` 의 `--lane`(subscription · openrouter · omniroute · script).
+   *
+   * ⛔ 이것을 **궤적에 적는다.** 화면에는 예전부터 한 번 찍혔지만 화면은 흘러가고 궤적은 남는다.
+   * 실측(R159): 성공 궤적 176건 중 **175건이 같은 대본**(`--lane script`)이었는데,
+   * 궤적만 보고는 그것을 **가릴 방법이 하나도 없었다** — `universe extract` 가
+   * 같은 카드 175장에 모델을 175번 태울 참이었다.
+   *
+   * ⚠️ 기본이 `null` 인 것은 「모른다」다 — 안 넘기면 짐작으로 채우지 않고 **빈 칸으로 남긴다.**
+   */
+  lane = null,
   solarName,
   files,
   relDir,
@@ -674,7 +685,8 @@ export const runThirdExpansion = async ({
   const skills = await loadSkillCards(galaxy.path, useSkills);
   console.log(`   지식 카드: ${skills.cards.length}장${skills.why ? ` (${skills.why})` : ''}`);
 
-  await recorder.append({ kind: 'nebula-start', requirement, star: relDir, maxTurns, maxGateRuns, judge, skillCards: skills.cards.map((c) => c.id) });
+  /* ⛔ **레인을 여기 적는다**(R160). 안 적으면 나중에 「이 주행이 대본이었나」를 아무도 못 잰다. */
+  await recorder.append({ kind: 'nebula-start', requirement, star: relDir, maxTurns, maxGateRuns, judge, lane, skillCards: skills.cards.map((c) => c.id) });
 
   /* ── 계약 우선 — 구현 **전에** 요구사항을 테스트로 받는다(R156). ⛔ 기본은 꺼져 있다. */
   const contractPhase = useContractFirst
