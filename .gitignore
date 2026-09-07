@@ -53,3 +53,9 @@ qa/*.zip
 .env.local
 **/.env
 **/.env.local
+
+# ⛔ 은하가 낸 **주행 산출물** — `universe loop` 가 읽는 자리다(`e2eReport`).
+#    실측: `qa/.universe/e2e.json` 이 커밋 대상으로 올라왔다. 화면 시험 리포트에는
+#    URL·계정·스크린샷 경로가 섞여 오고, 이 저장소는 **공개 MIT** 다.
+#    ⚠️ `test-results/` 만 막혀 있었다 — 자리를 옮기면 방어가 **안 따라온다**(R162 의 그 형태).
+.universe/
