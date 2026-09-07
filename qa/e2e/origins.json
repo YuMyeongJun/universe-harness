@@ -1,0 +1,5 @@
+{
+  "TC-901": { "origin": "policy", "originRef": "e2e/fixtures/limit.html — 한도 소진이면 발송 버튼이 잠긴다" },
+  "TC-902": { "origin": "policy", "originRef": "e2e/fixtures/limit.html — 소진 배지(#burn-badge)가 보인다 (표적에 일부러 없다)" },
+  "TC-903": { "origin": "human", "originRef": "손으로 적은 TC — 이번 주행에서는 건너뛴다" }
+}

@@ -211,6 +211,7 @@ universe/
 │   └── universe/
 ├── qa/
 │   ├── docs/  ← 사람이 읽는 문서
+│   ├── e2e/
 │   ├── src/
 │   └── tests/
 ├── redshift/

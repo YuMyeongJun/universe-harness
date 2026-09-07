@@ -1,0 +1,245 @@
+{
+ "config": {
+  "argv": [
+   "/opt/homebrew/Cellar/node/26.5.0/bin/node",
+   "<저장소>/qa/node_modules/.bin/playwright",
+   "test",
+   "--config",
+   "playwright.config.ts"
+  ],
+  "configFile": "<저장소>/qa/playwright.config.ts",
+  "rootDir": "<저장소>/qa/e2e",
+  "failOnFlakyTests": false,
+  "forbidOnly": false,
+  "fullyParallel": false,
+  "globalSetup": null,
+  "globalTeardown": null,
+  "globalTimeout": 0,
+  "grep": {},
+  "grepInvert": null,
+  "maxFailures": 0,
+  "metadata": {
+   "actualWorkers": 1
+  },
+  "preserveOutput": "always",
+  "projects": [
+   {
+    "outputDir": "<저장소>/qa/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "id": "",
+    "name": "",
+    "testDir": "<저장소>/qa/e2e",
+    "testIgnore": [],
+    "testMatch": [
+     "**/*.e2e.ts"
+    ],
+    "timeout": 30000
+   }
+  ],
+  "quiet": false,
+  "reporter": [
+   [
+    "list",
+    null
+   ],
+   [
+    "json",
+    {
+     "outputFile": "test-results/run.json"
+    }
+   ]
+  ],
+  "reportSlowTests": {
+   "max": 5,
+   "threshold": 300000
+  },
+  "shard": null,
+  "tags": [],
+  "updateSnapshots": "missing",
+  "updateSourceMethod": "patch",
+  "version": "1.63.0",
+  "workers": 5,
+  "webServer": null
+ },
+ "suites": [
+  {
+   "title": "send.e2e.ts",
+   "file": "send.e2e.ts",
+   "column": 0,
+   "line": 0,
+   "specs": [
+    {
+     "title": "TC-901 한도가 소진되면 발송 버튼이 잠긴다",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [],
+       "expectedStatus": "passed",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "passed",
+         "duration": 257,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "startTime": "2026-09-07T17:16:23.112Z",
+         "annotations": [],
+         "attachments": []
+        }
+       ],
+       "status": "expected"
+      }
+     ],
+     "id": "7da87be6aa72d29cb3cb-71944d1063ccd7ad72c0",
+     "file": "send.e2e.ts",
+     "line": 21,
+     "column": 1
+    },
+    {
+     "title": "TC-902 소진 배지가 보인다",
+     "ok": false,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [],
+       "expectedStatus": "passed",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "failed",
+         "duration": 1566,
+         "error": {
+          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#burn-badge')\nExpected: visible\nTimeout: 1500ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('#burn-badge') with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for locator('#burn-badge')\u001b[22m\n",
+          "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#burn-badge')\nExpected: visible\nTimeout: 1500ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('#burn-badge') with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for locator('#burn-badge')\u001b[22m\n\n    at <저장소>/qa/e2e/send.e2e.ts:30:45",
+          "location": {
+           "file": "<저장소>/qa/e2e/send.e2e.ts",
+           "column": 45,
+           "line": 30
+          },
+          "snippet": "  28 |   // ⛔ 일부러 실패한다. 표적에 `#burn-badge` 가 없다.\n  29 |   //    ⚠️ 이 단언을 무르게 하면 「fail 이 계약으로 어떻게 오는가」를 다시 못 잰다.\n> 30 |   await expect(page.locator('#burn-badge')).toBeVisible({ timeout: 1500 });\n     |                                             ^\n  31 | });\n  32 |\n  33 | test('TC-903 건너뛴 케이스는 ⚪ 로 온다', async () => {"
+         },
+         "errors": [
+          {
+           "location": {
+            "file": "<저장소>/qa/e2e/send.e2e.ts",
+            "column": 45,
+            "line": 30
+           },
+           "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('#burn-badge')\nExpected: visible\nTimeout: 1500ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('#burn-badge') with timeout 1500ms\u001b[22m\n\u001b[2m  - waiting for locator('#burn-badge')\u001b[22m\n\n\n  28 |   // ⛔ 일부러 실패한다. 표적에 `#burn-badge` 가 없다.\n  29 |   //    ⚠️ 이 단언을 무르게 하면 「fail 이 계약으로 어떻게 오는가」를 다시 못 잰다.\n> 30 |   await expect(page.locator('#burn-badge')).toBeVisible({ timeout: 1500 });\n     |                                             ^\n  31 | });\n  32 |\n  33 | test('TC-903 건너뛴 케이스는 ⚪ 로 온다', async () => {\n    at <저장소>/qa/e2e/send.e2e.ts:30:45"
+          }
+         ],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "startTime": "2026-09-07T17:16:23.575Z",
+         "annotations": [],
+         "attachments": [
+          {
+           "name": "screenshot",
+           "contentType": "image/png",
+           "path": "<저장소>/qa/test-results/send.e2e.ts-TC-902-소진-배지가-보인다/test-failed-1.png"
+          },
+          {
+           "name": "error-context",
+           "contentType": "text/markdown",
+           "path": "<저장소>/qa/test-results/send.e2e.ts-TC-902-소진-배지가-보인다/error-context.md"
+          }
+         ],
+         "errorLocation": {
+          "file": "<저장소>/qa/e2e/send.e2e.ts",
+          "column": 45,
+          "line": 30
+         }
+        }
+       ],
+       "status": "unexpected"
+      }
+     ],
+     "id": "7da87be6aa72d29cb3cb-0b7a5c5ab80379c29f0b",
+     "file": "send.e2e.ts",
+     "line": 26,
+     "column": 1
+    },
+    {
+     "title": "TC-903 건너뛴 케이스는 ⚪ 로 온다",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [
+        {
+         "type": "skip",
+         "description": "이번 주행에서는 재지 않는다 — ⚪ 가 계약에 어떻게 오는지 보려고 남겼다",
+         "location": {
+          "file": "<저장소>/qa/e2e/send.e2e.ts",
+          "line": 35,
+          "column": 8
+         }
+        }
+       ],
+       "expectedStatus": "skipped",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 1,
+         "parallelIndex": 0,
+         "status": "skipped",
+         "duration": 0,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "startTime": "2026-09-07T17:16:25.333Z",
+         "annotations": [
+          {
+           "type": "skip",
+           "description": "이번 주행에서는 재지 않는다 — ⚪ 가 계약에 어떻게 오는지 보려고 남겼다",
+           "location": {
+            "file": "<저장소>/qa/e2e/send.e2e.ts",
+            "line": 35,
+            "column": 8
+           }
+          }
+         ],
+         "attachments": []
+        }
+       ],
+       "status": "skipped"
+      }
+     ],
+     "id": "7da87be6aa72d29cb3cb-dc5200daca34392e8465",
+     "file": "send.e2e.ts",
+     "line": 33,
+     "column": 1
+    }
+   ]
+  }
+ ],
+ "errors": [],
+ "stats": {
+  "startTime": "2026-09-07T17:16:22.935Z",
+  "duration": 2418.4700000000003,
+  "expected": 1,
+  "skipped": 1,
+  "unexpected": 1,
+  "flaky": 0
+ },
+ "//": "⛔ **진짜 Playwright 주행이 낸 리포트다**(2026-09-08). 손으로 쓴 것이 아니다 — `qa/e2e/send.e2e.ts` 를 `file://` 로 돌려 통과 1 · 실패 1 · 건너뜀 1 을 냈다. ⚠️ **절대 경로를 지웠다**(`<저장소>`·`<지운 경로>`) — 이 저장소는 공개 MIT 라 남의 홈 경로가 실려 나가면 안 된다(좌표에서 이미 겪은 자리다). ⛔ 손으로 고치지 마라 — 고치면 「진짜 리포트」가 아니게 되고, 그러면 이 픽스처가 재는 것(**진짜 도구의 출력 모양**)이 사라진다."
+}
