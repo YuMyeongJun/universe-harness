@@ -1,4 +1,11 @@
-import type { ILawObservation, IRuleObservation, IScanScope, RuleFiring } from '@api/types';
+import type {
+  GalaxyState,
+  IGalaxyEntry,
+  ILawObservation,
+  IRuleObservation,
+  IScanScope,
+  RuleFiring,
+} from '@api/types';
 import type { BannerTone, PillTone } from '@components/ui';
 
 /**
@@ -135,4 +142,251 @@ export const judgeRule = (rule: IRuleObservation, scope: IScanScope): IRuleVerdi
     tone: FIRING_TONE[rule.firing],
     why: FIRING_WHY[rule.firing],
   };
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * ── 은하 하나를 판정한다 ── 콘솔 **첫 화면**의 판정이 사는 자리.
+ *
+ * ⛔⛔ 판정을 컴포넌트에 흩지 않는다. 이 파일 머리말과 같은 이유다 — 판단이 두 곳에
+ * 있으면 언젠가 색만 고쳐지고 문구는 안 고쳐진다.
+ *
+ * ⛔⛔ **이 화면에는 ✅ 가 하나도 없다.** 은하 목록이 아는 것은 「등재됐나 · 좌표가 있나 ·
+ * 경로가 있나 · 기준선이 있나」뿐이고, 그중 어느 것도 **「위반이 없다」가 아니다.**
+ * 지금 몇 건인지는 다시 재야(`observe`) 안다. 여기서 초록을 그리면 그 순간 이 화면은
+ * 「안 봤다」를 「괜찮다」로 접는다 — 이 저장소가 R121·R162 에서 데인 바로 그 형태다.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/** 배지 한 개 — **표 · 글자 · 색 · 이유가 한 몸이다.** 하나만 고쳐지는 것을 막는다. */
+export interface IGalaxyVerdict {
+  /** 관측소 터미널과 **같은 표**를 쓴다(⛔ · ⚪ · ⓘ). 두 화면이 다른 기호를 쓰면 대조가 안 된다. */
+  mark: string;
+  label: string;
+  tone: PillTone;
+  /** ⛔ 배지만 두지 않는다. **왜 그렇게 판정했는지**가 늘 따라다닌다. */
+  why: string;
+}
+
+/**
+ * `state` — ⛔ **다섯 갈래 중 어느 것도 목록에서 빼지 않는다.**
+ *
+ * ⚠️ 실측(R121): 좌표를 만들어 놓고 `universe.config.json` 에 안 올렸더니 관측이
+ * **「아무것도 안 재고 초록불」**을 냈다. 조용히 빼면 「원래 없었다」와 구별이 안 된다.
+ */
+export const judgeGalaxyState = (state: GalaxyState): IGalaxyVerdict => {
+  switch (state) {
+    case 'listed':
+      return {
+        mark: 'ⓘ',
+        label: '등재됨 · 좌표 있음',
+        tone: 'auto',
+        why:
+          '목록에도 있고 좌표도 있다. ⛔ 이것은 ✅ 가 아니다 — ' +
+          '지금 위반이 몇 건인지는 다시 재야(`observe`) 안다.',
+      };
+    case 'no-coordinate':
+      return {
+        mark: '⛔',
+        label: '좌표 파일이 없다',
+        tone: 'bad',
+        why:
+          '등재됐는데 좌표 파일이 없다 — 관측이 이 은하를 잴 수가 없다. ' +
+          '⛔ 목록에서 조용히 빼지 않았다: 빼면 「원래 없었다」와 구별이 안 된다.',
+      };
+    case 'not-registered':
+      return {
+        mark: '⛔',
+        label: '목록에 없다 — 안 재진다',
+        tone: 'bad',
+        why:
+          '좌표는 있는데 `universe.config.json` 의 `galaxies` 에 없다 ⇒ 관측이 이 은하를 안 잰다. ' +
+          '⚠️ 그 침묵은 화면에서 초록으로 보인다 — 이 저장소가 R121 에서 데인 자리다.',
+      };
+    case 'unreadable':
+      return {
+        mark: '⛔',
+        label: '좌표를 못 읽었다',
+        tone: 'bad',
+        why: '좌표 파일은 있다 — 읽을 수가 없을 뿐이다. ⛔ 「없는 은하」와 같은 말이 아니다.',
+      };
+    case 'bad-name':
+      return {
+        mark: '⛔',
+        label: '이름 모양이 좌표가 될 수 없다',
+        tone: 'bad',
+        why: '이름이 곧 좌표 파일 이름이 되는데 그 모양이 아니다. 막았다고 목록에서 빼지 않았다.',
+      };
+    default:
+      /* ⛔ 모르는 상태를 초록으로 접지 않는다 — 서버가 갈래를 늘리면 여기서 ⚪ 로 보인다. */
+      return {
+        mark: '⚪',
+        label: '모르는 상태',
+        tone: 'unknown',
+        why: `서버가 준 \`state\` 를 화면이 모른다: ${JSON.stringify(state)} — 초록으로 읽지 마라.`,
+      };
+  }
+};
+
+/**
+ * 경로가 이 기계에 있나.
+ *
+ * ⛔⛔ `pathExists: false` 는 **⚪ 다.** 「이 기계엔 없다」이지 ❌(실패)가 아니고,
+ * 무엇보다 ✅ 가 아니다. 초록으로 그리면 **아무도 못 잰 은하가 통과한 은하로 보인다.**
+ */
+export const judgeGalaxyPath = (entry: IGalaxyEntry): IGalaxyVerdict => {
+  if (entry.path === null) {
+    return {
+      mark: '⚪',
+      label: '경로를 모른다',
+      tone: 'unknown',
+      why: '좌표에 `path` 가 없거나 좌표를 못 읽었다 — 어디를 재야 하는지 모른다.',
+    };
+  }
+  if (entry.pathExists === null) {
+    return {
+      mark: '⚪',
+      label: '경로를 못 봤다',
+      tone: 'unknown',
+      why: '있는지 없는지 확인하지 못했다. 「없다」와 다른 말이다.',
+    };
+  }
+  if (!entry.pathExists) {
+    return {
+      mark: '⚪',
+      label: '이 기계엔 없다',
+      tone: 'unknown',
+      why:
+        '좌표가 가리키는 경로가 이 기계에 없다 — 못 잰다(⚪). ' +
+        '⛔ 실패(❌)가 아니고, 무엇보다 ✅ 가 아니다.',
+    };
+  }
+  return {
+    mark: 'ⓘ',
+    label: '이 기계에 있다',
+    tone: 'auto',
+    why: '경로가 실재한다 — 잴 수는 있다는 뜻이지, 재서 괜찮았다는 뜻이 아니다.',
+  };
+};
+
+/**
+ * 기준선.
+ *
+ * ⛔⛔ **없으면 「아직 안 쟀다」다.** ✅ 로도 「위반 0」으로도 만들지 않는다.
+ * ⚠️ 실측(R162): `appDir` 이 소스 없는 곳을 가리켜 훑개가 **파일 0개**를 보았고,
+ *    모든 법칙 0건이 기준선으로 심겨 그 은하는 **영원히 초록**이 됐다. 분모를 먼저 본다.
+ */
+export const judgeGalaxyBaseline = (entry: IGalaxyEntry): IGalaxyVerdict => {
+  const baseline = entry.baseline;
+  if (baseline === null) {
+    return {
+      mark: '⚪',
+      label: '아직 안 쟀다',
+      tone: 'unknown',
+      why: '기준선(`observed`)이 없다 — ⛔ 「위반 0」이 아니라 아직 아무도 안 쟀다.',
+    };
+  }
+  if (baseline.files === 0) {
+    return {
+      mark: '⛔',
+      label: '파일 0개로 심긴 기준선',
+      tone: 'bad',
+      why:
+        `기준선이 파일 0개를 훑고 심겼다(appDir: ${JSON.stringify(entry.appDir)}) — ` +
+        '그 「0건」은 「위반이 없다」가 아니라 「안 봤다」다. 이 은하는 영원히 초록이다(R162).',
+    };
+  }
+  if (baseline.files === null) {
+    return {
+      mark: '⚪',
+      label: '분모가 없다',
+      tone: 'unknown',
+      why: '기준선에 훑은 파일 수가 없다 — 분모가 없으면 건수는 뜻이 없다.',
+    };
+  }
+  return {
+    mark: 'ⓘ',
+    label: `기준선 — 파일 ${baseline.files}개`,
+    tone: 'auto',
+    why:
+      `${baseline.measuredAt ?? '(시각 없음)'} 에 파일 ${baseline.files}개를 훑어 심은 값이다. ` +
+      '⛔ 지금 값이 아니다 — 지금을 알려면 다시 재라(`observe`).',
+  };
+};
+
+/**
+ * 명령 축 — ⛔ **없는 명령을 빈칸으로 두지 않는다.**
+ *
+ * 빈칸은 「그 축이 초록」으로 읽힌다. 없으면 **없다고 적고, 그래서 무엇이 안 재지는지**까지 적는다.
+ */
+export const judgeGalaxyCommands = (entry: IGalaxyEntry): IGalaxyVerdict => {
+  const declared = Object.keys(entry.commands).length;
+  if (declared === 0) {
+    return {
+      mark: '⚪',
+      label: '선언된 명령이 0개',
+      tone: 'unknown',
+      why: '좌표에 명령이 하나도 없다 — 이 은하에서는 명령 축을 못 잰다. 「통과했다」가 아니다.',
+    };
+  }
+  if (entry.missingCommands !== null) {
+    return {
+      mark: '⚪',
+      label: `명령 ${declared}개 · 없는 축이 있다`,
+      tone: 'unknown',
+      why: '좌표가 「이 저장소엔 없다」고 적어 둔 명령이 있다 — 그 축은 ⚪ 로 안 재진다.',
+    };
+  }
+  return {
+    mark: 'ⓘ',
+    label: `명령 ${declared}개`,
+    tone: 'auto',
+    why: '좌표에 선언된 명령이다 — 선언됐다는 뜻이지, 돌려서 통과했다는 뜻이 아니다.',
+  };
+};
+
+/** 이 은하가 켠 법칙. ⛔ `null` 은 「법칙이 0개」가 아니라 **못 읽었다**다. */
+export const judgeGalaxyLaws = (entry: IGalaxyEntry): IGalaxyVerdict => {
+  if (entry.laws === null) {
+    return {
+      mark: '⚪',
+      label: '법칙을 못 읽었다',
+      tone: 'unknown',
+      why: '좌표의 `laws` 를 못 읽었다 — 무엇으로 재는지 모른다. 「법칙이 0개」와 다른 말이다.',
+    };
+  }
+  if (entry.laws.length === 0) {
+    return {
+      mark: '⛔',
+      label: '켠 법칙이 0개',
+      tone: 'bad',
+      why: '이 은하는 아무 법칙도 켜지 않았다 — 무엇을 재도 늘 0건이다. 그건 초록이 아니다.',
+    };
+  }
+  return {
+    mark: 'ⓘ',
+    label: `법칙 ${entry.laws.length}개`,
+    tone: 'auto',
+    why: `켠 법칙: ${entry.laws.join(' · ')}. ⛔ 켰다는 것이지 통과했다는 것이 아니다.`,
+  };
+};
+
+/**
+ * **지금 이 기계에서 잴 수 있는가.**
+ *
+ * ⛔ 「못 잰다」를 링크를 조용히 지워서 말하지 않는다 — 호출부는 이 이유를 **화면에 적는다.**
+ * `null` 이면 잴 수 있다.
+ */
+export const cannotObserve = (entry: IGalaxyEntry): string | null => {
+  if (!entry.coordinate.found) {
+    return '⚪ 좌표 파일이 없어 잴 수가 없다 — 먼저 좌표를 만들어야 한다.';
+  }
+  if (entry.state === 'unreadable') {
+    return '⚪ 좌표를 못 읽어 잴 수가 없다 — 좌표 파일을 고쳐야 한다.';
+  }
+  if (entry.path === null) {
+    return '⚪ 좌표에 `path` 가 없어 어디를 잴지 모른다.';
+  }
+  if (entry.pathExists !== true) {
+    return '⚪ 경로가 이 기계에 없어 못 잰다 — 이 기계의 문제이지 그 은하의 실패가 아니다.';
+  }
+  return null;
 };

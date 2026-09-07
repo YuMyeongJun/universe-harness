@@ -100,14 +100,28 @@ export function Banner({ tone, children }: { tone: BannerTone; children: ReactNo
  * ⚠️ `auto`(자동수집)와 `unknown`(⚪ 못 쟀다)은 **다른 말**이다 — 색이 비슷해도 합치지 마라.
  * `auto` 는 「기계가 넣었다」이고 `unknown` 은 「아무도 모른다」다.
  */
-export type PillTone = Fill | 'auto' | 'unknown';
+/**
+ * ⚠️ **어휘가 둘이라 이름도 둘이다.** `Fill`(filled·partial·stub)은 「도메인 문서가 얼마나
+ * 채워졌나」 전용이고, 판정 신호는 `ok`·`warn`·`bad` 다. 은하 목록에서 「좌표가 없다」를
+ * `stub`(=골격만) 이라고 부르면 읽는 사람이 **다른 뜻으로 읽는다.**
+ * ⛔ 그렇다고 클래스 문자열을 두 벌 적지 않는다 — 두 자리가 갈리면 색만 고쳐지는 날이 온다.
+ *    ⇒ 값은 **아래 한 벌**이고, `Fill` 이름은 그 한 벌을 **가리키기만** 한다.
+ */
+export type PillTone = Fill | 'ok' | 'warn' | 'bad' | 'auto' | 'unknown';
 
-const PILL_TONE: Record<PillTone, string> = {
-  filled: 'border-tone-ok-line bg-tone-ok-face text-ui-ok',
-  partial: 'border-tone-warn-line bg-tone-warn-face text-ui-warn',
-  stub: 'border-tone-bad-line bg-tone-bad-face text-ui-bad',
+const PILL_SIGNAL = {
+  ok: 'border-tone-ok-line bg-tone-ok-face text-ui-ok',
+  warn: 'border-tone-warn-line bg-tone-warn-face text-ui-warn',
+  bad: 'border-tone-bad-line bg-tone-bad-face text-ui-bad',
   auto: 'border-ui-line bg-ui-surface-raised text-ui-ink-dim',
   unknown: 'border-tone-unknown-line bg-tone-unknown-face text-tone-unknown-ink',
+} as const;
+
+const PILL_TONE: Record<PillTone, string> = {
+  ...PILL_SIGNAL,
+  filled: PILL_SIGNAL.ok,
+  partial: PILL_SIGNAL.warn,
+  stub: PILL_SIGNAL.bad,
 };
 
 export function Pill({

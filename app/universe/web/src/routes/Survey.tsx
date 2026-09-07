@@ -188,7 +188,7 @@ export function Survey() {
     return (
       <Shell>
         {error ? <Banner tone="bad">{error}</Banner> : <Empty>불러오는 중…</Empty>}
-        <Link to="/" className={`${BTN_GHOST} underline`}>← 도메인 목록</Link>
+        <Link to="/domains" className={`${BTN_GHOST} underline`}>← 도메인 목록</Link>
       </Shell>
     );
   }
@@ -198,7 +198,7 @@ export function Survey() {
 
   return (
     <Shell>
-      <Link to="/" className={`${BTN_GHOST_SM} mb-3.5 inline-block underline`}>
+      <Link to="/domains" className={`${BTN_GHOST_SM} mb-3.5 inline-block underline`}>
         ← 도메인 목록
       </Link>
       <PageHead

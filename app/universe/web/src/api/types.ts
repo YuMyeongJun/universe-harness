@@ -278,3 +278,105 @@ export interface IObservation {
     stderr: string;
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * ── 우주가 아는 은하 ── 콘솔의 **첫 화면**이 보는 자리.
+ *
+ * ⚠️⚠️ 여기 이름과 모양은 서버(`app/universe/server/src/galaxies.ts`)의 `IGalaxyList` 와
+ * **한 글자도 다르면 안 된다.** 두 자리가 갈리면 화면은 조용히 `undefined` 를 그리고,
+ * 그건 사람 눈에 **「없다」**로 보인다 — 이 화면이 막으려는 사고를 이 화면이 저지르게 된다.
+ *
+ * 대응처(실측으로 읽은 것 — `curl -s http://127.0.0.1:8788/api/galaxies`):
+ *   · 목록의 정본  → `universe.config.json` 의 `galaxies` 배열
+ *   · 좌표         → `galaxies.local/<이름>.json` → `galaxies/<이름>.json` (순서는 `lib/galaxy-load.mjs`)
+ *   · 기준선       → 그 좌표의 `observed`
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * 이 은하가 지금 어떤 상태인가. ⛔ **「괜찮다」가 기본값이 아니다.**
+ *
+ * ⛔⛔ 실측(R121): 좌표를 만들어 놓고 `universe.config.json` 에 안 올렸더니 관측이
+ * **「아무것도 안 재고 초록불」**을 냈다. 그 침묵이 결함이다.
+ * ⇒ 화면은 아래 다섯을 **색과 문구로 갈라** 그리고, ⛔ **어느 것도 목록에서 빼지 않는다.**
+ * 조용히 빼면 「원래 없었다」와 구별이 안 된다.
+ */
+export type GalaxyState =
+  | 'listed'
+  | 'no-coordinate'
+  | 'unreadable'
+  | 'not-registered'
+  | 'bad-name';
+
+/** 좌표 파일이 어디 있나. ⛔ `found:false` 는 「없는 은하」가 아니라 「좌표가 없다」다. */
+export interface IGalaxyCoordinate {
+  found: boolean;
+  /** 우주 뿌리 기준 **상대** 경로. 어느 명부에 있는지 사람이 봐야 한다. */
+  file: string | null;
+  /** `galaxies.local` 인가 `galaxies` 인가. */
+  dir: string | null;
+  /** gitignore 되는 자리인가(= 절대 경로를 담아도 되는 자리인가). */
+  local: boolean;
+  /** 못 읽었으면 서버가 옮긴 **문장 그대로**. 화면이 고쳐 적지 않는다. */
+  problem: string | null;
+}
+
+/**
+ * 기준선 — **있으면** 언제 무엇을 쟀는지.
+ *
+ * ⛔ 이 객체가 `null` 이면 **아직 안 쟀다**(⚪)이지 「위반 0」이 아니다.
+ * ⛔⛔ `files` 가 `0` 이면 **아무것도 안 훑고 심긴 기준선**이다 — 그 은하는 영원히 초록이다(R162).
+ */
+export interface IGalaxyBaseline {
+  measuredAt: string | null;
+  commit: string | null;
+  /** 그때 훑은 **파일 수** — 분모다. */
+  files: number | null;
+  dirtyFiles: number | null;
+  fingerprint: string | null;
+  /** 법칙별 기준선 건수. ⛔ **그때 잰 값**이지 지금 값이 아니다. */
+  laws: Record<string, number>;
+}
+
+export interface IGalaxyEntry {
+  name: string;
+  state: GalaxyState;
+  /** `universe.config.json` 의 `galaxies` 에 있는가. **목록의 정본은 그 배열이다.** */
+  registered: boolean;
+  coordinate: IGalaxyCoordinate;
+  description: string | null;
+  /** 은하가 사는 자리. ⛔ `null` 은 「좌표를 못 읽어서 모른다」이지 「경로가 없다」가 아니다. */
+  path: string | null;
+  /** 이 기계에 실재하는가. ⛔ `false` 는 ⚪(이 기계엔 없다)이지 ❌(실패)가 아니다. `null` = 못 봤다. */
+  pathExists: boolean | null;
+  appWorkspace: string | null;
+  /** 훑개가 보는 자리. ⚠️ 이게 틀리면 파일 0개를 훑고 「0건」이 기준선이 된다(R162). */
+  appDir: string | null;
+  /** 이 은하가 켠 법칙. ⛔ `null` = 좌표를 못 읽었다 — 「법칙이 0개」가 아니다. */
+  laws: string[] | null;
+  /** 좌표에 **선언된** 명령. 지어낸 것은 없다. */
+  commands: Record<string, string>;
+  /**
+   * 좌표가 「이 저장소엔 없다」고 적어 둔 것.
+   * ⛔⛔ **빈칸으로 두지 마라** — 없는 축은 ⚪ 로 **안 재진다**. 빈칸은 「그 축이 초록」으로 읽힌다.
+   */
+  missingCommands: string | null;
+  /** ⛔ `null` = 기준선이 없다 ⇒ **아직 안 쟀다**(⚪). `0` 건과 섞지 않는다. */
+  baseline: IGalaxyBaseline | null;
+  /** ⛔ 말해야 하는 것. 없으면 `null`. */
+  problem: string | null;
+  /** 서버가 판정 어휘(⛔·⚪·ⓘ)를 박아 준 줄들. ⛔ 화면이 **고쳐 적지 않는다.** */
+  notes: string[];
+}
+
+export interface IGalaxyList {
+  /** 목록의 정본이 사는 파일 — 우주 뿌리 기준 상대 경로. */
+  configFile: string;
+  /** ⛔ `null` 은 **못 읽었다**(⚪)이지 「은하가 없다」가 아니다. */
+  registered: string[] | null;
+  /** 등재 순서대로, **그 뒤에** 등재 안 된 좌표. ⛔ 어느 쪽도 빠져 있지 않다. */
+  galaxies: IGalaxyEntry[];
+  /** ⛔ 화면 맨 위에 그대로 띄울 것 — 양쪽이 어긋난 자리. */
+  problems: string[];
+  /** ⚪ 못 쟀다 — 목록 자체를 만들 수 없었던 이유. `null` 이면 **잰 것**이다. */
+  unmeasured: string | null;
+}

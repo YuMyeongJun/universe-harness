@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { getObservation } from '@api/client';
 import type { IObservation } from '@api/types';
@@ -48,8 +48,19 @@ const DECIMAL = 10;
 const byHand = (galaxy: string, sample: string): string =>
   `node observatory/observe.mjs --galaxy ${galaxy} --sample ${sample}`;
 
+/** 은하 이름을 안 들고 왔을 때의 기본값. ⛔ 이 화면은 이름 없이는 아무것도 못 잰다. */
+const GALAXY_DEFAULT = 'console';
+
 export function Violations() {
-  const [galaxy, setGalaxy] = useState('console');
+  /**
+   * 첫 화면(은하 목록)이 `?galaxy=<이름>` 으로 넘겨 준다.
+   *
+   * ⛔ **넘겨받았다고 자동으로 재지 않는다.** 열자마자 재면 화면은 「이 은하는 이렇다」를
+   * 그리는데, 그건 사람이 고른 은하가 아니라 링크가 고른 은하다. 이름만 채우고 **재는 것은
+   * 사람이 누른다** — 이 화면의 첫 상태는 언제나 ⚪ 「아직 재지 않았다」다.
+   */
+  const [params] = useSearchParams();
+  const [galaxy, setGalaxy] = useState(params.get('galaxy') ?? GALAXY_DEFAULT);
   const [sample, setSample] = useState(SAMPLE_DEFAULT);
   const [observed, setObserved] = useState<IObservation | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -85,7 +96,7 @@ export function Violations() {
       />
 
       <p className={`mb-4.5 ${HELP_TEXT}`}>
-        <Link to="/">← 잴 저장소 고르기</Link>
+        <Link to="/">← 우주가 아는 은하</Link> · <Link to="/domains">잴 저장소 고르기 →</Link>
       </p>
 
       <div className={CARD}>
@@ -136,7 +147,7 @@ export function Violations() {
           <div className="mt-1.5">
             그동안 사람은 손으로 잴 수 있다. 우주 저장소 뿌리에서:
             <div className="mt-1.5">
-              <code>{byHand(galaxy.trim() || 'console', sample || SAMPLE_DEFAULT)}</code>
+              <code>{byHand(galaxy.trim() || GALAXY_DEFAULT, sample || SAMPLE_DEFAULT)}</code>
             </div>
           </div>
         </Banner>

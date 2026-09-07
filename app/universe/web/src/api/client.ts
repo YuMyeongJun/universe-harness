@@ -2,6 +2,7 @@ import type {
   IDomainSummary,
   IEmitFile,
   IGalaxyDraftResult,
+  IGalaxyList,
   IObservation,
   IProgress,
   ISurvey,
@@ -148,3 +149,17 @@ export const getObservation = (galaxy: string, sample: number): Promise<IObserva
   req<IObservation>(
     `/api/observations/${encodeURIComponent(galaxy)}?sample=${encodeURIComponent(String(sample))}`,
   );
+
+/**
+ * ── 우주가 아는 은하 ── **첫 화면**이 부르는 자리.
+ *
+ * ⛔⛔ **실패해도 빈 목록으로 접지 마라.** 「목록을 못 읽었다」와 「은하가 0개다」는
+ * 화면에서 똑같이 **아무것도 없는 화면**으로 보인다. 서버는 그래서 못 읽었을 때
+ * `unmeasured` 에 사유를 담아 **200 으로** 준다 — 화면은 그 문장을 ⚪ 로 그린다.
+ *
+ * ⚠️ `galaxies.local/` 의 좌표 `path` 는 **남의 홈 경로**다(R152). 화면은 로컬이라 보여도
+ * 되지만, ⛔ 이 응답을 **파일·로그로 흘리지 마라** — 커밋 대상이나 붙여넣기로 새 나간다.
+ *
+ * 대응처: `app/universe/server/src/server.ts` 의 `GET /api/galaxies` → `listGalaxies()`.
+ */
+export const getGalaxies = (): Promise<IGalaxyList> => req<IGalaxyList>('/api/galaxies');

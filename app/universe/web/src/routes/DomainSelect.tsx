@@ -108,9 +108,32 @@ export function DomainSelect() {
       />
 
       <p className={`mb-4.5 ${HELP_TEXT}`}>
-        <Link to="/violations">위반 목록과 처방 보기 →</Link> — 무엇이 위반인지, 무엇을 고쳐야
-        하는지. 건수는 언제나 <strong>훑은 파일 수와 함께</strong> 나온다.
+        <Link to="/">← 우주가 아는 은하</Link> · <Link to="/violations">위반 목록과 처방 보기 →</Link>{' '}
+        — 무엇이 위반인지, 무엇을 고쳐야 하는지. 건수는 언제나{' '}
+        <strong>훑은 파일 수와 함께</strong> 나온다.
       </p>
+
+      {/**
+       * ⛔⛔ **이 화면의 「도메인」은 은하가 아니다.** 없으면 다음 사람이 그걸 은하로 안다.
+       *
+       * 아래 「이미 실측 중인 도메인」 목록은 `/api/domains` 가 **형제 폴더의 남의 저장소**
+       * (`qa-workflow-v2-main`)에서 읽어 온 것이고, 우주의 은하 명부
+       * (`universe.config.json` · `galaxies/` · `galaxies.local/`)와는 **아무 관계가 없다.**
+       * 실제로 이 화면이 첫 화면이던 동안 **우주가 아는 은하 5개가 화면에 아예 안 떴다.**
+       */}
+      <Banner tone="warn">
+        <strong>⚠️ 여기 「도메인」은 우주의 은하가 아니다.</strong>
+        <div className="mt-1.5">
+          아래 목록은 <strong>형제 폴더의 남의 저장소</strong>(<code>qa-workflow-v2-main</code>)에서
+          읽어 온 도메인 지식 문서다 — <code>universe.config.json</code> 과 <code>galaxies/</code> 가
+          아는 <strong>은하와는 아무 관계가 없다.</strong> 우주가 아는 은하는{' '}
+          <Link to="/">첫 화면</Link>에 있다.
+        </div>
+        <div className="mt-1.5">
+          ⛔ 이 화면을 <strong>없애지 않았다</strong> — 도메인 지식 수집이 여기로 들어간다. 다만
+          이 줄이 없으면 다음 사람이 <strong>이것을 은하로 읽는다.</strong>
+        </div>
+      </Banner>
 
       <div className={CARD}>
         <TextField
@@ -236,7 +259,7 @@ export function DomainSelect() {
       )}
 
       <div className="mt-8.5">
-        <h2 className={SECTION}>이미 실측 중인 도메인</h2>
+        <h2 className={SECTION}>이미 실측 중인 도메인 — 형제 저장소에서 읽어 온 것</h2>
 
         {error && (
           <Banner tone="bad">
