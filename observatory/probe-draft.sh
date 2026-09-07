@@ -9,6 +9,16 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# ⛔⛔ **`git checkout` 으로 되돌리지 않는다 — 사람의 미커밋 작업을 지운다.**
+#    실측: 이 탐침이 `git checkout universe.config.json` 을 하고 있었고, 그 때문에
+#    **막 등록한 은하 하나가 조용히 사라졌다.** 커밋 로그에는 「등록했다」고 적혀 있는데
+#    파일에는 없었다 — 「했다」와 「됐다」가 어긋난 자리다.
+# ⇒ **원본을 복사해 두고 그것으로 되돌린다.** 되돌릴 대상은 **내가 바꾼 것**뿐이다.
+CONFIG_BACKUP="$(mktemp)"
+cp universe.config.json "$CONFIG_BACKUP"
+restore_config () { cp "$CONFIG_BACKUP" universe.config.json; rm -f "$CONFIG_BACKUP"; }
+trap 'restore_config' EXIT
+
 if [ ! -d app/universe/server/src ]; then
   echo "⚪ 못 쟀다 — app/universe/server/src 가 없다(배달본이다)."
   exit 3
@@ -35,7 +45,7 @@ node observatory/observe.mjs --galaxy 초안탐침 > /tmp/초안탐침.txt 2>&1
 code=$?
 
 rm -f galaxies.local/초안탐침.json "$draft"
-git checkout universe.config.json 2>/dev/null
+cp "$CONFIG_BACKUP" universe.config.json
 
 cat /tmp/초안탐침.txt
 if [ "$code" -eq 3 ]; then
@@ -68,7 +78,7 @@ fs.writeFileSync("universe.config.json", `${JSON.stringify(c, null, 2)}\n`);
 node observatory/observe.mjs --galaxy 부분탐침 > /tmp/부분탐침.txt 2>&1
 partial=$?
 rm -f galaxies.local/부분탐침.json
-git checkout universe.config.json 2>/dev/null
+cp "$CONFIG_BACKUP" universe.config.json
 
 if [ "$partial" -ne 3 ]; then
   cat /tmp/부분탐침.txt
