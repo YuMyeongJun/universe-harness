@@ -11,7 +11,7 @@
  * ⚠️ 하네스 객체가 아니라 **부품**을 받는다. `PluggableHarness` 는 게이트를 밖으로 열어 주지
  *    않으므로(코어를 고칠 수 없다), 게이트 함수와 evaluator 를 그대로 받아 부른다.
  */
-import { createLocalIO, runSequentialGates } from '@core/fe-agent-harness';
+import { createLocalIO, measuredSignals, runSequentialGates } from '@core/fe-agent-harness';
 import type {
   IContractEvaluator,
   IContractVerdict,
@@ -39,6 +39,8 @@ export interface INextVerifyResult {
   gates: ISignal[];
   checks: ISignal[];
   ok: boolean;
+  /** 돌지 않은 축. ⛔ 비어 있지 않은데 `ok` 가 `true` 면 「전부 봤다」가 아니다(R146). */
+  unmeasured: ISignal[];
 }
 
 /** 워킹트리에서 바뀐 소스 파일. 추적되지 않은 새 파일도 포함한다(안 하면 새 컴포넌트가 판정을 피한다). */
@@ -77,7 +79,7 @@ export const verifyWorkingTree = async (options: INextVerifyOptions): Promise<IN
   if (verdict?.status === 'REJECTED') {
     log(`[CONTRACT REJECTED]\n${verdict.feedback}`);
     log('\n⛔ 게이트는 돌리지 않았다 — 관문에서 막힌 채로 20분짜리 빌드를 돌릴 이유가 없다.');
-    return { verdict, gates: [], checks: [], ok: false };
+    return { verdict, gates: [], checks: [], ok: false, unmeasured: [] };
   }
   log(verdict ? `[CONTRACT ALLOWED] 변경 파일 ${files.length}개` : '[CONTRACT SKIPPED] 변경된 소스가 없다');
 
@@ -86,12 +88,13 @@ export const verifyWorkingTree = async (options: INextVerifyOptions): Promise<IN
   for (const signal of gates) {
     log(formatSignal(signal));
   }
-  const gatesOk = gates.every((signal) => signal.ok);
+  /* ⛔ 못 잰 축을 초록으로 세지 않는다(R146 · §8). */
+  const gatesOk = measuredSignals(gates).every((signal) => signal.ok);
 
   /* ── 3) 스테이지 채점 축 — 게이트가 전부 초록일 때만. 죽은 빌드 위의 수치는 거짓이다. */
   let checks: ISignal[] = [];
   if (stage && gatesOk) {
-    checks = await runSequentialGates([() => stage.verify(io)]).catch(() => [] as ISignal[]);
+    checks = await runSequentialGates([{ name: stage.id, run: () => stage.verify(io) }]).catch(() => [] as ISignal[]);
     for (const signal of checks) {
       log(formatSignal(signal));
     }
@@ -99,10 +102,25 @@ export const verifyWorkingTree = async (options: INextVerifyOptions): Promise<IN
     log('\n(게이트가 빨간불이라 스테이지 채점은 건너뛴다)');
   }
 
-  const ok = gatesOk && (checks.length === 0 || checks.every((signal) => signal.ok));
+  /* 못 잰 축은 **판정 앞에 세워 이름을 부른다** — 없는 줄은 초록불처럼 읽힌다(R146). */
+  const unmeasured = gates.filter((signal) => signal.unmeasured);
+  if (unmeasured.length > 0) {
+    log(`\n⚠️ 못 잰 축 ${unmeasured.length}개 — **통과가 아니다. 아무도 안 봤다는 뜻이다.**`);
+    for (const signal of unmeasured) {
+      log(`   ⚪ ${signal.name} — ${signal.unmeasured}`);
+    }
+  }
+
+  const ok = gatesOk && measuredSignals(checks).every((signal) => signal.ok);
   log(ok ? '\n[SOLVED]' : '\n[NOT YET]');
-  return { verdict, gates, checks, ok };
+  if (ok && unmeasured.length > 0) {
+    log(`⚠️ 다만 위 ${unmeasured.length}개 축은 재지 않았다 — 초록불이 「전부 봤다」는 뜻이 아니다.`);
+  }
+  return { verdict, gates, checks, ok, unmeasured };
 };
 
+/** ⚪ 는 초록도 빨강도 아니다 — **안 잰 것**이다. 둘로 줄이면 「못 쟀다」가 「통과」가 된다(§8). */
 const formatSignal = (signal: ISignal) =>
-  `${signal.ok ? '✅' : '❌'} ${signal.name} ${signal.measured ?? ''} ${signal.detail ? `\n      ${signal.detail}` : ''}`.trimEnd();
+  signal.unmeasured
+    ? `⚪ ${signal.name} — 못 쟀다: ${signal.unmeasured}`
+    : `${signal.ok ? '✅' : '❌'} ${signal.name} ${signal.measured ?? ''} ${signal.detail ? `\n      ${signal.detail}` : ''}`.trimEnd();

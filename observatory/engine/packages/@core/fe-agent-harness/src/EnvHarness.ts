@@ -235,8 +235,21 @@ export abstract class EnvHarness {
     await stage.setup(io);
 
     /* 결함이 들어간 상태의 산출물을 한 번 만들어 둔다 — 스테이지 관측이 dist 를 읽는다.
-       ⛔ 이 빌드는 러너(부모)만 돌린다. 에이전트의 probe 액션에서는 막혀 있다. */
-    const boot = await io.exec(this.config.commands.build, { timeoutMs: 20 * 60_000 });
+       ⛔ 이 빌드는 러너(부모)만 돌린다. 에이전트의 probe 액션에서는 막혀 있다.
+       ⛔ **명령을 지어내지 않는다**(R146). 은하가 `commands.build` 를 선언하지 않았으면
+          훈련장을 세울 수 없다 — 중립 기본값으로 메우고 도는 척하지 않고 여기서 멈춘다. */
+    const buildCommand = this.config.commands.build;
+    if (!buildCommand) {
+      await this.close();
+      throw new Error(
+        [
+          `[BOOT BUILD 못 쟀다] ${stage.id} — 은하가 \`commands.build\` 를 선언하지 않았다.`,
+          '스테이지 관측은 빌드 산출(dist)을 읽는다. 빌드 없이 세운 훈련장의 수치는 전부 거짓이다.',
+          '좌표의 `commands.build` 를 채워라 — 우주가 명령을 지어내지는 않는다.',
+        ].join('\n'),
+      );
+    }
+    const boot = await io.exec(buildCommand, { timeoutMs: 20 * 60_000 });
     const briefing = await stage.briefing(io);
 
     await this.record({ kind: 'reset', bootBuildExit: boot.code, sandbox: this.sandbox.root });
@@ -252,7 +265,7 @@ export abstract class EnvHarness {
       await this.close();
       throw new Error(
         [
-          `[BOOT BUILD 실패] ${stage.id} — \`${this.config.commands.build}\` 가 exit ${boot.code} 로 끝났다.`,
+          `[BOOT BUILD 실패] ${stage.id} — \`${buildCommand}\` 가 exit ${boot.code} 로 끝났다.`,
           '결함을 심기 전에 이미 빨갛다는 뜻이므로 이 스테이지는 이 은하에서 재현되지 않는다.',
           '에이전트를 태우지 않고 멈춘다 (배선을 고치거나 `allowFailingBootBuild: true` 로 넘겨라).',
           '',

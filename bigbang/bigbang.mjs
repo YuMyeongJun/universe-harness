@@ -33,7 +33,7 @@ import { promisify } from 'node:util';
 
 import { requireUniverseHome } from '../lib/home.mjs';
 import { ALL_LANES, loadEngine, resolveGalaxyRules } from './engine.mjs';
-import { DEFAULT_BASE, runSecondExpansion } from './expand.mjs';
+import { attributeCompileFailure, DEFAULT_BASE, runSecondExpansion } from './expand.mjs';
 import { createClaudeAsk, createScriptedAsk, loadScript, MAX_GATE_RUNS_THIRD, MAX_TURNS, runThirdExpansion } from './nebula.mjs';
 import { firstFilled } from '../lib/pick.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
@@ -309,6 +309,22 @@ const houseRules = async () => {
     const fixCmd = lintFix.replaceAll('<TARGET>', starDir).replaceAll('<WORKSPACE>', galaxy.appWorkspace ?? '');
     await execFileAsync('bash', ['-c', fixCmd], { cwd: galaxy.path, maxBuffer: 32 * 1024 * 1024 }).catch(() => null);
     errors = await runLint();
+
+    /**
+     * ⚠️⚠️ **우리가 고친 것을 다시 찍는다 — 안 하면 되돌리기가 남의 작업으로 착각한다**(R146 실측).
+     *
+     * 되돌리기(`revertStar`)는 「우리가 쓴 그대로인 파일만」 지운다. 게이트가 도는 몇 분 사이에
+     * 사람이 고쳤을 수 있기 때문이다 — 옳은 규칙이다. 그런데 **바로 위 `lintFix` 도 별의 파일을
+     * 바꾼다.** 그것을 다시 찍지 않으면 되돌리기는 그 변경을 남의 것으로 읽고 파일을 **안 지운다.**
+     * 실측: 진짜 은하에서 2차 팽창이 빨간불로 끝났는데 `index.ts` 하나가 **남의 저장소에
+     * 남았다** — 「빅뱅이 빨간불로 끝나면 은하에 흔적이 없다」는 불변이 깨진 것이다.
+     * 우리가 낸 변경은 우리 것이다. **남의 변경만 보호한다.**
+     * (`expand.mjs` 의 자가 수정 뒤에는 이 재-찍기가 이미 있었다. 1차 쪽에만 없었다.)
+     */
+    for (const file of files) {
+      const abs = path.join(targetBase, file.path);
+      file.content = await fs.readFile(abs, 'utf8').catch(() => file.content);
+    }
   }
   if (errors === 0) {
     console.log('   ✅ 별이 이 은하의 집안 규칙을 지킨다.');
@@ -364,10 +380,50 @@ if (!flag('--out')) {
       console.log('      별을 막지 않는다. 우주가 못 잰 것을 남의 잘못으로 돌리지 않기 위해서다.');
     } else {
       console.log(result.out.split('\n').filter(Boolean).slice(-12).map((l) => `      ${l}`).join('\n'));
-      console.log(`\n⛔ **별이 은하에서 서지 않는다** (exit ${result.code} · ${seconds.toFixed(1)}초).`);
-      console.log('   파일은 남겨 뒀다 — 무엇이 깨졌는지 보라. 되돌리려면:');
-      console.log(`      rm -rf ${path.join(targetBase, relDir)}`);
-      process.exit(1);
+
+      /**
+       * ⚠️⚠️ **빨간불에 이름을 붙이기 전에 「이것이 별의 것인가」를 묻는다**(R146 실측).
+       *
+       * 실측: 진짜 은하에서 `yarn build` 가 **0.2초 만에** exit 1 로 죽었다. 사유는
+       * `Environment variable not found (NODE_AUTH_TOKEN)` — yarn 이 **컴파일에 들어가지도
+       * 못하고** 자기 설정에서 멈춘 것이다. 그런데 화면은 「⛔ **별이 은하에서 서지 않는다**」
+       * 라고 말했고, 2차 팽창은 거기서 끊겼다. 그 별은 **멀쩡히 컴파일된다**(env 를 채우고
+       * 같은 명령을 돌려 반증했다). 우주가 **못 잰 것을 별의 잘못으로 돌린** 것이다.
+       *
+       * 위의 `toolMissing` 은 이것을 가르려던 장치인데 그물이 좁았다 — `command not found`
+       * 부류만 봤다. ⛔ 그렇다고 사유 문자열을 하나씩 더 열거하지 않는다(§9 · R29 가 열거의
+       * 한계를 이미 적어 뒀다). 대신 **증거로 가른다**: 컴파일러가 별을 봤다면 실패 출력에
+       * **파일 경로가 나온다**(`tsc` 도 `vite` 도 그렇다). 한 줄도 안 나왔으면 컴파일이
+       * 시작되지도 않은 것이고, 그러면 우리가 잰 것은 **아무것도 없다.**
+       */
+      const real = await fs.realpath(galaxy.path).catch(() => galaxy.path);
+      const bases = real === galaxy.path ? [galaxy.path] : [galaxy.path, real];
+      const { kind, paths: mentioned, starPaths } = attributeCompileFailure({ out: result.out, bases, starDir: relDir });
+
+      if (kind === 'unmeasured') {
+        console.log(`\n   ⚠️ **못 쟀다** — 명령이 exit ${result.code} 로 죽었지만(${seconds.toFixed(1)}초) 실패 출력에 **소스 파일이 한 줄도 없다.**`);
+        console.log('      컴파일에 들어가기 전에 죽었다는 뜻이다 — 도구 설정·환경변수·인증 쪽을 먼저 보라.');
+        console.log('      **별을 막지 않는다.** 우주가 못 잰 것을 남의 잘못으로 돌리지 않기 위해서다(§8).');
+        console.log(`      별은 그대로 있다: ${path.join(targetBase, relDir)}`);
+      } else if (kind === 'galaxy') {
+        console.log(`\n⛔ **은하가 빨간불이다 — 별의 잘못이 아니다** (exit ${result.code} · ${seconds.toFixed(1)}초).`);
+        console.log('   실패 출력에 나온 파일이 **전부 별의 폴더 밖**이다:');
+        for (const p of mentioned.slice(0, 8)) {
+          console.log(`     · ${p}`);
+        }
+        console.log('   은하를 먼저 초록불로 만든 뒤 다시 태워라. 되돌리려면:');
+        console.log(`      rm -rf ${path.join(targetBase, relDir)}`);
+        process.exit(1);
+      } else {
+        console.log(`\n⛔ **별이 은하에서 서지 않는다** (exit ${result.code} · ${seconds.toFixed(1)}초).`);
+        console.log('   실패 출력이 별의 파일을 가리킨다:');
+        for (const p of starPaths.slice(0, 8)) {
+          console.log(`     · ${p}  ← 별`);
+        }
+        console.log('   파일은 남겨 뒀다 — 무엇이 깨졌는지 보라. 되돌리려면:');
+        console.log(`      rm -rf ${path.join(targetBase, relDir)}`);
+        process.exit(1);
+      }
     }
   }
 }

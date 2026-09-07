@@ -83,6 +83,19 @@ export interface IContractLanes {
 export interface ISignal {
   name: string;
   ok: boolean;
+  /**
+   * **못 쟀다** — 이 축은 아예 돌지 않았다. 그러면 `ok` 에는 **뜻이 없다.**
+   *
+   * ⚠️⚠️ 실측(R146): 이 칸이 없어서 「안 잰 것」이 갈 곳은 초록불뿐이었다.
+   * 은하가 `commands.test` 를 **선언하지 않았는데** 게이트는 중립 기본값(`npm test`)을
+   * 지어내 돌리고 `✅ test exit 0` 을 찍었다 — 그 은하에는 테스트가 하나도 없는데도.
+   * 같은 자리가 진짜 은하(yarn·test 스크립트 없음)에서는 `❌ test exit 1` 이 되어
+   * **우주가 지어낸 명령의 실패를 별의 잘못으로** 돌렸다.
+   * ⇒ 「잰 초록」·「잰 빨강」·「못 쟀다」는 **셋**이다. 둘로 접으면 셋째가 첫째로 둔갑한다(§8).
+   *
+   * ⛔ 초록으로도 빨강으로도 **세지 마라.** 세는 순간 이 칸을 만든 이유가 사라진다.
+   */
+  unmeasured?: string;
   /** 수치는 반드시 명령의 실제 산출에서 읽는다. 추정치를 넣지 않는다. */
   measured?: string;
   detail?: string;
@@ -219,14 +232,32 @@ export interface IHarnessConfig {
   allowFailingBootBuild?: boolean;
 }
 
+/**
+ * 은하가 **선언한** 명령들.
+ *
+ * ⚠️⚠️ `build` 와 `test` 는 **필수가 아니다**(R146 에서 풀었다). 예전엔 둘 다 `string` 이라
+ * 타입 자체가 「모든 저장소에 테스트가 있다」고 우기고 있었고, 그래서 없는 저장소에는
+ * 중립 기본값을 **지어넣어야** 했다. 지어낸 명령의 결과는 측정이 아니다.
+ * ⇒ 없으면 `undefined` 로 두고, 게이트는 그 축을 `unmeasured` 로 낸다.
+ * (`bigbang` 의 컴파일 관문은 이미 이 규칙이었다 — 「명령을 지어내지 않는다」.
+ *  두 층이 서로 다른 규칙을 쓰고 있었던 것이 결함이었다.)
+ */
 export interface IHarnessCommands {
   install?: string;
-  build: string;
-  test: string;
+  build?: string;
+  test?: string;
   lint?: string;
   /** lint 결과를 JSON 으로 떨어뜨리는 명령. `<OUT>` 자리가 파일 경로로 치환된다.
    *  ⚠️ `lint | tail` 로 재지 마라 — 파이프 뒤의 종료코드는 마지막 명령의 것이라 실패가 0으로 보인다. */
   lintJson?: string;
-  /** 추가 정적 검사(타입체크 등). 이름 → 명령. */
+  /**
+   * 타입 검사 명령.
+   * ⚠️⚠️ 실측(R146): 이 칸이 **타입에 없어서** 은하가 `commands.typecheck` 를 적어도
+   * 아무도 안 읽었다. `tiny-galaxy` 는 R45 부터 이것을 선언해 왔는데 게이트는 한 번도
+   * 안 돌렸고, 화면은 초록불 셋과 `[SOLVED]` 만 보여 줬다 — **안 돈 축은 화면에 없다.**
+   * 그것이 R71 이 「타입 검사 갈래가 한 번도 안 탔다」고 적어 둔 자리다.
+   */
+  typecheck?: string;
+  /** 추가 정적 검사. 이름 → 명령. */
   extraGates?: Record<string, string>;
 }

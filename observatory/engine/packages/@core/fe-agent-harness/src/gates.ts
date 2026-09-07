@@ -79,15 +79,46 @@ export const parseVitestSummary = (stdout: string): string | undefined => {
   return matched ? `failed ${matched[1]} · passed ${matched[2]}` : undefined;
 };
 
-/** 싼 것 → 비싼 것 순서로 돌고, **하나라도 죽으면 뒤는 돌리지 않는다.** */
-export const runSequentialGates = async (
-  steps: (() => Promise<ISignal | ISignal[]>)[],
-): Promise<ISignal[]> => {
+/**
+ * **못 쟀다**를 내는 신호. 명령이 없거나 앞이 막혀 축이 아예 안 돌았을 때 쓴다.
+ * ⛔ `ok` 는 `false` 로 두지만 **빨간불이 아니다** — 세는 쪽이 `unmeasured` 를 보고 갈라야 한다.
+ *    `true` 로 두면 안 잰 것이 통과로 세어지고, 그것이 이 칸을 만든 이유였다(§8).
+ */
+export const unmeasuredSignal = (name: string, why: string): ISignal => ({
+  name,
+  ok: false,
+  unmeasured: why,
+});
+
+/** 잰 것만 센다. 못 잰 축은 **초록으로도 빨강으로도** 세지 않는다. */
+export const measuredSignals = (signals: ISignal[]): ISignal[] => signals.filter((signal) => !signal.unmeasured);
+
+/** 게이트 한 칸 — **이름을 들고 있다.** 안 돌았을 때 「무엇이 안 돌았는지」 말하려면 이름이 필요하다. */
+export interface IGateStep {
+  /** 이 칸이 낼 신호의 이름. 앞이 막혀 건너뛸 때 이 이름으로 「못 쟀다」를 낸다. */
+  name: string;
+  run: () => Promise<ISignal | ISignal[]>;
+}
+
+/**
+ * 싼 것 → 비싼 것 순서로 돌고, **하나라도 죽으면 뒤는 돌리지 않는다.**
+ *
+ * ⚠️⚠️ 실측(R146): 예전엔 여기서 그냥 `return` 했다. 그래서 **안 돈 축은 화면에서 사라졌다** —
+ * 진짜 은하에서 lint 가 빨간불이 나자 출력에는 `❌ lint` 한 줄뿐이었고, build·test 가
+ * 「통과했는지」 「아예 안 돌았는지」 읽는 사람이 가릴 방법이 없었다.
+ * 없는 줄은 초록불처럼 읽힌다. ⇒ 끊긴 뒤의 칸을 **「앞이 막혀 못 쟀다」로 적어서 낸다.**
+ * 순서를 지키는 것(죽은 빌드 위의 수는 거짓이다)과 **말하지 않는 것은 다른 일이다.**
+ */
+export const runSequentialGates = async (steps: IGateStep[]): Promise<ISignal[]> => {
   const signals: ISignal[] = [];
-  for (const step of steps) {
-    const produced = await step();
+  for (let i = 0; i < steps.length; i += 1) {
+    const produced = await steps[i].run();
     signals.push(...(Array.isArray(produced) ? produced : [produced]));
-    if (signals.some((signal) => !signal.ok)) {
+    /* 이번 칸까지의 결과 중 **잰 것**에 빨간불이 있으면 뒤는 돌리지 않는다. */
+    if (measuredSignals(signals).some((signal) => !signal.ok)) {
+      for (const skipped of steps.slice(i + 1)) {
+        signals.push(unmeasuredSignal(skipped.name, `앞의 게이트가 빨간불이라 돌지 않았다 — 죽은 빌드 위에서 잰 수는 거짓이다`));
+      }
       return signals;
     }
   }

@@ -17,10 +17,15 @@
  */
 import path from 'node:path';
 
-import { parseVitestSummary, runCommandGate, runLintJsonGate, runSequentialGates } from '@core/fe-agent-harness';
-import type { IHarnessCommands, ISignal, IStageIO } from '@core/fe-agent-harness';
+import {
+  parseVitestSummary,
+  runCommandGate,
+  runLintJsonGate,
+  runSequentialGates,
+  unmeasuredSignal,
+} from '@core/fe-agent-harness';
+import type { IGateStep, IHarnessCommands, ISignal, IStageIO } from '@core/fe-agent-harness';
 
-import { NEUTRAL_NEXT_COMMANDS } from './config.ts';
 import type { ILintTarget } from './config.ts';
 import { readClientBundle } from './output.ts';
 import { inApp } from './paths.ts';
@@ -71,34 +76,60 @@ export const createNextBuildAndTest =
   (options: INextGateOptions) =>
   async (io: IStageIO): Promise<ISignal[]> => {
     const { commands, lintTargets, paths } = options;
-    const lintTemplate = commands.lintJson ?? NEUTRAL_NEXT_COMMANDS.lintJson;
+
+    /* 선언하지 않은 축은 돌리지 않고 **「못 쟀다」로 낸다**(R146 · react-vite 쪽과 같은 규칙).
+       ⛔ 중립 기본값으로 메우면 없는 테스트가 통과하거나, 지어낸 명령의 실패가 별 탓이 된다. */
+    const declared = (name: string, command: string | undefined, run: () => Promise<ISignal | ISignal[]>): IGateStep => ({
+      name,
+      run: command
+        ? run
+        : async () =>
+            unmeasuredSignal(
+              name,
+              `은하가 \`commands.${name}\` 을 선언하지 않았다 — 명령을 지어내지 않는다. 이 축은 아무도 안 봤다.`,
+            ),
+    });
+
+    const typecheckCommand = commands.typecheck ?? commands.extraGates?.typecheck;
+    const extraGates = Object.entries(commands.extraGates ?? {}).filter(([name]) => name !== 'typecheck');
 
     return runSequentialGates([
       /* 1) lint — 대상별 JSON 산출을 합산한다(파이프 금지). */
-      ...lintTargets.map((entry) => () =>
-        runLintJsonGate(io, {
-          name: entry.workspace ? `lint:${entry.workspace}` : 'lint',
-          command: lintTemplate.replaceAll('<WORKSPACE>', entry.workspace).replaceAll('<TARGET>', entry.target),
-        }),
-      ),
+      ...lintTargets.map((entry): IGateStep => {
+        const name = entry.workspace ? `lint:${entry.workspace}` : 'lint';
+        return declared(name, commands.lintJson, () =>
+          runLintJsonGate(io, {
+            name,
+            command: (commands.lintJson ?? '').replaceAll('<WORKSPACE>', entry.workspace).replaceAll('<TARGET>', entry.target),
+          }),
+        );
+      }),
       /* 2) build — 저장소의 build 스크립트다. `next build` 를 직접 부르지 않는다. */
-      () => runCommandGate(io, { name: 'build', command: commands.build, timeoutMs: 30 * 60_000 }),
+      declared('build', commands.build, () =>
+        runCommandGate(io, { name: 'build', command: commands.build ?? '', timeoutMs: 30 * 60_000 }),
+      ),
       /* 3) 산출 인구조사 — 여기가 Next 고유의 칸이다(위 주석 참고). */
-      () => runBuildOutputCensus(io, paths),
+      { name: '산출 인구조사', run: () => runBuildOutputCensus(io, paths) },
       /* 4) unit */
-      () =>
+      declared('test', commands.test, () =>
         runCommandGate(io, {
           name: 'test',
-          command: commands.test,
+          command: commands.test ?? '',
           timeoutMs: 15 * 60_000,
           parse: parseVitestSummary,
         }),
-      /* 5) 추가 정적 검사(typecheck 등). 설정에 적힌 것만 돈다. */
-      async () =>
-        Promise.all(
-          Object.entries(commands.extraGates ?? {}).map(([name, command]) =>
-            runCommandGate(io, { name, command, timeoutMs: 10 * 60_000 }),
-          ),
-        ),
+      ),
+      /* 5) 타입 검사 — `next build` 가 자기 안에서 도는 것이 기본이라(위 ⚠️) 선언은 선택이다.
+            그래도 **안 쟀으면 안 쟀다고 말한다** — 「기본이니까 됐다」는 측정이 아니다. */
+      declared('typecheck', typecheckCommand, () =>
+        runCommandGate(io, { name: 'typecheck', command: typecheckCommand ?? '', timeoutMs: 10 * 60_000 }),
+      ),
+      /* 5) 그 밖의 추가 정적 검사 — **적힌 것이 있을 때만 칸을 만든다.**
+            ⚠️ `extraGates` 는 축이 아니라 **그릇**이다. 빈 그릇까지 「못 쟀다」로 세면
+               없는 눈먼 자리를 가리키게 되고, 그런 경고는 늑대소년이 된다(`lib/blind.mjs` 의 ⚠️). */
+      ...extraGates.map(([name, command]): IGateStep => ({
+        name,
+        run: () => runCommandGate(io, { name, command, timeoutMs: 10 * 60_000 }),
+      })),
     ]);
   };

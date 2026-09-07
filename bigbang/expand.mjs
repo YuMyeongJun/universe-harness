@@ -211,7 +211,7 @@ export const parseVerify = (output) => {
  * 귀속 — 이 빨간불은 별 탓인가 은하 탓인가
  * ──────────────────────────────────────────────────────────────────── */
 
-const inStar = (relPath, starDir) => relPath === starDir || relPath.startsWith(`${starDir}/`);
+export const inStar = (relPath, starDir) => relPath === starDir || relPath.startsWith(`${starDir}/`);
 
 /**
  * 절대경로를 **은하 기준 상대경로**로 바꾼다.
@@ -271,7 +271,7 @@ const lintErrorFiles = async (bases, signalName, notBefore = 0) => {
  * ⚠️ **추정이다.** 실패 출력의 형식은 도구마다 다르고 스택트레이스에는 남의 파일도 섞인다.
  *    그래서 이 결과는 사람에게 보여 줄 뿐 **자동 수정의 근거로 쓰지 않는다**(`planRepair` 참고).
  */
-const pathsMentioned = (text, bases) => {
+export const pathsMentioned = (text, bases) => {
   const found = new Set();
   for (const token of text.match(/[\w./@~-]*[\w-]\.(?:tsx?|jsx?|mjs|cjs)\b/g) ?? []) {
     const stripped = token.replace(/^file:\/\//, '');
@@ -326,6 +326,31 @@ export const attribute = async ({ parsed, galaxyPath, starDir, gateStartedAt = 0
   }
 
   return findings;
+};
+
+/**
+ * **컴파일 실패 하나를 귀속한다** — 별 탓인가 · 은하 탓인가 · 아니면 **못 쟀나.**
+ *
+ * ⚠️⚠️ 셋째 갈래가 이 함수가 생긴 이유다(R146 실측). 진짜 은하에서 `yarn build` 가
+ * **0.2초 만에** exit 1 로 죽었다 — `Environment variable not found (NODE_AUTH_TOKEN)`.
+ * yarn 이 자기 설정에서 멈춰 **컴파일에 들어가지도 못한** 것인데, 도구는
+ * 「⛔ 별이 은하에서 서지 않는다」고 말하고 2차 팽창을 끊었다.
+ * 그 별은 멀쩡히 컴파일된다 — env 를 채우고 같은 명령을 돌려 반증했다.
+ * ⇒ 우주가 **못 잰 것을 별의 잘못으로** 돌리고 있었다(§8).
+ *
+ * ⛔ **사유 문자열을 열거해서 가르지 않는다**(§9 · R29 가 열거의 한계를 적어 뒀다).
+ *    증거로 가른다: 컴파일러가 별을 봤다면 실패 출력에 **파일 경로가 나온다**
+ *    (`tsc` 도 `vite` 도 그렇다). 한 줄도 없으면 우리가 잰 것은 아무것도 없다.
+ *
+ * @returns `{ kind: 'unmeasured' | 'galaxy' | 'star', paths, starPaths }`
+ */
+export const attributeCompileFailure = ({ out, bases, starDir }) => {
+  const paths = pathsMentioned(out, bases);
+  const starPaths = paths.filter((p) => inStar(p, starDir));
+  if (paths.length === 0) {
+    return { kind: 'unmeasured', paths, starPaths };
+  }
+  return { kind: starPaths.length === 0 ? 'galaxy' : 'star', paths, starPaths };
 };
 
 /* ─────────────────────────────────────────────────────────────────────

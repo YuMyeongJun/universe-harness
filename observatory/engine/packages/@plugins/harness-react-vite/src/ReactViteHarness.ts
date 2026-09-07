@@ -27,10 +27,12 @@ import {
   runCommandGate,
   runLintJsonGate,
   runSequentialGates,
+  unmeasuredSignal,
 } from '@core/fe-agent-harness';
 import type {
   IContractEvaluator,
   IContractVerdict,
+  IGateStep,
   IHarnessConfig,
   IPatchFile,
   ISignal,
@@ -72,8 +74,18 @@ export interface IReactViteHarnessOptions extends Omit<IHarnessConfig, 'commands
   contractStaticOnly?: boolean;
 }
 
-/** 패키지 매니저를 모르는 중립 기본 명령. 저장소가 yarn/pnpm 이면 설정에서 덮어쓴다. */
-const NEUTRAL_COMMANDS = {
+/**
+ * 패키지 매니저를 모르는 중립 기본 명령 — **설정을 만들 때 쓰라고 있는 값이다**(`init`).
+ *
+ * ⛔⛔ **주행 중에 이것으로 빈 칸을 메우지 마라**(R146 에서 뽑아냈다). 예전엔 생성자가
+ * `{ ...NEUTRAL_COMMANDS, ...options.commands }` 로 조용히 메웠고, 그 결과:
+ *   · `test` 를 **선언하지 않은** 은하에서 `npm test` 가 돌아 `✅ test exit 0` 이 찍혔다.
+ *     그 은하에는 테스트가 하나도 없다 — 「0건 통과」가 아니라 **못 잰 것**이었다.
+ *   · 진짜 은하(yarn · test 스크립트 없음)에서는 같은 자리가 `❌ test exit 1` 이 되어
+ *     **우주가 지어낸 명령의 실패를 별의 잘못으로** 돌렸다.
+ * 기본값의 자리는 **사람이 보고 고칠 수 있는 설정 파일**이지, 사람이 못 보는 주행 경로가 아니다.
+ */
+export const NEUTRAL_COMMANDS = {
   install: 'npm ci',
   build: 'npm run build',
   test: 'npm test',
@@ -107,7 +119,8 @@ export class ReactViteHarness extends EnvHarness {
     super({
       ...options,
       stages: [],
-      commands: { ...NEUTRAL_COMMANDS, ...options.commands },
+      /* ⛔ 빈 칸을 메우지 않는다 — 은하가 **선언한 것만** 들고 간다(위 `NEUTRAL_COMMANDS` 의 ⛔). */
+      commands: { ...options.commands },
       sandbox: { linkPaths: paths.linkPaths, ...options.sandbox },
       contract: { evaluator },
     });
@@ -134,33 +147,64 @@ export class ReactViteHarness extends EnvHarness {
    */
   protected async executeBuildAndTest(io: IStageIO): Promise<ISignal[]> {
     const { commands } = this.config;
-    const lintTemplate = commands.lintJson ?? NEUTRAL_COMMANDS.lintJson;
+
+    /**
+     * 선언하지 않은 축은 **돌리지 않고 「못 쟀다」로 낸다**(R146).
+     * ⛔ 중립 기본값으로 메우면 두 가지가 다 거짓말이 된다 — 없는 테스트가 통과하거나,
+     *    지어낸 명령의 실패가 별의 잘못이 된다. 어느 쪽도 측정이 아니다.
+     */
+    const declared = (name: string, command: string | undefined, run: () => Promise<ISignal | ISignal[]>): IGateStep => ({
+      name,
+      run: command
+        ? run
+        : async () =>
+            unmeasuredSignal(
+              name,
+              `은하가 \`commands.${name}\` 을 선언하지 않았다 — 명령을 지어내지 않는다. 이 축은 아무도 안 봤다.`,
+            ),
+    });
+
+    /* 타입 검사는 두 자리 중 어느 쪽에 적어도 읽는다.
+       ⚠️ 예전엔 `extraGates.typecheck` 만 읽어서, `commands.typecheck` 를 적어 둔 은하의
+          타입 검사가 **한 번도 안 돌았다**(R71 이 적어 둔 자리 · R146 에서 실측으로 잡았다). */
+    const typecheckCommand = commands.typecheck ?? commands.extraGates?.typecheck;
+    const extraGates = Object.entries(commands.extraGates ?? {}).filter(([name]) => name !== 'typecheck');
 
     return runSequentialGates([
       /* 1) lint — 대상별 JSON 산출을 합산한다(파이프 금지). */
-      ...this.lintTargets.map((entry) => () =>
-        runLintJsonGate(io, {
-          name: entry.workspace ? `lint:${entry.workspace}` : 'lint',
-          command: lintTemplate.replaceAll('<WORKSPACE>', entry.workspace).replaceAll('<TARGET>', entry.target),
-        }),
-      ),
+      ...this.lintTargets.map((entry): IGateStep => {
+        const name = entry.workspace ? `lint:${entry.workspace}` : 'lint';
+        return declared(name, commands.lintJson, () =>
+          runLintJsonGate(io, {
+            name,
+            command: (commands.lintJson ?? '').replaceAll('<WORKSPACE>', entry.workspace).replaceAll('<TARGET>', entry.target),
+          }),
+        );
+      }),
       /* 2) build — 산출은 `paths.distDir` 다. CI 의 `aws s3 sync` 와 같은 경로여야 한다. */
-      () => runCommandGate(io, { name: 'build', command: commands.build, timeoutMs: 20 * 60_000 }),
+      declared('build', commands.build, () =>
+        runCommandGate(io, { name: 'build', command: commands.build ?? '', timeoutMs: 20 * 60_000 }),
+      ),
       /* 3) unit — 테스트 요약에서 실패/통과 수를 캔다. */
-      () =>
+      declared('test', commands.test, () =>
         runCommandGate(io, {
           name: 'test',
-          command: commands.test,
+          command: commands.test ?? '',
           timeoutMs: 15 * 60_000,
           parse: parseVitestSummary,
         }),
-      /* 4) 추가 정적 검사(typecheck 등). 설정에 적힌 것만 돈다. */
-      async () =>
-        Promise.all(
-          Object.entries(commands.extraGates ?? {}).map(([name, command]) =>
-            runCommandGate(io, { name, command, timeoutMs: 10 * 60_000 }),
-          ),
-        ),
+      ),
+      /* 4) 타입 검사 — 선언한 은하만. 안 했으면 **그렇게 말한다.** */
+      declared('typecheck', typecheckCommand, () =>
+        runCommandGate(io, { name: 'typecheck', command: typecheckCommand ?? '', timeoutMs: 10 * 60_000 }),
+      ),
+      /* 5) 그 밖의 추가 정적 검사 — **적힌 것이 있을 때만 칸을 만든다.**
+            ⚠️ `extraGates` 는 축이 아니라 **그릇**이다. 빈 그릇까지 「못 쟀다」로 세면
+               없는 눈먼 자리를 가리키게 되고, 그런 경고는 늑대소년이 된다(`lib/blind.mjs` 의 ⚠️). */
+      ...extraGates.map(([name, command]): IGateStep => ({
+        name,
+        run: () => runCommandGate(io, { name, command, timeoutMs: 10 * 60_000 }),
+      })),
     ]);
   }
 

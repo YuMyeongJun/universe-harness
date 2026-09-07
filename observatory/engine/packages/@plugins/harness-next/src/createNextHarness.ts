@@ -19,7 +19,6 @@ import { createContractEvaluator, resolveRulePresets } from '@core/fe-agent-cont
 import { PluggableHarness } from '@core/fe-agent-harness';
 import type { IHarnessConfig, IHarnessPlugin, IStageDefinition, IStaticRule } from '@core/fe-agent-harness';
 
-import { NEUTRAL_NEXT_COMMANDS } from './config.ts';
 import type { ILintTarget } from './config.ts';
 import { createNextBuildAndTest } from './gates.ts';
 import { DEFAULT_NEXT_PATHS } from './paths.ts';
@@ -66,7 +65,8 @@ export const createNextPlugin = (options: {
 
 export const createNextHarness = (options: INextHarnessOptions): PluggableHarness => {
   const paths: INextPaths = { ...DEFAULT_NEXT_PATHS, ...options.paths };
-  const commands = { ...NEUTRAL_NEXT_COMMANDS, ...options.commands };
+  /* ⛔ 빈 칸을 메우지 않는다 — 선언한 것만 들고 간다(R146). 메우면 안 잰 축이 초록불이 된다. */
+  const commands = { ...options.commands };
   const lintTargets = options.lintTargets ?? [{ workspace: paths.appWorkspace, target: '.' }];
 
   /* Contract 흡수 — 밖에서 evaluator 를 주면 그것을 쓰고, 안 주면 공통 계약을 여기서 세운다.

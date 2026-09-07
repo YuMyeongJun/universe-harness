@@ -13,7 +13,7 @@ import { createContractEvaluator, resolveRulePresets } from '@core/fe-agent-cont
 import { runEpisode } from '@core/fe-agent-harness';
 
 import { parseArgv } from './argv.ts';
-import { loadNextConfig, NEUTRAL_NEXT_COMMANDS } from './config.ts';
+import { loadNextConfig } from './config.ts';
 import { createNextHarness, createNextPlugin } from './createNextHarness.ts';
 import { verifyWorkingTree } from './verify.ts';
 
@@ -48,7 +48,8 @@ const main = async () => {
     /* 게이트와 규칙은 플러그인 객체에서 그대로 꺼낸다 — 하네스와 같은 부품을 쓴다는 것이 요점이다. */
     const plugin = createNextPlugin({
       paths: project.paths,
-      commands: { ...NEUTRAL_NEXT_COMMANDS, ...project.commands },
+      /* ⛔ 빈 칸을 메우지 않는다(R146) — 기본값은 설정을 만들 때 들어가야 한다. */
+      commands: { ...project.commands },
       lintTargets: project.lintTargets,
     });
     const result = await verifyWorkingTree({

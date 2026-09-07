@@ -19,7 +19,16 @@ export type { IParsedArgv } from './argv.ts';
 export { stripJsonc } from './jsonc.ts';
 export type { ISandboxOptions } from './sandbox.ts';
 export { createTrajectoryRecorder } from './trajectory.ts';
-export { runCommandGate, runLintJsonGate, runSequentialGates, parseVitestSummary, tail } from './gates.ts';
+export {
+  runCommandGate,
+  runLintJsonGate,
+  runSequentialGates,
+  unmeasuredSignal,
+  measuredSignals,
+  parseVitestSummary,
+  tail,
+} from './gates.ts';
+export type { IGateStep } from './gates.ts';
 export { callClaude } from './agent/claudeCli.ts';
 export type { IClaudeCall, IClaudeResult } from './agent/claudeCli.ts';
 export { runEpisode, parseAction, AGENT_PROTOCOL_PATH } from './runner.ts';
