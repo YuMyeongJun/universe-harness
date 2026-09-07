@@ -15,6 +15,18 @@ const BACKEND = 'http://127.0.0.1:8788';
 const at = (dir: string): string => fileURLToPath(new URL(`./web/src/${dir}`, import.meta.url));
 
 export default defineConfig({
+  /**
+   * ⛔⛔ **웹과 서버가 같은 `dist/` 를 쓰면 나중에 빌드한 쪽이 앞의 것을 지운다.**
+   *
+   * ⚠️ 실측: `npm run build:server && npx vite build` 순서로 돌렸더니 vite 가 `dist/` 를
+   * 비우면서 **서버 산출물을 통째로 지웠고**, `node dist/index.js` 가
+   * `Cannot find module` 로 죽었다. 반대 순서로는 우연히 돌아서 **순서에 따라 되고 안 됐다.**
+   * ⛔ 그 종류가 제일 나쁘다 — 「내 기계에선 되는데」가 되고, 원인이 빌드 순서라는 걸 아무도 모른다.
+   *
+   * ⇒ 웹 산출물만 `dist/web` 으로 옮긴다. 서버는 `tsconfig.server.json` 의 `outDir: dist` 를
+   *   그대로 두므로 `node dist/index.js` 를 가리키는 자리들이 **한 곳도 안 바뀐다.**
+   */
+  build: { outDir: 'dist/web', emptyOutDir: true },
   plugins: [react()],
   resolve: {
     alias: {

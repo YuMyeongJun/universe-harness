@@ -13,6 +13,12 @@ import express, { type Request, type Response } from 'express';
 import { closeBrowser, openBrowser, scan, sessionState } from './collect.js';
 import { domainExists, listDomains } from './domains.js';
 import { applyEmit, planEmit } from './emit.js';
+import {
+  draftIdProblem,
+  inputProblem,
+  makeGalaxyDraft,
+  readGalaxyDraft,
+} from './galaxy-draft.js';
 import { detect } from './provenance.js';
 import { dataDir, locate, workflowRoot } from './paths.js';
 import {
@@ -312,6 +318,41 @@ export const createApp = (): express.Express => {
     const target = survey.entry.baseUrl.trim() || survey.entry.loginUrl.trim();
     if (target === '') return fail(res, 400, '먼저 테스트 환경 주소를 입력하세요.');
     res.json(detect(target));
+  });
+
+  // ── 은하 등록 ────────────────────────────────────────────
+  // 로컬 폴더를 받아 **좌표 초안**을 만든다. ⛔ 여기서 좌표를 만들지 않는다 —
+  // `bin/galaxy.mjs` 가 만들고, 서버는 부르고 나른다(자세한 이유는 galaxy-draft.ts 머리말).
+
+  /**
+   * 초안 만들기. `{ name, dir }` 를 받는다.
+   *
+   * ⛔ **못 쟀을 때 4xx 를 주지 않는다.** 「그 폴더에 `package.json` 이 없다」는
+   *    제품이 깨진 것(❌)이 아니라 **잴 수 없는 것**(⚪)이다. `/scan` 이 전제가 안 설 때
+   *    200 + `measurable:false` 로 답하는 것과 같은 갈림이다. 입력이 잘못된 것만 400 이다.
+   * ⛔ 초안은 **`.data/`(gitignore)** 에 떨어진다. 커밋되는 `galaxies/` 에 올릴지는 사람이 정한다.
+   */
+  app.post('/api/galaxy-drafts', (req: Request, res: Response) => {
+    const body = req.body as { name?: unknown; dir?: unknown };
+    const problem = inputProblem(body.name, body.dir);
+    if (problem !== null) return fail(res, 400, problem);
+    void makeGalaxyDraft(String(body.name).trim(), String(body.dir).trim()).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `좌표 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * 만들어 둔 초안을 다시 본다 — **후보·읽어낸 명령·못 읽은 자리**를 그대로 준다.
+   * ⛔ 태양계는 여기서도 **고르지 않는다.** 후보만 준다(관측 법칙 §9).
+   */
+  app.get('/api/galaxy-drafts/:id', (req: Request, res: Response) => {
+    const id = String(req.params['id'] ?? '');
+    const problem = draftIdProblem(id);
+    if (problem !== null) return fail(res, 400, problem);
+    const found = readGalaxyDraft(id);
+    if (found === null) return fail(res, 404, '그런 좌표 초안이 없습니다.');
+    res.json(found);
   });
 
   // ── 지식 생성 ────────────────────────────────────────────
