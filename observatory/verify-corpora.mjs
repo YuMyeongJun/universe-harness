@@ -59,6 +59,21 @@ for (const file of files) {
 }
 
 console.log(`── 말뭉치 감사 — 명부 ${registry.corpora.length}개 · 문서가 인용한 수 ${cited.size}개`);
+/**
+ * ⛔⛔ **인용을 하나도 못 찾았으면 「전부 판단돼 있다」가 아니라 「훑개가 고장 났다」다**(§8).
+ *
+ * 실측: `files` 를 비워 봤더니 화면이 **「✅ 인용한 수 0개가 전부 판단돼 있다」**로 초록이었다.
+ * 이 검사의 분모는 **명부**가 아니라 **문서에서 찾은 인용**인데, 그 수가 0이어도 아무 말이 없었다.
+ * ⇒ 판단 안 한 인용이 새로 생겨도 훑개가 죽어 있으면 **영원히 조용하다.**
+ * ⚠️ 옆 저장소 세션이 자기 검사기들을 세어 같은 구멍을 찾았고, 그 이야기를 듣고 여기서도 셌다.
+ * ⛔ 하한을 손으로 적지 않는다 — **0인가**만 본다. 그건 어느 저장소에서도 참이라 낡지 않는다.
+ */
+if (cited.size === 0) {
+  console.error('\n⛔ 문서에서 인용한 수를 **하나도 못 찾았다** — 훑개가 고장 났다(§8).');
+  console.error(`   훑은 파일 ${files.length}개. 「0개가 전부 판단돼 있다」는 통과가 아니다.`);
+  process.exit(1);
+}
+
 const unjudged = [...cited].filter(([n]) => !known.has(n));
 const stale = registry.corpora.filter((c) => c.files >= 100 && !cited.has(c.files));
 
