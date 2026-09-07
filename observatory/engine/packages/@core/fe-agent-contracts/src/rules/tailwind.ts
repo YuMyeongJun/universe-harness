@@ -39,8 +39,29 @@ export const TAILWIND_RULES: IStaticRule[] = [
        `has-[>[data-align=x]:…]` 처럼 **대괄호가 중첩되면** 정규식이 안쪽 `]` 에서 멈춰
        뒤의 `:` 를 못 본다. 그래서 변이 계열 접두사를 따로 뺀다.
        (실측에서 이 한 건이 샜다 — 「모양으로 잡기」가 만능은 아니다.) */
-    guard: (match) => !/\[(?:var\(--|--|calc\()/.test(match[0])
-      && !/^(?:group|peer|has|data|aria|supports|not|in|nth)-/.test(match[0]),
+    /* ⚠️⚠️ **세 번째로 같은 오탐이 샜다 — 이번엔 「타입 힌트」다.**
+       옆 저장소가 잡아 줬다: `text-[color:var(--ui-label-tertiary)]` **4건이 위반으로 나왔는데
+       그건 규칙을 지킨 쪽이다.** 값이 디자인 토큰이고, 그 토큰이 실재하는 것도 확인됐다
+       (`_semantic.css` 의 `--rgb-ui-label-tertiary`).
+       ⛔ **자기 처방을 이미 따른 코드를 위반으로 냈다** — 처방이 「디자인 토큰 클래스로」인데
+          이미 디자인 토큰이다. 그런 규칙은 사람이 도구를 안 믿게 만든다.
+
+       원인: 가드가 `[` **바로 뒤**만 봤다. Tailwind 는 대괄호 안에 **타입 힌트**를 허용한다 —
+       `text-[color:…]` · `bg-[length:…]` · `w-[size:…]`. 힌트가 끼면 `var(--` 가 뒤로 밀려 안 걸린다.
+       ⇒ **힌트를 건너뛰고 값을 본다.**
+       ⚠️ 힌트가 있다고 다 빼면 안 된다 — `border-[color:#333]` 은 **하드코딩이라 걸려야 맞다.**
+          빼는 기준은 힌트가 아니라 **값이 토큰 참조인가**다.
+
+       ⚠️ 이 오탐은 이번이 세 번째다: ① `var()` 형 ② Tailwind 4 축약형(`[--x]`) ③ 타입 힌트.
+          **문법이 늘 때마다 샌다.** 그래서 접두사가 아니라 **값의 모양**으로 판정한다. */
+    guard: (match) => {
+      const inside = /\[([^\]]+)\]/.exec(match[0])?.[1] ?? '';
+      /* 타입 힌트(`color:` · `length:` …)가 있으면 건너뛴다. `var(...)` 안의 `:` 는 없다. */
+      const value = /^[a-z-]+:(?!\/)/.test(inside) ? inside.slice(inside.indexOf(':') + 1) : inside;
+      const usesToken = /^(?:var\(--|--)/.test(value) || value.startsWith('calc(');
+      return !usesToken
+        && !/^(?:group|peer|has|data|aria|supports|not|in|nth)-/.test(match[0]);
+    },
   }),
   patternRule({
     id: 'tailwind/theme-hardcoded',

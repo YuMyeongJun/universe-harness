@@ -216,11 +216,22 @@ return isValid;
   {
     id: 'tailwind/arbitrary-value',
     path: 'src/rulebite/ArbitraryValue.tsx',
-    positive: `export const Box = () => <div className="min-w-[70px] leading-[14px]" />;\n`,
+    /* ⚠️ `border-[color:#333]` 은 **타입 힌트가 붙었지만 하드코딩**이다 — 걸려야 맞다.
+       힌트가 있다고 빼면 안 된다는 것을 여기서 못 박는다(아래 negative 와 짝이다). */
+    positive: `export const Box = () => <div className="min-w-[70px] leading-[14px] border-[color:#333]" />;\n`,
     /* ⚠️ **같은 오탐이 새 문법으로 돌아왔다.** `var(--x)` 만 빼 뒀는데 남의 저장소에
        Tailwind 4 의 축약형 `bg-[--color-bg]` 가 23건 있었다. `calc()` 도 토큰으로
        표현할 수 없어 뺀다 — 처방이 없는 규칙은 「어쩌라고」가 된다. */
-    negative: `export const A = () => <div className="bg-[var(--ui-primary)] w-[--sidebar-width] h-[calc(100vh-20rem)] bg-background" />;\n`,
+    /* ⚠️⚠️ **세 번째로 같은 오탐이 샜다 — 이번엔 「타입 힌트」다.**
+       옆 저장소(whitehole-front) 세션이 잡아 줬다: `text-[color:var(--ui-label-tertiary)]` 가
+       **위반으로 나왔는데 그건 규칙을 지킨 쪽이다.** 값이 디자인 토큰이고 실재도 확인됐다.
+       ⛔ **자기 처방을 이미 따른 코드를 위반으로 냈다** — 그런 규칙은 사람이 도구를 안 믿게 한다.
+       원인: 가드가 `[` **바로 뒤**만 봤는데 Tailwind 는 `text-[color:…]`·`bg-[length:…]` 처럼
+       **타입 힌트**를 허용한다. 힌트가 끼면 `var(--` 가 뒤로 밀려 안 걸렸다.
+       ⇒ 실측: 진짜 은하에서 **699 → 692**(오탐 7건). 표본에서 본 4건보다 많았다.
+       ⚠️ 오탐이 이번이 **세 번째**다(① `var()` ② Tailwind 4 축약형 ③ 타입 힌트) —
+          **문법이 늘 때마다 샌다.** 그래서 접두사가 아니라 **값의 모양**으로 판정한다. */
+    negative: `export const A = () => <div className="bg-[var(--ui-primary)] w-[--sidebar-width] h-[calc(100vh-20rem)] text-[color:var(--ui-label)] bg-[length:var(--s)] bg-background" />;\n`,
   },
   {
     id: 'tailwind/theme-hardcoded',

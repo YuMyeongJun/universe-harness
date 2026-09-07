@@ -12,6 +12,7 @@ import express, { type Request, type Response } from 'express';
 
 import { closeBrowser, openBrowser, scan, sessionState } from './collect.js';
 import { domainExists, listDomains } from './domains.js';
+import { listGalaxies } from './galaxies.js';
 import { applyEmit, planEmit } from './emit.js';
 import {
   draftIdProblem,
@@ -354,6 +355,29 @@ export const createApp = (): express.Express => {
     const found = readGalaxyDraft(id);
     if (found === null) return fail(res, 404, '그런 좌표 초안이 없습니다.');
     res.json(found);
+  });
+
+  // ── 은하 목록 ────────────────────────────────────────────
+  // ⭐ **이 콘솔의 첫 화면이 보는 것.** 우주가 아는 은하를 그대로 나른다.
+  // ⛔ 여기서 좌표를 찾는 규칙을 다시 짜지 않는다 — `lib/galaxy-load.mjs` 가 안다(galaxies.ts 머리말).
+
+  /**
+   * `GET /api/galaxies`
+   *
+   * ⛔ **못 쟀을 때 4xx 를 주지 않는다.** 「좌표 파일이 없다」·「경로가 이 기계에 없다」·
+   *    「기준선이 없다」는 전부 **결과**이지 요청이 잘못된 것이 아니다.
+   *    `observations`·`galaxy-drafts` 와 같은 갈림이다. 입력이 없는 라우트라 400 도 없다.
+   *    `universe.config.json` 자체를 못 읽었을 때만 `registered: null` + `unmeasured` 다.
+   * ⛔ **한쪽에만 있는 것을 조용히 빼지 않는다** — 등재만 된 것도, 좌표만 있는 것도 실어 보낸다.
+   *    그 침묵이 R121 에서 「아무것도 안 재고 초록불」을 냈다.
+   * ⛔ **응답을 로그로 남기지 않는다.** `galaxies.local/` 의 경로는 남의 홈 경로다(R152).
+   */
+  app.get('/api/galaxies', (_req: Request, res: Response) => {
+    void listGalaxies().then(
+      (result) => res.json(result),
+      /* 여기까지 오면 목록을 만드는 것조차 못 한 것이다 — 그것은 서버 잘못이라 5xx 다. */
+      (e: unknown) => fail(res, 500, `은하 목록을 만들지 못했습니다: ${(e as Error).message}`),
+    );
   });
 
   // ── 관측 ────────────────────────────────────────────────

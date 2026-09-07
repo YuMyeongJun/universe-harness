@@ -15,7 +15,19 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const HARNESS_ROOT = resolve(HERE, '../../..');
 
-/** 형제 폴더 이름. 클론하면 저장소 이름이 그대로 폴더명이 된다. */
+/**
+ * 형제 폴더 이름. 클론하면 저장소 이름이 그대로 폴더명이 된다.
+ *
+ * ⛔⛔ **이것은 「우주의 것」이 아니다.** 아래 `workflowRoot`·`domainsDir`·`locate` 와 그것을
+ *    쓰는 라우트(`/api/health` · `/api/domains/**`)는 전부 **남의 저장소**(qa-workflow-v2-main)를
+ *    지식 출처로 삼는, 이 콘솔이 `qa-harness` 에서 흡수돼 올 때 딸려 온 길이다.
+ *    우주의 은하와는 **아무 관계가 없다** — 은하는 `universe.config.json` 과 `galaxies/`·`galaxies.local/` 이고
+ *    그것을 나르는 자리는 `galaxies.ts` 다(`/api/galaxies`).
+ *
+ * ⚠️ 그래도 **지우지 않았다.** 그 화면(도메인 선택 · 설문 · 수집 · 지식 생성)이 아직 살아 있어서
+ *    지우면 동시에 두 개가 깨진다. 새 길을 **더한** 것이고, 이 주석은 다음 사람이
+ *    「콘솔의 첫 화면이 왜 남의 저장소 도메인을 보나」에서 헤매지 않게 하려고 박아 둔다.
+ */
 const SIBLING = 'qa-workflow-v2-main';
 
 export const workflowRoot = (): string =>

@@ -29,12 +29,12 @@
   ],
   "//appDir": "⚠️ 앱은 `web/` 다 — 뿌리에 `src/` 가 없어서 `appDir: \".\"` 로 두면 훑개가 **0개를 본다.** 실측으로 그랬다(files: 0 인데 「0건」이 기준선으로 심겼다).",
   "observed": {
-    "measuredAt": "2026-09-07T12:59:49.640Z",
-    "commit": "418852882df352b48f7c5a6527794ae368d06452",
-    "dirtyFiles": 7,
-    "files": 7,
+    "measuredAt": "2026-09-07T15:21:12.143Z",
+    "commit": "d5d5fb3de6a829f7423dbe9c2cbd7fa78100883f",
+    "dirtyFiles": 0,
+    "files": 19,
     "blind": {},
-    "fingerprint": "v2:3c8e6c4d62da",
+    "fingerprint": "v2:99a70099bad4",
     "rulesFingerprint": "ad5eb07792f9",
     "lawsEnabled": [
       "tokens",

@@ -27,15 +27,15 @@
     }
   ],
   "observed": {
-    "measuredAt": "2026-09-07T12:04:31.191Z",
-    "commit": "412c8cff67e7c9d9c6ca16375b6b13130e33f078",
-    "dirtyFiles": 0,
+    "measuredAt": "2026-09-07T15:21:11.859Z",
+    "commit": "d5d5fb3de6a829f7423dbe9c2cbd7fa78100883f",
+    "dirtyFiles": 1,
     "files": 20,
     "blind": {},
     "fingerprint": "v2:6c6285b5d249",
     "rulesFingerprint": "ad5eb07792f9",
     "laws": {
-      "tokens": 4,
+      "tokens": 6,
       "semantics": 5,
       "naming": 2,
       "flatness": 2,
@@ -49,6 +49,16 @@
       "flatness",
       "cohesion",
       "form"
+    ],
+    "raised": [
+      {
+        "at": "2026-09-07T15:21:11.859Z",
+        "commit": "d5d5fb3de6a829f7423dbe9c2cbd7fa78100883f",
+        "why": "규칙 시험(RULE_MATRIX)의 positive 에 `border-[color:#333]` 을 더했다 — 타입 힌트가 붙어도 하드코딩은 걸려야 한다는 것을 못 박은 것이라, 더러운 은하가 그 표에서 생성되면서 2건이 는 것은 **의도한 결과**다. 오탐(토큰 참조)을 뺀 대신 진짜 위반 사례를 넣었다.",
+        "laws": [
+          "tokens 4→6"
+        ]
+      }
     ]
   }
 }
