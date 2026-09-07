@@ -129,6 +129,27 @@ else
     || { say "⛔ 거절 이유가 다르다"; cat "$work/o7.txt"; fail=1; }
 fi
 
+# ── 여섯째: **화면 시험 축을 제안하는가** ────────────────────────────────
+#
+# ⛔ 실측(R163): 등록된 은하 **하나도** `commands.e2e` 를 선언하지 않아 그 축이 **한 번도 안 돌았다**.
+#    ⚪ 는 정직하지만 **너무 자주 나오면 사람이 읽지 않는 법부터 배운다.**
+#    ⇒ ⚪ 를 예쁘게 찍는 대신 **⚪ 가 나오는 조건 자체를 줄인다.**
+# ⛔ 스크립트 **이름**으로 찾지 않는다(§9) — 여기서 이름을 **한글**로 두어 그걸 못 박는다.
+e2erepo="$work/e2erepo"; mkdir -p "$e2erepo/src/pages"
+echo 'export const A = () => <div/>;' > "$e2erepo/src/pages/A.tsx"
+printf '%s\n' '{"name":"a","scripts":{"화면시험":"playwright test --project=chromium"}}' > "$e2erepo/package.json"
+
+node bin/galaxy.mjs e2eprobe --dir "$e2erepo" --out "$work/e2e.json" >/dev/null 2>&1
+found=$(node -e '
+const d = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+process.stdout.write(String(d.commands?.e2e ?? ""));
+' "$work/e2e.json")
+case "$found" in
+  *playwright*--reporter=json*) say "✅ 화면 시험 축을 **JSON 리포터로** 제안한다 (이름이 한글이어도 찾는다)" ;;
+  TODO:*)  say "⛔ playwright 를 부르는 스크립트가 있는데 **못 찾았다** — 이름으로 찾고 있다(§9)"; fail=1 ;;
+  *)       say "⛔ 축을 적긴 했는데 **JSON 리포터가 아니다**: $found — `universe loop` 가 리포트를 못 읽는다"; fail=1 ;;
+esac
+
 if [ "$fail" -ne 0 ]; then
   echo; echo "⛔ 사람의 계획 첫 칸(주소를 넣는다)이 거짓이다."
   exit 1

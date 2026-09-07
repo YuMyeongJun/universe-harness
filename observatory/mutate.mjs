@@ -67,7 +67,20 @@ const argv = process.argv.slice(2);
 const dashdash = argv.indexOf('--');
 const mine = dashdash === -1 ? argv : argv.slice(0, dashdash);
 const command = dashdash === -1 ? [] : argv.slice(dashdash + 1);
-rejectUnknownFlags(mine, ['--universe', '--file', '--from', '--to', '--expect', '--self-test'], 'universe mutate');
+/**
+ * ⛔ **값은 플래그가 아니다.** `--to '--reporter=list'` 처럼 **`--` 로 시작하는 값**을 주면
+ * 플래그 검사가 그것을 「모르는 플래그」로 읽고 거절했다(실측으로 걸렸다 — 진짜 변이를 못 걸었다).
+ * ⇒ 값을 가진 플래그의 **다음 토큰**을 빼고 검사한다. 모르는 플래그를 거부하는 규율은 그대로다.
+ */
+/* ⛔ **목록을 두 벌로 만들지 않는다.** 처음엔 값 있는 플래그 이름을 따로 적었는데, 그러자
+   허용 목록이 **스프레드 뒤로 숨어** 인자 감사가 「광고하는데 거부한다」고 옳게 물었다.
+   ⇒ 이름 없이 가른다: **앞 토큰이 플래그이고 그것이 불리언이 아니면** 이 토큰은 값이다. */
+const BOOLEAN_FLAGS = ['--self-test'];
+const flagsOnly = mine.filter((token, at) => {
+  const before = mine[at - 1];
+  return !(typeof before === 'string' && before.startsWith('--') && !BOOLEAN_FLAGS.includes(before));
+});
+rejectUnknownFlags(flagsOnly, ['--universe', '--file', '--from', '--to', '--expect', '--self-test'], 'universe mutate');
 const flag = (n) => (mine.includes(n) ? mine[mine.indexOf(n) + 1] : undefined);
 
 /** 판정 여섯 갈래. ⛔ 「물었다」만 초록이다 — 나머지는 **재는 데 실패한 것**이다. */

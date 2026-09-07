@@ -171,6 +171,31 @@ const workspaceCandidates = async () => {
 };
 const workspaces = await workspaceCandidates();
 
+/**
+ * ⛔⛔ **화면 시험 축(`commands.e2e`)을 제안한다 — 안 하면 그 축은 영원히 ⚪ 다.**
+ *
+ * 실측(R163): 등록된 은하 **여섯 중 하나도** `commands.e2e` 를 선언하지 않았다. 그래서
+ * 사람의 계획에서 「화면 자동 테스트」 칸은 **한 번도 안 돌았고**, `universe loop` 는 늘 ⚪ 였다.
+ * ⚠️ ⚪ 는 정직하지만 **너무 자주 나오면 사람이 읽지 않는 법부터 배운다.**
+ * ⇒ ⚪ 를 예쁘게 찍는 대신 **⚪ 가 나오는 조건 자체를 줄인다** — 초안이 축을 제안한다.
+ *
+ * ⛔ **스크립트 이름을 열거하지 않는다**(§9). 이름은 사람이 정한다(`test:e2e`·`e2e`·`playwright`…).
+ *   **명령의 내용**이 playwright 를 부르는지로 찾는다 — 그건 도구 이름이라 사람이 안 바꾼다.
+ * ⛔ 그래도 **지어내지 않는다.** 못 찾으면 `TODO:` 로 남기고 「이 축은 안 돈다」고 말한다.
+ */
+const e2eScript = Object.entries(scripts).find(([, cmd]) => typeof cmd === 'string' && /playwright/.test(cmd));
+const hasPlaywrightConfig = await exists('playwright.config.ts') || await exists('playwright.config.js');
+/**
+ * ⚠️ **리포터를 JSON 으로 바꿔 준다.** `universe loop` 는 리포트 파일을 읽는데, 팀의 스크립트는
+ * 대개 사람이 보는 리포터다. 그대로 두면 「리포트를 안 남겼다」로 ⚪ 가 된다.
+ * ⛔ 팀의 스크립트를 **고치지 않는다** — 좌표에만 적는다.
+ */
+const e2e = e2eScript
+  ? `${e2eScript[1]} --reporter=json > .universe/e2e.json`
+  : (hasPlaywrightConfig
+    ? 'npx playwright test --reporter=json > .universe/e2e.json'
+    : TODO('화면 시험(Playwright)이 없다 — `universe loop` 가 ⚪ 로 남는다. 붙이면 그 축이 돈다'));
+
 const commands = {};
 const build = script('build');
 const test = script('test:run', 'test');
@@ -215,6 +240,8 @@ const draft = {
     lintJson: lint
       ? `${pkg.packageManager?.startsWith('yarn') ? 'yarn exec' : 'npx'} eslint <TARGET> --report-unused-disable-directives --format json -o <OUT>`
       : TODO('lint 스크립트가 없다 — 관문이 lint 를 못 잰다'),
+    /* 화면 시험 축 — `universe loop` 가 이걸 보고 돈다. ⛔ 없으면 그 칸은 ⚪ 다(초록이 아니다). */
+    e2e,
   },
   ...(scanDirs.length > 0
     ? {
@@ -246,6 +273,10 @@ console.log(`   읽어낸 것: ${Object.keys(commands).join(' · ') || '(명령 
    ⚠️ 고르지는 않는다. **보여 주고 사람이 정한다**(§9 — 폴더 이름은 사람이 정한다). */
 if (codeDirs.length > 1) {
   console.log(`   🗂  코드가 든 꼭대기 폴더 ${codeDirs.length}개: ${codeDirs.map((d) => `${d}/`).join(' · ')}`);
+  if (!e2e.startsWith('TODO:')) {
+    console.log(`   🎬 화면 시험 축을 적었다 — ${e2e}`);
+    console.log('      ⚠️ 리포터를 **JSON 으로 바꿔** 적었다 — `universe loop` 가 그 파일을 읽는다.');
+  }
   if (scanDirs.length > 0) {
     console.log(`   📐 \`codeDirs\` 를 적었다: ${scanDirs.join(' · ')}`);
     console.log('      이 저장소엔 `src/` 가 없다 — 안 적으면 관측이 **파일 0개**를 본다.');
