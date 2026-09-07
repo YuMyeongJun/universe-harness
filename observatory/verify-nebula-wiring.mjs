@@ -10,7 +10,7 @@
  * ⛔ 이것은 관문의 우회로가 **아니다.** 대본의 patch 도 `parseAction` → 범위 관문 →
  *    엔진 관문 → 파일 순서를 똑같이 지난다. 대본이 바꾸는 것은 **누가 말하는가**뿐이다.
  *
- * 재는 것 다섯(하나라도 조용하면 빨간불):
+ * 재는 것 여섯(하나라도 조용하면 빨간불):
  *   ① 범위 관문이 **별의 폴더 밖**을 막는가        — 대본 2턴이 일부러 `src/main.tsx` 를 쓴다
  *   ② 게이트가 **실제로 도는가**                    — lint·build·test·typecheck 신호가 찍히는가
  *   ③ 요구사항 신호가 **성공 출구에서** 찍히는가    — R132 가 남긴 자리(초록이면 앞에서 return 한다)
@@ -72,6 +72,7 @@ const contractRun = async (star, script, extra = []) => {
 };
 
 const vacuous = await contractRun('VacuousProbe', 'fixtures/agent-scripts/vacuous-contract.jsonl');
+const noContract = await contractRun('NoContractProbe', 'fixtures/agent-scripts/no-contract.jsonl');
 const loosen = await contractRun('LoosenProbe', 'fixtures/agent-scripts/loosen-contract.jsonl');
 
 const checks = [
@@ -111,6 +112,16 @@ const checks = [
     ok: /계약이 빨간불이다/.test(loosen.out) && /bigbang\/behavior-contract/.test(loosen.out),
     why: '계약을 받은 뒤 에이전트가 그것을 고칠 수 있다 — 자기 채점을 그대로 허용한다',
   },
+  {
+    label: '⑥ 재라고 했는데 못 쟀으면 초록불로 안 끝낸다',
+    /**
+     * ⛔ `--contract-first` 는 「요구사항을 재 달라」는 말이다. 계약을 못 받았는데 exit 0 으로
+     * 끝내면 **재 달라고 했는데 안 재고 통과로 보인다** — §8 이 계속 잡아 온 그 모양이다.
+     * 별은 게이트를 지났으므로 실패(1)도 아니다 ⇒ **셋째 자리(3)**.
+     */
+    ok: noContract.code === 3 && /재라고 했는데 못 쟀다/.test(noContract.out),
+    why: `계약을 못 받았는데 exit ${noContract.code} 로 끝냈다 — 안 재고 통과로 보인다`,
+  },
 ];
 
 let red = 0;
@@ -138,4 +149,4 @@ if (red > 0) {
   console.log(`     node bigbang/bigbang.mjs new tiny-galaxy shop ${STAR} --from "${REQUIREMENT}" --agent-script ${SCRIPT}`);
   process.exit(1);
 }
-console.log('\n✅ 3차 배선 다섯이 전부 살아 있다 (모델 호출 0회 · 별은 치웠다).');
+console.log('\n✅ 3차 배선 여섯이 전부 살아 있다 (모델 호출 0회 · 별은 치웠다).');

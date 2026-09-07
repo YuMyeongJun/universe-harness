@@ -308,7 +308,8 @@ export const runContractPhase = async ({
     console.log(`\n⚪ 계약 우선 — **못 쟀다**: ${why}`);
     console.log('   ⛔ 명령을 지어내지 않는다. 구현 단계로 그냥 넘어간다 — 요구사항 충족은 이 주행에서 안 재진다.');
     await recorder.append({ kind: 'contract-first', decision: 'UNMEASURED', why });
-    return { protectedPath: null, measured: false };
+    /* 은하가 못 주는 것은 **다시 물어도 소용없다** — 에이전트 탓이 아니다. */
+    return { protectedPath: null, measured: false, galaxyLacks: true };
   }
 
   console.log('\n══ 계약 우선 — 요구사항을 테스트로 먼저 번역한다');
@@ -677,10 +678,18 @@ export const runThirdExpansion = async ({
 
   /* ── 계약 우선 — 구현 **전에** 요구사항을 테스트로 받는다(R156). ⛔ 기본은 꺼져 있다. */
   const contractPhase = useContractFirst
-    ? await runContractPhase({
-      ask, galaxy, starDir: relDir, starName, targetBase, files, requirement, evaluator, contracts, harness, recorder,
-    })
-    : { protectedPath: null, measured: false };
+    ? await (async () => {
+      const args = { ask, galaxy, starDir: relDir, starName, targetBase, files, requirement, evaluator, contracts, harness, recorder };
+      const first = await runContractPhase(args);
+      /* ⚠️ 모델 딸꾹질 한 번으로 측정을 통째로 버리지 않는다 — **한 번만** 다시 본다.
+         ⛔ 은하가 `commands.testFile` 을 안 준 것(galaxyLacks)은 다시 물어도 소용없다. */
+      if (first.measured || first.galaxyLacks) {
+        return first;
+      }
+      console.log('\n   ↻ 계약을 한 번 다시 받는다 — 모델이 한 번 어긋난 것일 수 있다.');
+      return runContractPhase(args);
+    })()
+    : { protectedPath: null, measured: false, galaxyLacks: false };
   /* 통과한 계약은 **구현 단계에서 못 고친다** — 안 막으면 자기 채점을 그대로 허용하는 것이다. */
   const alsoProtected = contractPhase.protectedPath ? [contractPhase.protectedPath] : [];
 
@@ -875,6 +884,20 @@ export const runThirdExpansion = async ({
       console.log('  1. 라우트에 잇는다 (은하의 라우터) — 게이트는 별이 도는지 볼 뿐, 사람이 볼 수 있는지는 안 본다');
       console.log('  2. **요구사항이 실제로 충족됐는지는 사람이 본다** — 게이트가 재는 것은 lint·build·test 이지 요구사항이 아니다');
       await sayRequirementSignal();
+      /**
+       * ⛔ **재 달라고 한 것을 못 쟀으면 초록불로 끝내지 않는다**(R158).
+       * `--contract-first` 는 「요구사항을 재 달라」는 말이다. 계약을 못 받았는데 그냥 0 으로
+       * 끝내면 **재 달라고 했는데 안 재고 통과로 보인다** — §8 이 계속 잡아 온 그 모양이다.
+       * ⚠️ 은하가 `commands.testFile` 을 안 준 경우는 **에이전트 탓이 아니라** 은하의 한계다.
+       *    그때는 이미 ⚪ 로 말했으므로 별을 벌하지 않는다.
+       */
+      if (useContractFirst && !contractPhase.measured && !contractPhase.galaxyLacks) {
+        console.log('\n⛔ **요구사항을 재라고 했는데 못 쟀다** — 계약을 두 번 다 못 받았다.');
+        console.log('   별은 게이트를 지났다. 그러나 **요구사항대로인지는 아무도 안 봤다.**');
+        console.log('   ⚠️ 이것은 실패가 아니라 **못 쟀다**다 — 통과로 세지 마라(exit 3).');
+        await recorder.append({ kind: 'nebula-end', decision: 'GREEN-UNMEASURED', gateRuns, turns: turn });
+        return EXIT.unmeasured;
+      }
       await recorder.append({ kind: 'nebula-end', decision: 'GREEN', gateRuns, turns: turn });
       return EXIT.ok;
     }

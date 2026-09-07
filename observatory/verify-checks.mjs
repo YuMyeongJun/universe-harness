@@ -252,9 +252,11 @@ const CASES = [
        게이트가 초록이면 그 앞에서 `return` 하므로, 성공한 주행에서는 신호가 영영 안 돌았다.
        ⛔ 범위 관문(별의 폴더 밖 막기)을 변이 대상으로 삼지 않았다 — 그것을 끄면 대본의
           patch 가 **픽스처의 `src/main.tsx` 를 덮어쓴다.** 변이가 저장소를 부수면 안 된다. */
+    /* ⚠️ 겨냥은 **성공 출구의 그 한 줄**이다(신호를 부르는 자리는 둘이다 — 성공·멈춤).
+       성공 안내문 바로 뒤가 그 자리라, 그 문장을 앵커로 잡는다. 코드가 움직여도 문장은 남는다. */
     mutate: (t) => t.replace(
-      "      await sayRequirementSignal();\n      await recorder.append({ kind: 'nebula-end', decision: 'GREEN', gateRuns, turns: turn });",
-      "      await recorder.append({ kind: 'nebula-end', decision: 'GREEN', gateRuns, turns: turn });"),
+      "게이트가 재는 것은 lint·build·test 이지 요구사항이 아니다');\n      await sayRequirementSignal();",
+      "게이트가 재는 것은 lint·build·test 이지 요구사항이 아니다');"),
     cmd: ['node', ['observatory/verify-nebula-wiring.mjs']],
   },
   {
