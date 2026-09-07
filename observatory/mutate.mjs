@@ -165,6 +165,9 @@ export const runMutation = async ({ file, from, to, expect, cmd, cwd = process.c
 /* ── 자기 시험 — ⛔ 틀 자체가 「배선 안 된 검사기」가 되지 않게 ────────────── */
 
 const selfTest = async () => {
+  /* ⛔ **머리말을 먼저 찍는다.** 예전엔 문서·커버리지 가드가 머리말보다 **먼저 죽어서**,
+     바깥에서 재던 검사가 「틀이 안 돌았다」고 말했다 — 죽은 이유가 한 겹 가려졌다. */
+  console.log('── 손 변이 틀 — 자기 시험 (임시 파일로만 돈다)');
   const dir = mkdtempSync(path.join(tmpdir(), 'mutate-self-'));
   const write = (name, body) => {
     const at = path.join(dir, name);
@@ -192,6 +195,23 @@ const selfTest = async () => {
     ['기준선빨강', { body: 'const a = "GONE"; const keep = 1;\n', from: 'const keep = 1', to: 'const keep = 2', expect: '표식이 사라졌다' }, VERDICTS.RED],
   ];
 
+  let failed = 0;
+  for (const [name, spec, want] of cases) {
+    const target = write(`${name.replace(/[()]/g, '')}.mjs`, spec.body);
+    const before = readFileSync(target, 'utf8');
+    /* eslint-disable-next-line no-await-in-loop */
+    const got = await runMutation({
+      file: target, from: spec.from, to: spec.to, expect: spec.expect,
+      cmd: [process.execPath, checker, target],
+    });
+    const restored = readFileSync(target, 'utf8') === before;
+    const ok = got.verdict === want && restored;
+    console.log(`  ${ok ? '✅' : '⛔'} ${name.padEnd(16)} → ${got.verdict}${restored ? '' : '  ⛔ 원복 안 됨'}`);
+    if (!ok) {
+      console.log(`     기대 ${want} · 증거: ${got.evidence}`);
+      failed += 1;
+    }
+  }
   /**
    * ⛔⛔ **말한 갈래와 만든 갈래가 같은가** — 옆 저장소 세션이 「여섯을 가른다」고 적고
    * 일곱을 재고 있었다. **「검사가 무는가」의 한 단계 앞**, 「무엇을 만들었는지 세는 것」이다.
@@ -233,6 +253,8 @@ const selfTest = async () => {
     console.log(`  ⓘ 문서가 갈래 ${documented.size}개를 전부 적고, 「${stated ?? '?'} 갈래」라는 말도 맞다.`);
   }
 
+  /* ⛔ **케이스를 다 돌고 나서** 본다 — 먼저 죽으면 화면에 판정이 하나도 안 남고,
+     바깥에서 재는 검사가 「전부 안 쟀다」고 **틀린 진단**을 내놓는다(실측으로 겪었다). */
   const covered = new Set(cases.map(([, , want]) => want));
   const uncovered = Object.values(VERDICTS).filter((v) => !covered.has(v));
   if (uncovered.length > 0) {
@@ -241,24 +263,6 @@ const selfTest = async () => {
     process.exit(1);
   }
 
-  console.log('── 손 변이 틀 — 자기 시험 (임시 파일로만 돈다)');
-  let failed = 0;
-  for (const [name, spec, want] of cases) {
-    const target = write(`${name.replace(/[()]/g, '')}.mjs`, spec.body);
-    const before = readFileSync(target, 'utf8');
-    /* eslint-disable-next-line no-await-in-loop */
-    const got = await runMutation({
-      file: target, from: spec.from, to: spec.to, expect: spec.expect,
-      cmd: [process.execPath, checker, target],
-    });
-    const restored = readFileSync(target, 'utf8') === before;
-    const ok = got.verdict === want && restored;
-    console.log(`  ${ok ? '✅' : '⛔'} ${name.padEnd(16)} → ${got.verdict}${restored ? '' : '  ⛔ 원복 안 됨'}`);
-    if (!ok) {
-      console.log(`     기대 ${want} · 증거: ${got.evidence}`);
-      failed += 1;
-    }
-  }
   rmSync(dir, { recursive: true, force: true });
   /* ⛔ 분모를 말한다 — 「0건 실패」는 **0건을 쟀을 때도** 참이다(§8). */
   console.log(`\n${failed === 0 ? '✅' : '⛔'} 갈래 ${cases.length}개 중 ${cases.length - failed}개가 제 갈래로 떨어진다.`);
