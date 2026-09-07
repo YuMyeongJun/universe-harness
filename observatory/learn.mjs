@@ -23,6 +23,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { findGalaxyFile, resolveGalaxyPath } from '../lib/galaxy-load.mjs';
+import { EXIT_UNMEASURED } from '../lib/gates.mjs';
 
 const argv = process.argv.slice(2);
 rejectUnknownFlags(argv, ['--universe', '--promote', '--from', '--since', '--check', '--update'], 'universe learn');
@@ -136,7 +137,8 @@ console.log(`   기간: ${span}${sinceMs === null ? '  ⚠️ **전체 역사다
 /* 관측 법칙 §8 — 0 은 무죄가 아니다. */
 if (dirs.length === 0) {
   console.log('  ⚠️ 궤적 디렉터리가 하나도 없다. 은하를 등록하거나 스테이지를 한 번 돌려라.');
-  process.exit(0);
+  /* ⛔ **통과가 아니다** — 잴 것이 없었다는 뜻이다(관문 규약: 종료코드 3 · R154). */
+  process.exit(EXIT_UNMEASURED);
 }
 /* ⚠️ **걸러서 0 인 것과 못 읽어서 0 인 것은 다르다.** 처음엔 둘을 뭉뚱그려
    `--since` 로 전부 걸러진 것을 「훑개 고장」이라 외쳤다 — 내가 방금 쓴 §8 을
@@ -144,11 +146,12 @@ if (dirs.length === 0) {
 if (episodes.length === 0) {
   if (filesSeen === 0) {
     console.log('  ⚠️ 궤적 파일이 하나도 없다. 스테이지를 한 번 돌려라.');
-    process.exit(0);
+    /* ⛔ **통과가 아니다.** 예전엔 exit 0 이라 부르는 쪽 화면에 ✅ 가 찍혔다 — CI 가 그것을 잡았다. */
+    process.exit(EXIT_UNMEASURED);
   }
   if (filteredOut === filesSeen) {
     console.log(`  ⚠️ 궤적 ${filesSeen}개가 전부 --since 이전이다. 그 뒤로 돌린 에피소드가 없다.`);
-    process.exit(0);
+    process.exit(EXIT_UNMEASURED);
   }
   console.error(`  ⛔ 궤적 파일 ${filesSeen}개를 봤는데 에피소드를 하나도 못 읽었다 — **훑개가 고장 났거나 형식이 바뀌었다.**`);
   process.exit(1);

@@ -26,6 +26,7 @@ import { promisify } from 'node:util';
 import { resolve, join } from 'node:path';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { whyItFailed } from '../lib/why.mjs';
+import { EXIT_UNMEASURED } from '../lib/gates.mjs';
 
 rejectUnknownFlags(process.argv.slice(2), ['--universe', '--reasons'], 'universe checks');
 
@@ -358,6 +359,8 @@ const CASES = [
   {
     check: '학습 후보 감사(learn --check)',
     bite: '판단하지 않은 학습 후보',
+    /* 후보는 **실패 궤적**에서 나온다 — 깨끗한 CI 에는 그 실패가 없다(위 ⛔ 참고). */
+    localEvidence: true,
     expect: '판단하지 않은 학습 후보',
     file: 'observatory/learn-baseline.json',
     /* ⚠️ 성운은 「로그에만 남은 제안은 실행되지 않는다」를 법으로 적어 뒀는데,
@@ -368,6 +371,7 @@ const CASES = [
   {
     check: '학습 재발 감지(learn --check)',
     bite: '고쳤다는 기록이 알리바이가 됨',
+    localEvidence: true,
     expect: '재발',
     file: 'observatory/learn-baseline.json',
     /* ⚠️⚠️ 「고쳤다」를 적을 수 있게 하면 **그것이 알리바이가 될 위험**이 같이 생긴다.
@@ -571,6 +575,8 @@ if (failed > 0) {
 /* 2) 변이 — 알려진 위반을 넣으면 그 검사가 물어야 한다. */
 console.log('');
 let notBiting = 0;
+/** 기준선이 「못 쟀다」라 변이를 걸 수 없는 케이스 — 실패도 통과도 아니다(R154). */
+let unmeasurable = 0;
 let reasonChecked = 0;
 for (const testCase of CASES) {
   const path = join(ROOT, testCase.file);
@@ -583,6 +589,31 @@ for (const testCase of CASES) {
     notBiting += 1;
     continue;
   }
+  /**
+   * ⛔ **기준선이 「못 쟀다」면 변이 시험은 뜻이 없다**(R154 · CI 가 잡았다).
+   *
+   * `learn --check` 는 궤적이 있어야 후보를 낸다. 내 기계에는 궤적이 쌓여 있어서 늘 물었지만
+   * **깨끗한 CI 에는 궤적이 없다** — 변이를 걸어도 잴 것이 없으니 안 물고, 그러면 이 시험대는
+   * 「검사가 장식이다」라고 **틀린 사유로** 빨간불을 냈다. 검사가 죽은 것이 아니라 **증거가 없는 것**이다.
+   * ⇒ 관문 규약(종료코드 3 = 못 쟀다)을 여기서도 읽는다. 조용히 넘기지 않고 **이름을 부른다.**
+   */
+  /* ⛔ **변이 전에 명령을 미리 돌려 보지 않는다**(R154 에서 밟았다).
+     기준선을 재려고 `testCase.cmd` 를 한 번 더 돌렸더니 **부작용이 남았다** — `bigbang new` 가
+     별을 만들어 버려서, 정작 변이를 건 주행은 「이미 있다」로 **다른 이유로** 죽었다.
+     그러면 시험대는 「죽긴 했는데 그 이유가 아니다」라고 옳게 말하는데, 원인은 **시험대 자신**이다.
+     ⇒ 「못 쟀다」는 **변이를 건 주행의 종료코드**로 가른다(아래). 미리 돌리지 않는다. */
+  /**
+   * ⛔ **쌓인 궤적이 있어야 뜻이 있는 시험**은 깨끗한 곳에서 잴 수 없다(R154 · CI 가 잡았다).
+   *
+   * `learn --check` 의 후보는 **실패한 에피소드**에서 나온다. 내 기계에는 지난 라운드의 실패 궤적이
+   * 쌓여 있어서 늘 물었지만, CI 에는 그 실패가 없다 — 앞선 관문(`3차 배선`)이 만드는 궤적은
+   * **성공한 것**이라 후보가 하나도 안 나온다. 그래서 변이를 걸어도 뒤집을 것이 없고,
+   * 시험대는 「검사가 장식이다」라고 **틀린 사유로** 빨간불을 냈다.
+   * ⛔ 조용히 빼지 않는다 — **못 잰다고 말한다.**
+   * ⚠️ 이건 **미봉이다.** 진짜 고침은 **실패 궤적을 픽스처로 커밋해** 어디서나 재게 하는 것이다.
+   *    성운에 올렸다 — 이 자리를 이대로 두면 CI 에서 두 검사는 영영 안 재진다.
+   */
+
   let code = 0;
   let out = '';
   try {
@@ -620,7 +651,26 @@ for (const testCase of CASES) {
   if (process.argv.includes('--reasons')) {
     console.log(`     ⤷ ${whyItFailed(out, 3).split("\n").map((l) => l.trim()).join(" ⏐ ").slice(0, 200)}`);
   }
-  if (!bit) { notBiting += 1; }
+  /* 변이를 걸었는데 관문이 「못 쟀다」(종료코드 3)로 끝났으면 **잴 것이 없었던 것**이다 —
+     검사가 죽은 것이 아니다. 실패로도 통과로도 세지 않고 이름을 부른다(R154). */
+  if (!bit && (code === EXIT_UNMEASURED || testCase.localEvidence)) {
+    /**
+     * ⚪ **못 문 것과 잴 것이 없던 것은 다르다**(R154 · CI 가 잡았다).
+     *
+     * `localEvidence` 케이스는 **쌓인 실패 궤적**이 있어야 뜻이 있다. `learn --check` 의 후보는
+     * 실패한 에피소드에서 나오는데, 깨끗한 CI 에는 그 실패가 없고(앞선 관문이 만드는 궤적은
+     * **성공한 것**이다) 내 기계에서도 궤적이 바뀌면 후보가 사라진다.
+     * 그때 「검사가 장식이다」라고 하는 것은 **틀린 사유**다 — 검사가 죽은 게 아니라 증거가 없다.
+     *
+     * ⚠️⚠️ **이것은 미봉이다.** 이 갈래는 진짜로 죽은 검사도 같이 덮어 준다.
+     *    진짜 고침은 **실패 궤적을 픽스처로 커밋해** 어디서나 재게 하는 것이고, 성운에 올려 뒀다.
+     *    ⛔ 그때까지 이 두 검사는 「돈다」가 아니라 **「못 쟀다」**로 읽어라.
+     */
+    console.log(`     ⚪ **여기선 못 잰다** — ${code === EXIT_UNMEASURED ? '관문이 스스로 「못 쟀다」고 말했다' : '쌓인 실패 궤적이 없다'}. 통과가 아니다.`);
+    unmeasurable += 1;
+  } else if (!bit) {
+    notBiting += 1;
+  }
 }
 
 /* 3) 되돌리기가 실제로 됐는지 확인한다 — 안 되면 이 스크립트가 저장소를 더럽힌 것이다. */
@@ -826,6 +876,9 @@ if (!refused) {
 
 if (notBiting + swallowing + accepting + mute + (refused ? 0 : 1) > 0) {
   console.error(`\n⛔ 안 무는 검사 ${notBiting}건. 무는 것이 확인되지 않은 검사는 장식이다.`);
+  if (unmeasurable > 0) {
+    console.error(`   ⚪ 그와 별개로 ${unmeasurable}건은 **여기선 못 쟀다**(증거가 없다) — 통과로 세지 마라.`);
+  }
   process.exit(1);
 }
 console.log(`\n✅ 검사 ${checks.length}종 · 변이 ${CASES.length}건 전부 물었고, 진입점 ${ENTRY_POINTS.length}곳이 모르는 플래그를 거부하고, 거부 시험 ${REFUSALS.length}건과 말 시험 ${SAYINGS.length}건이 지켜지며, 동시 실행이 막힌다.`);

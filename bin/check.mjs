@@ -14,7 +14,7 @@ import { stat, readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
-import { GATES } from '../lib/gates.mjs';
+import { EXIT_UNMEASURED, GATES } from '../lib/gates.mjs';
 import { whyItFailed } from '../lib/why.mjs';
 import { DELIVERED, isJunk } from '../lib/delivered.mjs';
 import { packageHome } from '../lib/home.mjs';
@@ -96,6 +96,8 @@ let outOfScope = 0;
 let needsBuild = 0;
 /** 관문별 소요 시간 — CI 를 어떻게 나눌지 정하는 근거다(R154). */
 const timings = [];
+/** 관문이 스스로 「여기선 못 쟀다」고 말한 것(종료코드 3) — 통과도 실패도 아니다(R154). */
+let unmeasured = 0;
 for (const gate of GATES) {
   if (gate.scope === 'universe' && !isUniverseRepo) {
     console.log(`   ⏭  ${gate.label}  (여기선 못 잰다 — 우주 자신의 소스를 읽는 검사다)`);
@@ -119,6 +121,16 @@ for (const gate of GATES) {
   const { code, out } = await run(gate.file, gate.args ?? [], from);
   const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
   timings.push({ label: gate.label, ms, code });
+  /* ⛔ **관문이 스스로 「못 쟀다」고 말할 수 있다**(종료코드 3 · R154).
+     예전엔 0 아니면 1 뿐이라, 아무것도 못 잰 관문이 **✅ 로 찍혔다.** */
+  if (code === EXIT_UNMEASURED) {
+    unmeasured += 1;
+    console.log(`   ⚪ ${gate.label}  **못 쟀다** · ${(ms / 1000).toFixed(1)}초 — 통과가 아니다`);
+    for (const line of whyItFailed(out, 2).split('\n')) {
+      if (line.trim()) { console.log(`      ${line.trim()}`); }
+    }
+    continue;
+  }
   ran += 1;
   /* ⚠️ **시간을 같이 찍는다**(R154). CI 를 세우려면 「무엇이 느린가」를 알아야 하는데,
      그 수가 어디에도 없어서 짐작으로 나눌 뻔했다. 느린 관문을 모르고 CI 에 넣으면
@@ -140,4 +152,9 @@ if (needsBuild > 0) {
   console.log('   한 번만 하면 된다:  cd observatory/engine && npm install && npm run build');
 }
 console.log(`\n${failed === 0 ? '✅' : '⛔'} ${ran}개 돌았다 — 빨간불 ${failed}개 · 없어서 건너뜀 ${skipped} · 여기선 못 재서 ${outOfScope} · 엔진이 없어서 ${needsBuild}.`);
+/* ⛔ **초록불 줄에 섞지 않는다.** 못 잰 것은 따로 세고 이름을 부른다 — 안 그러면
+   「25개 전부 초록」이 「25개를 전부 쟀다」로 읽힌다(R154 · CI 가 그 자리를 잡았다). */
+if (unmeasured > 0) {
+  console.log(`⚪ 그중 ${unmeasured}개는 **스스로 못 쟀다고 말했다** — 통과로 세지 마라.`);
+}
 process.exit(failed === 0 ? 0 : 1);
