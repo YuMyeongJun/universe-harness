@@ -220,6 +220,23 @@ const CASES = [
     cmd: ['node', ['observatory/verify-names.mjs']],
   },
   {
+    check: 'TC 도구 시험(qa)',
+    bite: '시험이 비켜서는데 종료코드는 0이라 초록으로 읽힘',
+    expect: '비켜선 시험',
+    file: 'qa/tests/playwright.wiring.test.ts',
+    /**
+     * ⛔⛔ **비켜섬은 종료코드에 안 나온다.** 「243 통과」와 「242 통과 · 1 건너뜀」이
+     * 둘 다 exit 0 이라 **같은 초록**으로 읽힌다.
+     * ⚠️ 옆 저장소 세션이 자기 게이트에서 그 사고를 겪었다 — 빌드 산출물이 없어 3건이
+     *    매번 조용히 비켜섰는데 **여러 회전을 같은 초록으로 읽어** 뒤늦게 알았다.
+     *    그쪽을 오도한 것은 `CLAUDE.md` 의 줄임 한 줄(`yarn build`(=`tsc`))이었다.
+     * ⇒ 여기서는 **수로 말하고 ⚪ 로 갈린다.** 「고칠 수 있는 이유로 비켜서는 것」은
+     *    정직이 아니라 **안 재는 핑계**다.
+     */
+    mutate: (t) => t.replace('it(', 'it.skip('),
+    cmd: ['node', ['observatory/verify-qa.mjs']],
+  },
+  {
     check: '콘솔이 서는가(console)',
     bite: '지식 저장소를 못 찾았는데 「ok」라고 답함',
     expect: '없는데 「ok」라고 답한다',

@@ -49,8 +49,66 @@ if (!existsSync(path.join(QA, 'node_modules'))) {
   process.exit(EXIT_UNMEASURED);
 }
 
-const child = spawn('npm', ['--prefix', QA, 'test'], { stdio: 'inherit', cwd: ROOT });
-child.on('close', (code) => process.exit(code ?? 1));
+/**
+ * ⛔⛔ **비켜선 시험은 종료코드에 안 나온다 — 수로 봐야 한다.**
+ *
+ * 예전엔 이 관문이 vitest 의 **종료코드만 날랐다.** 그런데 `it.skip` 이 늘어도 exit 0 이라
+ * 「243 통과」와 「240 통과 · 3 건너뜀」이 **같은 초록**으로 읽힌다.
+ * ⚠️ 옆 저장소 세션이 자기 게이트에서 정확히 그 사고를 겪었다: 빌드 산출물이 없어 3건이
+ * 매번 조용히 비켜서고 있었는데, **여러 회전을 같은 초록으로 읽어** 오늘에서야 알았다.
+ * ⇒ **비켜섬은 통과가 아니다**(§8). 세어서 말하고, 있으면 ⚪ 로 갈린다.
+ *
+ * 그리고 **덜 걷힌 것**도 잰다: 시험 파일이 collect 에서 빠지면 남은 것만 돌고 초록이다.
+ * ⛔ 여기에 기대 개수를 **적지 않는다** — `git` 이 아는 시험 파일 수와 **대조**한다(§9).
+ */
+const tracked = await new Promise((done) => {
+  const git = spawn('git', ['ls-files', 'qa/tests', 'qa/e2e'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] });
+  let out = '';
+  git.stdout.on('data', (d) => { out += d; });
+  git.on('close', (code) => done(code === 0
+    ? out.split('\n').filter((f) => /\.(test|spec)\.[cm]?tsx?$/.test(f) && !f.includes('/e2e/')).length
+    : null));
+  git.on('error', () => done(null));
+});
+
+const child = spawn('npm', ['--prefix', QA, 'test'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT });
+let output = '';
+child.stdout.on('data', (d) => { output += d; process.stdout.write(d); });
+child.stderr.on('data', (d) => { output += d; process.stderr.write(d); });
+
+child.on('close', (code) => {
+  if (code !== 0) {
+    process.exit(code ?? 1);
+  }
+  /* ⛔ **요약을 못 읽으면 통과가 아니다**(§8) — 리포터가 바뀌면 이 관문은 눈이 먼다. */
+  const files = /Test Files\s+(.+)/.exec(output)?.[1]?.trim();
+  const tests = /\bTests\s+(.+)/.exec(output)?.[1]?.trim();
+  if (!files || !tests) {
+    console.error('\n⚠️ **못 쟀다** — vitest 요약을 못 읽었다(리포터가 바뀌었나).');
+    console.error('   ⛔ 이것은 「시험이 통과했다」가 아니다.');
+    process.exit(EXIT_UNMEASURED);
+  }
+  console.log(`\n   시험 파일 ${files} · 시험 ${tests}`);
+
+  const skipped = Number(/(\d+)\s+skipped/.exec(`${files} ${tests}`)?.[1] ?? 0);
+  if (skipped > 0) {
+    console.error(`\n⚪ **비켜선 시험 ${skipped}건** — 이것은 통과가 아니다(§8).`);
+    console.error('   종료코드는 0 이라 초록으로 읽힌다. 그래서 여기서 갈라 말한다.');
+    console.error('   → 왜 비켜서는지 보라. **고칠 수 있는 이유(빌드가 없다 · 산출물이 없다)면**');
+    console.error('     그건 정직이 아니라 **안 재는 핑계**다 — 먼저 짓고 다시 돌려라.');
+    process.exit(EXIT_UNMEASURED);
+  }
+
+  const collected = Number(/\((\d+)\)/.exec(files)?.[1] ?? 0);
+  if (tracked === null) {
+    console.log('   ⚠️ git 에게 **못 물었다** — 시험 파일이 덜 걷혔는지는 못 쟀다(§8).');
+  } else if (collected < tracked) {
+    console.error(`\n⛔ 시험 파일이 **덜 걷혔다** — git 이 아는 것 ${tracked}개 중 ${collected}개만 돌았다.`);
+    console.error('   남은 것만 돌고 초록이 나오는 자리다. 안 걷힌 파일이 무엇인지 보라.');
+    process.exit(1);
+  }
+  process.exit(0);
+});
 child.on('error', (error) => {
   console.error(`\n⚠️ **못 쟀다** — npm 을 못 불렀다: ${error.message}`);
   process.exit(EXIT_UNMEASURED);
