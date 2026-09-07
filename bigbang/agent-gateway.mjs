@@ -26,19 +26,61 @@
  *    안 넘기면 없다. 에이전트가 저장소를 훔쳐보는 갈래가 구조적으로 없다.
  */
 
-const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+/**
+ * **게이트웨이 둘을 같은 코드로 태운다** — 규약이 같기 때문이다(둘 다 OpenAI 호환).
+ *
+ * ⚠️ 사용자가 처음 말한 것은 **OmniRoute** 였는데 내가 **OpenRouter** 로 읽고 만들었다.
+ *    둘은 **다른 제품**이다 — 확인하고 나서 갈라 적는다(짐작한 것을 그대로 두지 않는다).
+ *
+ * | | OpenRouter | OmniRoute |
+ * |---|---|---|
+ * | 형태 | 호스팅 상용 | **오픈소스 · 직접 띄운다**(npm/Docker) 또는 클라우드 |
+ * | 기본 주소 | `openrouter.ai/api/v1` | `localhost:20128/v1` |
+ * | 모델 ID | `anthropic/claude-sonnet-5` | `cc/claude-opus-4-6` (`cc` = Claude Code) |
+ *
+ * ⛔⛔ **OmniRoute 의 자동 폴백을 켜지 마라.** 그 제품의 간판 기능이 「구독 먼저 → API 키 →
+ * 무료 티어」로 **알아서 갈아타는 것**인데, 그것이 정확히 R145 가 못 박은 사건이다 —
+ * 「모드가 바뀌는데 아무도 안 잰다」. 구독인 줄 알고 돌렸는데 청구되는 자리다.
+ * ⇒ **한 provider 로 고정한 모델 ID**를 줘라(`cc/…` 처럼). 우주가 대신 골라 주지 않는다.
+ */
+const GATEWAYS = {
+  openrouter: {
+    baseUrl: 'https://openrouter.ai/api/v1',
+    env: 'OPENROUTER_API_KEY',
+    /** ⚠️ 구독 레인의 별칭(`sonnet`)은 여기서 안 통한다 — 슬러그가 다르다. */
+    model: 'anthropic/claude-sonnet-5',
+    keysUrl: 'https://openrouter.ai/keys',
+  },
+  omniroute: {
+    /* 직접 띄우는 것이 기본이다 — 주소는 `OMNIROUTE_BASE_URL` 로 덮는다. */
+    baseUrl: 'http://localhost:20128/v1',
+    env: 'OMNIROUTE_API_KEY',
+    /* ⛔ **기본값을 지어내지 않는다.** provider 조합이 그 사람의 설정에 달렸다 —
+       모델은 `--model` 로 받는다(없으면 아래에서 「못 세웠다」로 멈춘다). */
+    model: null,
+    keysUrl: '그 게이트웨이의 Endpoints 화면에서 발급한다',
+  },
+};
 
-/** 이 레인의 기본 모델. ⚠️ 구독 레인의 별칭(`sonnet`)은 여기서 안 통한다 — 슬러그가 다르다. */
-export const OPENROUTER_DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
+/** 아는 레인 이름. ⛔ 여기 없는 이름에 주소를 지어내지 않는다. */
+export const GATEWAY_LANES = Object.keys(GATEWAYS);
 
-/** 이 레인이 반드시 있어야 하는 것. `lib/required-env.mjs` 가 이 이름으로 훑는다. */
-export const OPENROUTER_ENV = 'OPENROUTER_API_KEY';
+/** 레인 이름 → 설정. 모르는 이름이면 `null`. */
+export const gatewayOf = (lane) => {
+  const found = GATEWAYS[lane];
+  if (!found) {
+    return null;
+  }
+  /* 주소는 환경으로 덮을 수 있다 — 직접 띄운 게이트웨이는 자리가 사람마다 다르다. */
+  const override = process.env[`${lane.toUpperCase()}_BASE_URL`];
+  return { ...found, lane, baseUrl: override || found.baseUrl };
+};
 
 /**
  * @param {{model: string, apiKey: string, systemPrompt: string, timeoutMs?: number, fetchImpl?: Function}} options
  * @returns {(input: {input: string, sessionId: string|null}) => Promise<object>} `ask`
  */
-export const createOpenRouterAsk = ({ model, apiKey, systemPrompt, timeoutMs = 600_000, fetchImpl = fetch }) => {
+export const createGatewayAsk = ({ model, apiKey, systemPrompt, baseUrl, timeoutMs = 600_000, fetchImpl = fetch }) => {
   /* 세션별 대화 이력. CLI 의 `--resume` 자리를 우리가 대신 든다(위 ⚠️ 참고). */
   const histories = new Map();
   let counter = 0;
@@ -57,7 +99,7 @@ export const createOpenRouterAsk = ({ model, apiKey, systemPrompt, timeoutMs = 6
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     /* `unref` 로도 되지만 그건 **끄는 것이 아니라 안 세는 것**이다 — 진짜로 끈다. */
     try {
-      const response = await fetchImpl(ENDPOINT, {
+      const response = await fetchImpl(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -80,7 +122,7 @@ export const createOpenRouterAsk = ({ model, apiKey, systemPrompt, timeoutMs = 6
           costUsd: null,
           usage: null,
           /* ⛔ 본문을 그대로 다 흘리지 않는다 — 키가 되비치는 응답이 있다. 앞부분만 나른다. */
-          failure: `OpenRouter 가 ${response.status} 로 답했다: ${body.slice(0, 200)}`,
+          failure: `게이트웨이가 ${response.status} 로 답했다: ${body.slice(0, 200)}`,
         };
       }
 
@@ -94,7 +136,7 @@ export const createOpenRouterAsk = ({ model, apiKey, systemPrompt, timeoutMs = 6
           isError: true,
           costUsd: null,
           usage: parsed?.usage ?? null,
-          failure: `OpenRouter 가 빈 답을 줬다 (finish_reason: ${parsed?.choices?.[0]?.finish_reason ?? '모름'})`,
+          failure: `게이트웨이가 빈 답을 줬다 (finish_reason: ${parsed?.choices?.[0]?.finish_reason ?? '모름'})`,
         };
       }
 
@@ -118,8 +160,8 @@ export const createOpenRouterAsk = ({ model, apiKey, systemPrompt, timeoutMs = 6
         usage: null,
         failure:
           error?.name === 'AbortError'
-            ? `OpenRouter 가 ${Math.round(timeoutMs / 1000)}초 안에 안 끝났다`
-            : `OpenRouter 를 못 불렀다: ${error?.message ?? error}`,
+            ? `게이트웨이가 ${Math.round(timeoutMs / 1000)}초 안에 안 끝났다`
+            : `게이트웨이를 못 불렀다(${baseUrl}): ${error?.message ?? error}`,
       };
     } finally {
       clearTimeout(timer);

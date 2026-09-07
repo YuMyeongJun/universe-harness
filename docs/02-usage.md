@@ -182,15 +182,27 @@ universe new my-app wallet CouponList --from "쿠폰 목록 위에 남은 개수
 
 ```bash
 universe new my-app wallet CouponList --from "…"                      # 기본 — 구독(claude CLI)
-universe new my-app wallet CouponList --from "…" --lane openrouter    # 구독이 없을 때 (과금된다)
+universe new my-app wallet CouponList --from "…" --lane openrouter --model anthropic/claude-sonnet-5
+universe new my-app wallet CouponList --from "…" --lane omniroute  --model cc/claude-opus-4-6
 universe new my-app wallet CouponList --from "…" --lane script --agent-script <대본>   # 0원
 ```
 
 | 레인 | 무엇으로 | 돈 |
 |---|---|---|
 | `subscription`(기본) | `claude` CLI · `ANTHROPIC_API_KEY` 를 **자식에서 지운다** | 그 기계의 구독 |
-| `openrouter` | `OPENROUTER_API_KEY` · 모델 슬러그(`anthropic/claude-sonnet-5`) | **과금된다** |
+| `openrouter` | 호스팅 게이트웨이 · `OPENROUTER_API_KEY` · 슬러그 `anthropic/claude-sonnet-5` | **과금된다** |
+| `omniroute` | **직접 띄우는** 게이트웨이 · `OMNIROUTE_API_KEY` · 슬러그 `cc/claude-opus-4-6` | 붙인 provider 에 달렸다 |
 | `script` | 미리 적어 둔 JSONL 대본 | **0원** — 배선만 잰다 |
+
+게이트웨이 둘은 **규약이 같다**(OpenAI 호환) — 코드도 하나를 쓴다. 다른 것은 주소·키·슬러그뿐이다.
+주소는 `OPENROUTER_BASE_URL`·`OMNIROUTE_BASE_URL` 로 덮는다(직접 띄운 것은 자리가 사람마다 다르다).
+
+⛔ **`omniroute` 는 모델을 지어내지 않는다.** 그 게이트웨이에 어떤 provider 가 붙어 있는지는
+그 사람의 설정이라, 우리가 고르면 **엉뚱한 곳으로 청구된다.** `--model` 을 반드시 줘라.
+
+⚠️⚠️ **게이트웨이의 자동 폴백을 켜지 마라.** 「구독 먼저 → API 키 → 무료 티어」로 알아서
+갈아타는 기능이 있는데, 그것이 정확히 R145 가 못 박은 사건이다 — **모드가 바뀌는데 아무도 안 잰다.**
+구독인 줄 알고 돌렸는데 청구되는 자리다. **한 provider 로 고정한 슬러그**를 줘라.
 
 ⛔ **자동으로 갈아타지 않는다.** `claude` 가 없다고 과금 레인으로 몰래 넘어가지 않는다 —
 「모드가 바뀌는데 아무도 안 잰다」가 이 저장소가 가장 싫어하는 사건이다(R145).

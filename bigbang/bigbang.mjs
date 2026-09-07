@@ -38,7 +38,7 @@ import { createClaudeAsk, createScriptedAsk, loadScript, MAX_GATE_RUNS_THIRD, MA
 import { firstFilled } from '../lib/pick.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { cannotStandMessage, missingEnv } from '../lib/required-env.mjs';
-import { createOpenRouterAsk, OPENROUTER_DEFAULT_MODEL, OPENROUTER_ENV } from './agent-openrouter.mjs';
+import { createGatewayAsk, GATEWAY_LANES, gatewayOf } from './agent-gateway.mjs';
 
 /** `--universe <경로>` 를 argv 에서 먼저 꺼낸다(우주의 집을 찾기 전에 필요하다). */
 const argvUniverse = () => {
@@ -79,8 +79,8 @@ const usage = () => {
     '  --keep-on-fail  게이트가 빨간불이어도 별을 지우지 않는다 (기본은 되돌리기)',
     '  --no-fix        (2차) 자가 수정을 끄고 빨간불을 그대로 본다',
     '  --judge         관문/게이트의 판정 레인(LLM)까지 켠다 (기본은 결정론 레인만)',
-    `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL} · openrouter 레인은 ${OPENROUTER_DEFAULT_MODEL})`,
-    `  --lane <레인>   (3차) 누가 답하는가: subscription(기본) · openrouter · script`,
+    `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL} · 게이트웨이 레인은 슬러그를 준다)`,
+    `  --lane <레인>   (3차) 누가 답하는가: subscription(기본) · ${GATEWAY_LANES.join(' · ')} · script`,
     '                  ⛔ 자동으로 갈아타지 않는다 — 구독이 없어도 openrouter 로 몰래 안 넘어간다.',
     `  --base <ref>    게이트가 볼 변경분 기준 (기본 ${DEFAULT_BASE})`,
     '',
@@ -141,7 +141,7 @@ if (missing.length > 0) {
  * 「못 잴 것이 뻔한 곳에 별을 쓰지 않는다」가 이 검사의 이유인데 그 이유를 스스로 어긴 것이다.
  * ⇒ 이름과 필수 환경변수는 **여기서** 본다. 만드는 것(`resolveAsk`)은 나중이어도 된다.
  */
-const LANES = ['subscription', 'openrouter', 'script'];
+const LANES = ['subscription', ...GATEWAY_LANES, 'script'];
 const laneName = flag('--lane') ?? (flag('--agent-script') ? 'script' : 'subscription');
 if (requirement !== undefined) {
   if (!LANES.includes(laneName)) {
@@ -152,12 +152,23 @@ if (requirement !== undefined) {
     console.error(`⛔ --agent-script 를 줬는데 --lane ${laneName} 이다. 둘 중 하나만 골라라.`);
     process.exit(2);
   }
-  if (laneName === 'openrouter' && !process.env[OPENROUTER_ENV]) {
-    console.error(`⛔ **openrouter 레인이 서지 않는다** — \`${OPENROUTER_ENV}\` 가 비어 있다.`);
-    console.error('   이것은 「못 쟀다」가 아니다 — **부르기 시작할 수도 없다는 뜻**이다.');
-    console.error('   ⛔ 그래서 별을 쓰기 전에 멈춘다 — 못 잴 것이 뻔한 곳에 사용량을 쓰지 않는다.');
-    console.error('   키 발급: https://openrouter.ai/keys');
-    process.exit(2);
+  const gateway = gatewayOf(laneName);
+  if (gateway) {
+    if (!process.env[gateway.env]) {
+      console.error(`⛔ **${laneName} 레인이 서지 않는다** — \`${gateway.env}\` 가 비어 있다.`);
+      console.error('   이것은 「못 쟀다」가 아니다 — **부르기 시작할 수도 없다는 뜻**이다.');
+      console.error('   ⛔ 그래서 별을 쓰기 전에 멈춘다 — 못 잴 것이 뻔한 곳에 사용량을 쓰지 않는다.');
+      console.error(`   키: ${gateway.keysUrl}`);
+      process.exit(2);
+    }
+    /* ⛔ **모델을 지어내지 않는다.** 직접 띄우는 게이트웨이는 어떤 provider 가 붙어 있는지
+       그 사람의 설정에 달렸다 — 우리가 고르면 **엉뚱한 provider 로 청구**된다. */
+    if (!(flag('--model') ?? gateway.model)) {
+      console.error(`⛔ **${laneName} 레인은 모델을 지어내지 않는다** — \`--model\` 로 줘라.`);
+      console.error('   이 게이트웨이는 붙은 provider 가 사람마다 다르다. 우리가 고르면 엉뚱한 곳으로 청구된다.');
+      console.error('   예: --model cc/claude-opus-4-6   (cc = Claude Code 구독)');
+      process.exit(2);
+    }
   }
 }
 
@@ -506,12 +517,18 @@ const resolveAsk = async ({ scriptPath, harness }) => {
     return createScriptedAsk(await loadScript(path.resolve(scriptPath)));
   }
 
-  if (laneName === 'openrouter') {
-    const model = flag('--model') ?? OPENROUTER_DEFAULT_MODEL;
-    console.log(`\n🛤  레인 — OpenRouter (**과금된다** · 구독이 아니다): ${model}`);
-    return createOpenRouterAsk({
+  const gw = gatewayOf(laneName);
+  if (gw) {
+    const model = flag('--model') ?? gw.model;
+    console.log(`\n🛤  레인 — ${laneName} (**과금될 수 있다** · 구독 경로가 아니다)`);
+    console.log(`   주소   ${gw.baseUrl}`);
+    console.log(`   모델   ${model}`);
+    console.log('   ⚠️ 게이트웨이가 **알아서 provider 를 갈아타면** 어느 경로로 돌았는지 우주는 못 잰다.');
+    console.log('      한 provider 로 고정한 모델 ID 를 줘라 — 자동 폴백은 R145 가 못 박은 그 사건이다.');
+    return createGatewayAsk({
       model,
-      apiKey: process.env[OPENROUTER_ENV],
+      apiKey: process.env[gw.env],
+      baseUrl: gw.baseUrl,
       systemPrompt: await fs.readFile(harness.AGENT_PROTOCOL_PATH, 'utf8'),
     });
   }
