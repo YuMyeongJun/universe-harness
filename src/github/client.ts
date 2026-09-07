@@ -9,7 +9,12 @@
  */
 import { execFileSync } from 'node:child_process';
 
-import { assertNotRateLimited, UnmeasuredError, type IRepoCoordinate } from './guards.js';
+import {
+  assertNotRateLimited,
+  assertPaginationExhausted,
+  UnmeasuredError,
+  type IRepoCoordinate,
+} from './guards.js';
 import { repoCoordinateOf } from './guards.js';
 
 export interface IExecResult {
@@ -100,6 +105,31 @@ export class GitHubClient {
           '조회가 성공한 것처럼 보여도 잰 것이 없다.',
       );
     }
+  }
+
+  /**
+   * 페이지를 **끝까지** 읽는다.
+   *
+   * ⛔ 상한에 걸리면 **던진다.** 잘린 결과를 전체로 읽으면 뒤쪽 항목이 통째로 안 보이고,
+   *    그 결과는 **에러 없이** 나온다 — 그래서 위험하다.
+   */
+  readAllPages<T>(label: string, pathTemplate: string, opts: { perPage?: number; maxPages?: number } = {}): T[] {
+    const perPage = opts.perPage ?? 100;
+    const maxPages = opts.maxPages ?? 50;
+    const out: T[] = [];
+    for (let page = 1; page <= maxPages; page += 1) {
+      const separator = pathTemplate.includes('?') ? '&' : '?';
+      const url = `${pathTemplate}${separator}per_page=${perPage}&page=${page}`;
+      const batch = this.read<T[]>(`${label} p${page}`, [url]);
+      out.push(...batch);
+      if (batch.length < perPage) {
+        assertPaginationExhausted(label, { hasNextPage: false });
+        return out;
+      }
+    }
+    // 상한까지 갔다 = 더 있는데 멈춘 것이다
+    assertPaginationExhausted(label, { hasNextPage: true });
+    return out;
   }
 
   /**

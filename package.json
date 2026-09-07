@@ -6,7 +6,8 @@
   "description": "정책서 → TC 티켓 → Playwright 자동 테스트 파이프라인의 관문",
   "bin": {
     "tc-lint": "./dist/lint/cli.js",
-    "tc-redfirst": "./dist/gate/cli.js"
+    "tc-redfirst": "./dist/gate/cli.js",
+    "tc-sync": "./dist/github/cli.js"
   },
   "scripts": {
     "pretest": "npm run build",
@@ -15,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:tickets": "tsx src/lint/cli.ts",
-    "gate:redfirst": "tsx src/gate/cli.ts"
+    "gate:redfirst": "tsx src/gate/cli.ts",
+    "sync": "tsx src/github/cli.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

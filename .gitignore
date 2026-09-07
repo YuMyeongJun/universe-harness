@@ -12,3 +12,6 @@ blob-report/
 
 # macOS
 .DS_Store
+
+# 로컬 티켓 작업 폴더 — TC 본문에 계정 정보가 섞일 수 있다
+tickets/
