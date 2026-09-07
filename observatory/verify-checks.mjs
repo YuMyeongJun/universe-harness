@@ -200,6 +200,45 @@ const CASES = [
     cmd: ['node', ['observatory/render-proven.mjs', '--check']],
   },
   {
+    check: '확장자 목록 두 벌(parts)',
+    bite: '규칙 쪽만 고쳐 두 벌이 갈림',
+    expect: '목록 두 벌이',
+    file: 'observatory/engine/packages/@core/fe-agent-contracts/src/rules/helpers.ts',
+    /* ⛔ R163 의 핵심이다. 한 자리만 고치면 `census` 와 `observe` 가 **서로 반대말**을 하고,
+       사람은 **초록불을 주는 쪽**을 믿는다. 손으로 확인만 하고 **등재를 안 해 뒀었다** —
+       「배선 안 된 검사기는 아무도 안 부른다」의 변이 판이다(옆 저장소 세션이 짚었다). */
+    mutate: (t) => t.replace('const SOURCE_EXT = /\\.(ts|tsx|js|jsx|mjs|cjs)$/;',
+      'const SOURCE_EXT = /\\.(ts|tsx)$/;'),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '훑개가 목록을 다시 적음(parts)',
+    bite: '훑개가 확장자 목록을 자기 것으로 다시 적음',
+    expect: '자기 것으로 다시 적었다',
+    file: 'observatory/engine/packages/@plugins/harness-react-vite/src/scan.ts',
+    /* ⛔ 세 벌로 갈렸던 그 형태. 규칙은 열렸는데 **파일이 규칙까지 못 오는** 상태가 된다. */
+    mutate: (t) => t.replace('if (isSourcePath(entry.name)) {', 'if (/\\.(ts|tsx)$/.test(entry.name)) {'),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '처방이 실재하는가(parts)',
+    bite: '도구가 없는 명령을 치라고 말함',
+    expect: '없는 명령을 치라고 말한다',
+    file: 'observatory/verify-qa.mjs',
+    /* ⛔ 「시키는 대로 해도 안 된다」는 ⚪ 보다 나쁘다 — 사람을 **헛짓으로** 보낸다. */
+    mutate: (t) => t.replace("'universe qa'", "'universe not-a-command'"),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '훑는 곳의 기본값(parts)',
+    bite: '기본값을 조용히 넓힘',
+    expect: '자동으로 넓히지 않는다',
+    file: 'lib/galaxy-scan.mjs',
+    /* ⛔ 넓히면 생성물이 분모에 새어 들어 **프로브를 만들면 늘고 지우면 주는** 기준선이 된다. */
+    mutate: (t) => t.replace("DEFAULT_CODE_DIRS = ['src']", "DEFAULT_CODE_DIRS = ['src', 'app']"),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',
