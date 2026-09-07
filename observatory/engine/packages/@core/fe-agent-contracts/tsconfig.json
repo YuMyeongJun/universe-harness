@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  /* ⚠️ 설치 전에도 타입이 풀리게 두는 보조 경로다. 런타임 해석은 workspaces 링크가 한다. */
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@core/fe-agent-harness": [
+        "../fe-agent-harness/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}

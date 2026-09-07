@@ -1,0 +1,55 @@
+{
+  "$schema": "universe",
+  "$schemaVersion": "1.0.0",
+  "name": "Universe",
+  "description": "빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스",
+  "version": "0.9.0",
+  "//": "법칙 = 우주 전체를 지배하는 규칙. 새 법칙은 laws/ 에 파일을 만들고 여기 등재한다.",
+  "laws": [
+    "conservation",
+    "gravity",
+    "observation",
+    "light-speed",
+    "tokens",
+    "semantics",
+    "naming",
+    "flatness",
+    "form",
+    "cohesion",
+    "derivation"
+  ],
+  "//forces": "힘 = 실제로 일을 하는 것. 배달되지 않는다 — 배포판에는 기본 힘 하나만 있다.",
+  "forces": [
+    "observer"
+  ],
+  "//orbits": "궤도 = 반복되는 경로. 한 바퀴의 끝을 못 적으면 궤도가 아니라 절차다.",
+  "orbits": [
+    "round",
+    "observe-and-broadcast",
+    "nebula-to-star"
+  ],
+  "//galaxies": "배포판에는 은하가 없다 — 은하는 배달되지 않는다. galaxies/{name}.json 을 만들어 등재한다.",
+  "galaxies": [
+    "tiny-galaxy",
+    "messy-galaxy"
+  ],
+  "//observatory": "관측소 = 별이 실제로 도는지 재는 장치. @plugins/harness-react-vite 를 끼운다.",
+  "observatory": {
+    "engine": "fe-agent-harness",
+    "path": "observatory/engine",
+    "attached": true,
+    "//path": "우주 루트 기준 **상대경로**다. 엔진을 우주 안으로 벤더링했으므로 절대경로가 없다 — 스크립트는 path.resolve(root, …) 로 푼다.",
+    "//attached": "P2 에서 연결. observe.mjs 가 이 경로의 dist 를 직접 import 한다."
+  },
+  "created": "2026-09-04",
+  "lastUpdated": "2026-09-04",
+  "//beacon": "전파 — 저장소가 정본, 컨플루언스는 뷰. 방향은 한쪽뿐이다(보존 법칙).",
+  "beacon": {
+    "site": "blumnai.atlassian.net",
+    "spaceKey": "~621c3303a12450006885ce30",
+    "spaceName": "루이.유명준 (개인)",
+    "pageId": "416383013",
+    "pageUrl": "https://blumnai.atlassian.net/wiki/spaces/~621c3303a12450006885ce30/pages/416383013/Universe",
+    "//pageId": "이미 만든 페이지다. 다음 발행은 create 가 아니라 update — 안 그러면 중복 페이지가 쌓인다."
+  }
+}

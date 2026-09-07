@@ -1,0 +1,15 @@
+{
+  "//": "발행 대상 페이지 좌표. 다음 발행은 create 가 아니라 update — 안 그러면 중복 페이지가 쌓인다.",
+  "site": "blumnai.atlassian.net",
+  "spaceKey": "~621c3303a12450006885ce30",
+  "spaceName": "루이.유명준 (개인)",
+  "pages": {
+    "index":       { "id": "416383013", "title": "Universe — 프론트엔드 하네스", "parent": null },
+    "laws":        { "id": "416153645", "title": "법칙 (Laws)",        "parent": "index" },
+    "forces":      { "id": "416776243", "title": "힘 (Forces)",        "parent": "index" },
+    "observatory": { "id": "416645166", "title": "관측소 (Observatory)", "parent": "index" },
+    "galaxies":    { "id": "416940083", "title": "은하 (Galaxies)",    "parent": "index" },
+    "nebula":      { "id": "416940103", "title": "성운 (Nebula)",      "parent": "index" },
+    "rounds":      { "id": "416153665", "title": "라운드 (Rounds)",    "parent": "index" }
+  }
+}

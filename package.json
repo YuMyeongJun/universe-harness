@@ -1,0 +1,47 @@
+{
+  "name": "universe",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "description": "빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스. 법칙(규칙)과 관측소(채점)를 배달하고, 힘과 은하는 배달하지 않는다.",
+  "license": "UNLICENSED",
+  "bin": {
+    "universe": "./bin/universe.mjs"
+  },
+  "//files": "씨앗·스크립트·문서·엔진 산출만 싣는다. 은하·성운·로그·발행 좌표는 소비 저장소의 것이다(보존 법칙).",
+  "files": [
+    "bin",
+    "lib",
+    "seed",
+    "laws",
+    "orbits",
+    "forces",
+    "bigbang",
+    "docs",
+    "examples",
+    "beacon/render.mjs",
+    "beacon/publish.mjs",
+    "beacon/README.md",
+    "observatory/observe.mjs",
+    "observatory/verify.mjs",
+    "observatory/verify-laws.sh",
+    "observatory/README.md",
+    "observatory/engine/packages/**/dist",
+    "observatory/engine/packages/**/package.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "//": "우주 자신을 개발할 때 쓰는 명령. 소비 저장소는 `universe <명령>` 을 쓴다.",
+    "laws": "bash observatory/verify-laws.sh",
+    "observe": "node observatory/observe.mjs",
+    "render": "node beacon/render.mjs",
+    "engine:build": "cd observatory/engine && npm run build",
+    "engine:selftest": "cd observatory/engine && npm run selftest",
+    "check": "npm run laws && npm run observe && npm run engine:selftest",
+    "publish": "node beacon/publish.mjs"
+  },
+  "//beacon-pages": "beacon/pages.json 은 싣지 않는다 — 사이트·페이지 id 는 은하 좌표와 같은 성질이라 소비 저장소가 갖는다."
+}

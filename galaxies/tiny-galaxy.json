@@ -1,0 +1,72 @@
+{
+  "name": "tiny-galaxy",
+  "description": "우주가 자기를 시험하는 은하. 실제 서비스가 아니라 React+Vite 최소 저장소다 — 스테이지 넷이 여기서 돌고 별도 여기서 태어난다.",
+  "//path": "저장소 안에 있다. 배달되는 우주에는 이 좌표가 안 간다 — 은하는 배달되지 않는다(보존 법칙).",
+  "path": "fixtures/tiny-galaxy",
+  "appWorkspace": "",
+  "appDir": ".",
+  "//laws": "form 은 켠다 — 픽스처의 contract presets 에 house-style 이 켜져 있고, s04 채점이 화살표 함수를 본다. 둘이 어긋나면 관문이 약속과 다른 것을 잰다.",
+  "laws": [
+    "tokens",
+    "semantics",
+    "naming",
+    "flatness",
+    "cohesion",
+    "form"
+  ],
+  "commands": {
+    "build": "npm run build",
+    "test": "npm test",
+    "lintJson": "npx eslint <TARGET> --report-unused-disable-directives --format json -o <OUT>",
+    "testFile": "npx vitest run <PATH>",
+    "lintFix": "npx eslint <TARGET> --fix",
+    "typecheck": "npm run typecheck"
+  },
+  "lintTargets": [
+    {
+      "workspace": "",
+      "target": "./src"
+    }
+  ],
+  "//thresholds": "픽스처의 fe-harness.config.json 과 같은 값을 쓴다 — 두 곳이 어긋나면 어느 쪽이 진실인지 모른다.",
+  "thresholds": {
+    "initialLoadKB": 400
+  },
+  "solarSystems": [
+    {
+      "name": "shop",
+      "description": "메뉴와 주문 화면 묶음",
+      "srcDir": "src/components/shop"
+    }
+  ],
+  "observed": {
+    "measuredAt": "2026-09-05T17:04:54.520Z",
+    "commit": "b890cf7c2833df0fbb009d06cbc430c2151bbacc",
+    "dirtyFiles": 0,
+    "files": 6,
+    "fingerprint": "v2:ecd9b943c818",
+    "laws": {
+      "tokens": 0,
+      "semantics": 0,
+      "naming": 0,
+      "flatness": 0,
+      "form": 0,
+      "cohesion": 0
+    },
+    "rulesFingerprint": "0bab91f19967",
+    "blind": {},
+    "lint": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "lawsEnabled": [
+      "tokens",
+      "semantics",
+      "naming",
+      "flatness",
+      "cohesion",
+      "form"
+    ]
+  },
+  "//commands": "⚠️ `typecheck` 를 선언한다 — R45 의 **타입 검사 갈래가 한 번도 안 탔다**(R71). 관문의 안 타 본 갈래는 없는 관문과 같다."
+}

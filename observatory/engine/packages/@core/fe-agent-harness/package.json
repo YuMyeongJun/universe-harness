@@ -1,0 +1,30 @@
+{
+  "name": "@core/fe-agent-harness",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "description": "EnvHarness 규격(Stage/Contract/Trajectory)을 프레임워크 무관하게 구현한 코어. 프로젝트 코드를 고치지 않고 밖에서 감싼다.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./agentProtocol.md": "./dist/agent/agentProtocol.md",
+    "./agent-behavior-guide": "./contracts/agent-behavior-guide.md"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../../../scripts/copy-assets.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "contracts"
+  ]
+}

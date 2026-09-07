@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-label="우주의 다섯 층">
+  <style>
+    .t{font:600 15px system-ui,-apple-system,sans-serif;fill:#e8e8f0}
+    .s{font:12px system-ui,-apple-system,sans-serif;fill:#a0a0b8}
+    .k{font:600 11px ui-monospace,monospace;fill:#7dd3fc}
+    .box{fill:none;stroke-width:1.5;rx:10}
+  </style>
+  <rect x="8" y="8" width="744" height="284" class="box" stroke="#4c4c6d"/>
+  <text x="24" y="34" class="t">🌌 우주</text><text x="86" y="34" class="s">법칙이 적용되는 전체 — 배달된다</text>
+
+  <rect x="28" y="50" width="704" height="228" class="box" stroke="#5b5b85"/>
+  <text x="44" y="76" class="t">🌀 은하</text><text x="106" y="76" class="s">저장소 하나 — 배달되지 않는다</text>
+
+  <rect x="48" y="92" width="664" height="170" class="box" stroke="#6a6a9e"/>
+  <text x="64" y="118" class="t">☀️ 태양계</text><text x="140" y="118" class="s">하나의 중력에 묶인 기능 묶음</text>
+
+  <rect x="70" y="136" width="196" height="104" class="box" stroke="#7c7cb8"/>
+  <text x="86" y="162" class="t">⭐ 별</text>
+  <text x="86" y="184" class="s">산출물 하나</text>
+  <text x="86" y="206" class="k">Component.tsx</text>
+  <text x="86" y="222" class="k">useComponent.ts</text>
+  <text x="86" y="238" class="k">index.ts · test.tsx</text>
+
+  <text x="300" y="166" class="t">💥 빅뱅</text>
+  <text x="300" y="188" class="s">별을 태어나게 하는 명령</text>
+  <text x="300" y="212" class="k">universe new &lt;은하&gt; &lt;태양계&gt; &lt;별&gt;</text>
+  <path d="M296 178 L272 178" stroke="#7dd3fc" stroke-width="2" marker-end="url(#a)"/>
+
+  <text x="300" y="244" class="s">별의 주소는 세 마디다</text>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#7dd3fc"/></marker></defs>
+</svg>

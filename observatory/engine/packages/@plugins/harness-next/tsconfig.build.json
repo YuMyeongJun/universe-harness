@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    /* 빌드는 **node 해석**으로 한다 — `paths`(소스 직행)를 끄지 않으면 이웃 패키지의 소스가
+       rootDir 밖에서 끌려 들어와 컴파일이 깨진다. 그래서 빌드 순서가 코어 → 계약 → 플러그인들이다. */
+    "paths": {},
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    /* 상대 import 의 `.ts` 확장자를 산출에서 `.js` 로 바꿔 준다(TS 5.7+). */
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/selftest.ts"]
+}

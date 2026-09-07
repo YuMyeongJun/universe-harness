@@ -1,0 +1,4 @@
+/* 일부러 어긴다 — repo/arrow-only. 이 파일은 generate.mjs 가 만든다. 손으로 고치지 마라. */
+export function sum(a: number, b: number) {
+return a + b;
+}

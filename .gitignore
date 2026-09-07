@@ -1,0 +1,16 @@
+node_modules
+.DS_Store
+
+# 시크릿 — 템플릿(.tmp)만 추적한다
+.secret/*.json
+!.secret/*.json.tmp
+
+# 발행 산출물 — 저장소가 정본이므로 렌더 결과는 추적하지 않는다
+beacon/out/
+
+# 벤더링한 엔진의 의존·산출 — 소스만 추적한다
+observatory/engine/node_modules
+observatory/engine/**/dist
+observatory/.mutation-rescue.json
+observatory/.mutation-lock
+observatory/engine/.build-stamp

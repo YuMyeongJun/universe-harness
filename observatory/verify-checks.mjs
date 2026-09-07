@@ -1,0 +1,814 @@
+#!/usr/bin/env node
+/**
+ * 검사가 정말 무는가 — **관측소 자신에 대한 변이 시험**.
+ *
+ * ⚠️ 왜 필요한가: 이 우주의 검사들은 전부 「초록불」로 끝난다. 그런데 **검사가 조용히
+ * 고장 나도 똑같이 초록불이다.** 실제로 세 번 당했다 —
+ *   · `quality/cohesion` 이 0건을 내던 것은 위반이 없어서가 아니라 **정규식 가정 3개가 틀려서**였다(고치자 21건)
+ *   · 승격 감사가 대조 열쇠를 잘못 잡아 **자기 오탐**을 냈다
+ *   · 없는 플래그를 파서가 삼켜 **공짜 모드인 줄 알고 유료 주행**이 돌았다
+ * 셋 다 「그 도구를 막 만든 직후」에 우연히 잡혔다. 우연에 기대지 않으려고 이 시험을 둔다.
+ *
+ * 하는 일: 검사마다 **알려진 위반을 주입**하고, 그 검사가 exit 0 이 아닌지 본다.
+ * 물지 않으면 그 검사는 장식이다.
+ *
+ * 재는 법:
+ *   node observatory/verify-checks.mjs      # 0=전부 문다 · 1=안 무는 검사가 있다
+ * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
+ *
+ * ⚠️ 이 스크립트는 파일을 잠깐 고쳤다가 **git 으로 되돌린다.** 그래서 워킹트리가
+ *    더러우면 시작하지 않는다 — 남의 변경을 날릴 수 있기 때문이다.
+ */
+import { readFile, writeFile, rm } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { resolve, join } from 'node:path';
+import { rejectUnknownFlags } from '../lib/flags.mjs';
+import { whyItFailed } from '../lib/why.mjs';
+
+rejectUnknownFlags(process.argv.slice(2), ['--universe', '--reasons'], 'universe checks');
+
+const exec = promisify(execFile);
+const ROOT = resolve(new URL('..', import.meta.url).pathname);
+
+const run = async (command, args) => {
+  try {
+    const { stdout, stderr } = await exec(command, args, { cwd: ROOT, maxBuffer: 32 * 1024 * 1024 });
+    return { code: 0, out: `${stdout}${stderr}` };
+  } catch (error) {
+    return { code: error.code ?? 1, out: `${error.stdout ?? ''}${error.stderr ?? ''}` };
+  }
+};
+
+/* ⚠️ **전체 워킹트리가 아니라 「내가 만질 파일들」만** 깨끗하면 된다.
+   처음엔 전체를 요구했는데, 다른 갈래가 저장소의 다른 구석을 고치고 있으면
+   이 시험이 영영 못 도는 처지가 됐다 — 안 도는 검사는 없는 검사와 같다. */
+/* ⚠️⚠️ **git 으로 되돌리지 않는다 — 원본을 메모리에 들고 있다가 되돌린다.**
+   예전엔 `git checkout --` 로 되돌렸고, 그래서 **만질 파일이 커밋돼 있어야만** 돌 수 있었다.
+   그 요구가 다섯 번 마찰을 냈다 — 라운드를 닫을 때마다 `nebula/README.md` 가 미커밋이라
+   막혔고, 그때마다 「커밋하고 다시」를 반복했다. **관문이 사람을 두 번 일하게 하면
+   사람은 관문을 우회하는 법부터 배운다.**
+   메모리에서 되돌리면 커밋 여부와 무관하고, 남의 미커밋 변경도 안 날린다. */
+/** 원본이 `null` 이면 그 파일은 **원래 없었다** — 되돌리기는 지우기다. */
+const restoreFrom = (file, original) =>
+  original === null ? rm(join(ROOT, file), { force: true }) : writeFile(join(ROOT, file), original, 'utf8');
+
+/** 검사 하나 · 변이 하나. `mutate` 는 파일 내용을 받아 **위반이 든 내용**을 돌려준다. */
+const CASES = [
+  {
+    check: '우주 형식(verify-laws)',
+    bite: '중력 법칙 — 엣지 없는 문서',
+    expect: './laws/tokens.md',
+    file: 'laws/tokens.md',
+    /* ⚠️ `parent:` 만 지웠더니 검사가 안 물었다. 처음엔 검사가 헐거운 줄 알았는데
+       **내 변이가 틀린 것**이었다 — 이 문서엔 `related:` 도 있어서 엣지가 남았다.
+       검사는 「parent 또는 related」를 본다. 둘 다 지워야 진짜 고아가 된다. */
+    mutate: (t) => t.replace(/^parent:.*$/m, '').replace(/^related:.*$/m, ''),
+    cmd: ['bash', ['observatory/verify-laws.sh']],
+  },
+  {
+    check: '우주 형식(verify-laws)',
+    bite: '재는 법이 없는 법칙',
+    expect: 'laws/naming.md — 재는 법에 돌릴 명령이 없다',
+    file: 'laws/naming.md',
+    /* ⚠️ 제목에 `⚠️` 가 붙은 법칙도 있고 안 붙은 법칙도 있다. 처음엔 붙은 형태만
+       찾다가 **변이가 아예 안 먹었다.** 「변이가 안 먹으면 경고」를 넣어 두지 않았으면
+       그 자리는 조용히 ✅ 로 보였을 것이다 — 시험도 낡는다. */
+    /* ⚠️ 처음엔 제목을 「## 재는 법이 사라진 자리」로 바꿨는데 **여전히 통과했다** —
+       검사가 `^## 재는 법` 접두 일치라 바뀐 제목도 걸렸기 때문이다.
+       내 변이가 약했고, 동시에 **검사도 헐거웠다.** 둘 다 고쳤다. */
+    mutate: (t) => t.replace(/^##[^\n]*재는 법[^\n]*$/m, '## 다른 이야기'),
+    cmd: ['bash', ['observatory/verify-laws.sh']],
+  },
+  {
+    check: '우주 형식(verify-laws)',
+    bite: '재는 법 절은 있는데 돌릴 명령이 없다',
+    expect: 'laws/flatness.md — 재는 법에 돌릴 명령이 없다',
+    file: 'laws/flatness.md',
+    /* 「재는 법이 없으면 그것은 법칙이 아니라 의견이다」— 빈 절도 의견이다. */
+    mutate: (t) => t.replace(/(^## .*재는 법[\s\S]*?)(?=^## |\Z)/m, '## ⚠️ 재는 법\n\n나중에 적는다.\n\n'),
+    cmd: ['bash', ['observatory/verify-laws.sh']],
+  },
+  {
+    check: '법칙 관측(observe)',
+    bite: '주인 없는 규칙',
+    expect: '주인 없는 규칙: tailwind/arbitrary-value',
+    file: 'laws/tokens.md',
+    mutate: (t) => t.replace(/^(rules:\s*\[)([^\]]*)\]/m, (_m, head) => `${head}]`),
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: '문서 링크(verify-links)',
+    bite: '가리키는 곳이 없는 링크',
+    expect: '깨진 링크',
+    file: 'README.md',
+    mutate: (t) => `${t}\n[없는 곳](./이런-파일은-없다.md)\n`,
+    cmd: ['node', ['observatory/verify-links.mjs']],
+  },
+  {
+    check: '문서 링크(verify-links)',
+    bite: '훑개가 고장 나 0개를 셈 (§8 바닥값)',
+    expect: '아무것도 못 셌다',
+    file: 'observatory/verify-links.mjs',
+    mutate: (t) => t.replace(/\/\\\[\[\^\\\]\\n\]\*\\\]\\\(\(\[\^\)\\n\]\+\)\\\)\/g/, '/절대안맞는패턴XYZ/g'),
+    cmd: ['node', ['observatory/verify-links.mjs']],
+  },
+  {
+    check: '문서 링크(verify-links)',
+    bite: '아무 데서도 안 쓰이는 그림',
+    expect: '아무 데서도 안 쓰이는 그림',
+    file: 'orbits/round.md',
+    /* 실제로 이 그림이 고아인 줄 알았는데 아니었다 — 내 grep 범위가 좁았다.
+       그래서 이 변이는 **참조를 지워** 진짜 고아를 만든다. */
+    mutate: (t) => t.replace(/round-orbit\.svg/g, 'none.svg'),
+    cmd: ['node', ['observatory/verify-links.mjs']],
+  },
+  {
+    check: '폴더 구조(structure)',
+    bite: '그림이 파일시스템과 어긋났다',
+    expect: '폴더 구조 그림이 낡았다',
+    file: 'docs/08-architecture.md',
+    /* 그림은 낡는다. **생성된 그림은 낡을 수 없지만**, 생성한 뒤 폴더가 바뀌면
+       문서가 뒤처진다 — 그것을 잡는다. */
+    mutate: (t) => t.replace(/^├── laws\/.*$/m, '├── laws-가-사라진-척/'),
+    cmd: ['node', ['observatory/render-structure.mjs', '--check']],
+  },
+  {
+    check: '배달본이 도는가(delivery)',
+    expect: '배달본에서 빨간불이 난다',
+    bite: '배달본에서 빨간불이 난다',
+    file: 'lib/delivered.mjs',
+    /* ⛔ **이것이 R43 의 결함 그 자체다.** `lib/` 이 배달 목록에서 빠져 42커밋 동안 설치본이
+       깨져 있었다 — 우주 저장소 안에서는 전부 초록불이었다. 목록에서 다시 빼면
+       「갓 깐 우주」가 자기 관문을 못 통과해야 한다. 2초 걸린다(실측). */
+    mutate: (t) => t.replace(/^\s*\['lib',[^\n]*\n/m, ''),
+    cmd: ['node', ['observatory/verify-delivery.mjs']],
+  },
+  {
+    check: '발동 증명 명부(proven --check)',
+    bite: '명부가 낡았다',
+    expect: '발동 증명 명부가 낡았다',
+    file: 'observatory/rules-proven.json',
+    /* ⛔ 명부가 낡으면 **소비 팀이 「이 규칙은 발동함이 확인됐다」는 틀린 안심을 받는다** —
+       또는 진짜로 증명 안 된 규칙을 증명됐다고 읽는다. 무발동 경고보다 나쁘다(R93). */
+    mutate: (t) => t.replace(/"a11y\/img-alt",?\n/, ''),
+    cmd: ['node', ['observatory/render-proven.mjs', '--check']],
+  },
+  {
+    check: '말뭉치 감사(corpora)',
+    bite: '판단하지 않은 인용',
+    expect: '명부에 없는 인용',
+    file: 'observatory/corpora.json',
+    /* ⛔ 명부에서 한 줄을 빼면 그 수치는 **재현 가능한지 아무도 판단 안 한** 것이 된다.
+       「실측」이라 적힌 수치의 대상이 사라질 수 있다 — 실제로 셋이 사라졌다(R103). */
+    mutate: (t) => t.replace(/\{[^{}]*"files": 1227[\s\S]*?\},\n/, ''),
+    cmd: ['node', ['observatory/verify-corpora.mjs']],
+  },
+  {
+    check: '이름 다른 복제(names)',
+    bite: '몸통이 같은 무리',
+    expect: '몸통이 같은 무리',
+    file: 'lib/pick.mjs',
+    /* ⛔ R21·R22 가 「**이름만 본다**」로 남긴 한계다 — 이름이 다른 복제는 안 보였다.
+       `whyItFailed` 의 몸통을 다른 이름으로 붙이면 잡혀야 한다. */
+    mutate: (t) => `${t}\nexport const whyItDied = (out, limit = 8) => {\n  const lines = out.split('\\n').filter(Boolean);\n  const marked = lines.filter((line) => FAILURE.test(line));\n  const chosen = marked.length > 0 ? marked.slice(0, limit) : lines.slice(-limit);\n  return chosen.map((line) => \`      \${line.trim()}\`).join('\\n');\n};\n`,
+    cmd: ['node', ['observatory/verify-names.mjs']],
+  },
+  {
+    check: '새 사람의 길(quickstart)',
+    bite: '문서대로 쳤는데 막힌다',
+    expect: '새 사람의 길이',
+    file: 'bin/galaxy.mjs',
+    /* ⛔ **R121 이 고친 그 결함을 되살려 본다.** `galaxy` 가 이름을 목록에 안 올리면
+       관측이 **아무것도 안 재고 초록불**을 낸다 — 새 사람이 처음 걷는 길에서 그랬다. */
+    mutate: (t) => t.replace("if (!flag('--out')) {\n  const configPath", "if (false) {\n  const configPath"),
+    cmd: ['node', ['observatory/verify-quickstart.mjs']],
+  },
+  {
+    check: '우주 형식(laws)',
+    bite: 'applies_to 없음',
+    expect: 'applies_to 없음',
+    file: 'laws/flatness.md',
+    /* 법칙 문서가 `applies_to` 를 잃으면 **관측소가 그 법칙을 잴 수 없다.** 그런데 문서는
+       멀쩡해 보인다 — 형식 검사가 없으면 조용히 장식이 된다. */
+    mutate: (t) => t.replace(/^applies_to:.*$/m, '# applies_to 를 잃었다'),
+    cmd: ['bash', ['observatory/verify-laws.sh']],
+  },
+  {
+    check: '열거 감사(enumeration)',
+    expect: '판단하지 않은',
+    bite: '판단하지 않은 열거',
+    file: 'observatory/enumeration-baseline.json',
+    /* 기준선에서 한 줄을 빼면 그 열거가 「판단 안 됨」이 된다 — §9 는 네 번 당한 자리다. */
+    mutate: (t) => t.replace(/^\s*"a11y\/img-alt":[^\n]*\n/m, ''),
+    cmd: ['node', ['observatory/verify-enumeration.mjs']],
+  },
+  {
+    check: '부품 시험(parts)',
+    bite: '빨간불의 이유',
+    expect: '실패 줄을 골라야 한다',
+    file: 'lib/why.mjs',
+    /* `whyItFailed` 가 실패 줄 대신 아무 줄이나 고르면, 관문이 죽은 **이유**가 안내문으로
+       바뀐다 — 초록불처럼 보이진 않지만 사람이 엉뚱한 데를 판다. 부품이 조용히 틀리는 자리다. */
+    /* ⚠️ 첫 변이는 `[zzz-없는-표식]` 이었는데 **안 물었다.** 문자 범위 `z-없` 이
+       U+007A~U+C5C6 을 덮어 `❌`(U+274C)를 그대로 물기 때문이다 — 변이가 헛것이면
+       「검사가 약하다」로 잘못 읽힌다. 안전한 표식으로 바꿨다. */
+    mutate: (t) => t.replace(/\[❌⛔🔴\]/, '[zZ]'),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
+    check: '행동 계약 보호(behavior-contract)',
+    expect: '별의 폴더',
+    bite: '별의 폴더',
+    file: 'bigbang/nebula.mjs',
+    /* ⛔ 범위 판정이 무너지면 **에이전트가 별의 폴더 밖을 고칠 수 있다.** 게이트는 초록이고
+       (컴파일도 lint 도 통과한다) 남의 파일이 조용히 바뀐다. */
+    mutate: (t) => t.replace(
+      'const inStar = (relPath, starDir) => relPath === starDir || relPath.startsWith(`${starDir}/`);',
+      'const inStar = () => true;'),
+    cmd: ['node', ['bigbang/selftest-behavior-contract.mjs']],
+  },
+  {
+    check: '인자 관측(args)',
+    bite: '광고하는데 거부한다',
+    expect: '광고하는데 거부한다 1건',
+    file: 'bin/round.mjs',
+    /* ⚠️ 실측에서 나온 변이다. `--dry-run` 은 **구현돼 있는데** §7 집행자 목록에서
+       빠져 거부됐다(R87) — 사용법 문구는 계속 그것을 광고하고 있었다. 기능이 산 채로
+       묻히는 자리라, 목록에서 다시 빼면 관문이 물어야 한다. */
+    mutate: (t) => t.replace(/, '--dry-run'\]/, ']'),
+    cmd: ['node', ['observatory/verify-args.mjs']],
+  },
+  {
+    check: '이름 충돌(names)',
+    bite: '판단하지 않은 충돌',
+    expect: '판단하지 않은 충돌',
+    file: 'observatory/names-baseline.json',
+    /* 기준선에서 한 줄을 빼면 그 충돌이 「판단 안 됨」이 된다. */
+    mutate: (t) => t.replace(/^\s*"createStage01":[^\n]*\n/m, ''),
+    cmd: ['node', ['observatory/verify-names.mjs']],
+  },
+  {
+    check: '처방 감사(fix)',
+    bite: '처방이 아예 없는 규칙',
+    expect: 'repo/arrow-only',
+    file: 'observatory/engine/packages/@core/fe-agent-contracts/src/rules/repoConventions.ts',
+    /* 규칙이 「무엇이 틀렸는지」만 말하고 「무엇을 하라」를 안 말하는 상태를 만든다. */
+    mutate: (t) => t.replace(/^\s*fix: '`function go[^\n]*\n/m, ''),
+    cmd: ['node', ['observatory/verify-fix.mjs']],
+  },
+  {
+    check: '처방 감사(fix)',
+    bite: '문구가 바뀌었는데 판단은 그대로',
+    expect: '판단하지 않은 처방',
+    file: 'observatory/engine/packages/@core/fe-agent-contracts/src/rules/repoConventions.ts',
+    /* ⚠️ **처방이 없는 것보다 이쪽이 위험하다** — 문구를 나쁘게 고쳐도 기준선의
+       판단은 「좋다」로 남는다. 그래서 문구를 사본과 대조해 판단을 낡게 만든다. */
+    mutate: (t) => t.replace('선언은 호이스팅돼', '선언은 끌어올려져'),
+    cmd: ['node', ['observatory/verify-fix.mjs']],
+  },
+  {
+    check: '커버리지 분모(observe)',
+    bite: '규칙이 못 읽는 코드가 판단 없이 들어옴',
+    expect: '관측 법칙 위반',
+    file: 'fixtures/tiny-galaxy/src/Probe.vue',
+    /* ⚠️⚠️ **0건보다 위험한 것은 「보고는 되는데 절반을 안 본 것」이다.** Nuxt 저장소에
+       우주를 깔아 보니 코드 217개 중 `.vue` 95개(44%)가 안 읽히는데 105건이 보고돼
+       정상으로 보였다. 여기서는 은하에 `.vue` 하나를 떨어뜨려 같은 상태를 만든다 —
+       은하가 그 확장자를 판단하기 전엔 초록불이 나오면 안 된다. */
+    mutate: () => '<template><div/></template>\n',
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: '드리프트(observe)',
+    bite: '더러운 은하에서 위반이 사라짐',
+    expect: '기준선 5 → 실측 4',
+    file: 'fixtures/messy-galaxy/src/rulebite/ImgAlt.tsx',
+    /* ⚠️⚠️ **이 경로는 R37 전까지 한 번도 안 돌았다.** 유일한 은하가 깨끗해서 모든 법칙이
+       0건이었고, 드리프트는 언제나 0이었다. 「초록불」이 「재고 있다」를 뜻하지 않았다. */
+    mutate: (t) => t.replace('<img src="/a.png" />', '<img src="/a.png" alt="상품" />'),
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: '더러운 은하 생성(generate --check)',
+    bite: '생성된 픽스처를 손으로 고침',
+    expect: '더러운 은하가 규칙 표와 어긋난다',
+    file: 'fixtures/messy-galaxy/src/rulebite/ImgAlt.tsx',
+    /* 생성물은 낡을 수 없지만 **손으로 고치면 낡는다** — 그러면 규칙 표와 어긋난다. */
+    mutate: (t) => `${t}export const Sneaky = () => null;\n`,
+    cmd: ['node', ['fixtures/messy-galaxy/generate.mjs', '--check']],
+  },
+  {
+    check: '발행본 크기(beacon --local)',
+    bite: '위키가 보관소가 됨',
+    expect: '12KB 를 넘은 발행본',
+    file: 'nebula/README.md',
+    /* ⚠️ 이 검사는 **관문 밖에 있어서** rounds 13KB · nebula 14KB 가 한동안 살았다.
+       크기 한계가 없었으면 성운의 잘못된 승격 12건도 안 드러났을 것이다 —
+       한계가 있어야 부푸는 것이 보인다. */
+    mutate: (t) => `${t}\n${'| 아주 긴 관측을 흉내 낸다. '.repeat(400)}\n`,
+    cmd: ['node', ['observatory/verify-beacon.mjs', '--local']],
+  },
+  {
+    check: '판정 어휘(round close)',
+    bite: '도구가 모르는 판정 낱말',
+    expect: '도구가 모르는 판정',
+    file: 'log/2026-09-05-08-33-어디를-못-보는가-저장소-인구조사로-넓힐-자리를-정한다.md',
+    /* ⚠️⚠️ **삼킨 낱말이 성운을 부풀렸다.** R35 부터 사람이 `A` 대신 `통과` 를 쓰기
+       시작했는데 도구가 그 말을 몰라 **최고 판정 12건을 전부 승격**시켰다. */
+    mutate: (t) => t.replace('| 통과 |', '| 아주좋음 |'),
+    cmd: ['node', ['bin/universe.mjs', 'round', 'audit']],
+  },
+  {
+    check: '컴파일 관문(bigbang new)',
+    bite: '별이 은하에서 서지 않는다',
+    expect: '별이 은하에서 서지 않는다',
+    file: 'bigbang/templates/star/__Star__.tsx.tpl',
+    /* ⚠️⚠️ R44 실측: 별이 `tsc` 를 깼는데 1차 관문은 **✅ 법칙을 지킨다**라고 했다.
+       규칙은 보고 컴파일은 안 봤다. 여기서 없는 모듈을 하나 물려 그 틈을 재현한다. */
+    mutate: (t) => `import { nothing } from '@does-not-exist/nowhere';\n\n${t}\nvoid nothing;\n`,
+    cmd: ['node', ['bin/universe.mjs', 'new', 'tiny-galaxy', 'shop', 'CompileProbe']],
+    cleanup: 'fixtures/tiny-galaxy/src/components/shop/CompileProbe',
+  },
+  {
+    check: '학습 후보 감사(learn --check)',
+    bite: '판단하지 않은 학습 후보',
+    expect: '판단하지 않은 학습 후보',
+    file: 'observatory/learn-baseline.json',
+    /* ⚠️ 성운은 「로그에만 남은 제안은 실행되지 않는다」를 법으로 적어 뒀는데,
+       **궤적에만 남은 관측**은 아무도 안 봤다 — `learn` 을 어떤 관문도 부르지 않았다(R48). */
+    mutate: (t) => t.replace(/"판단": "\*\*우주 탓이다\.\*\* 스테이지가/, '"판단": "TODO: 아직 — 스테이지가'),
+    cmd: ['node', ['observatory/learn.mjs', '--check']],
+  },
+  {
+    check: '학습 재발 감지(learn --check)',
+    bite: '고쳤다는 기록이 알리바이가 됨',
+    expect: '재발',
+    file: 'observatory/learn-baseline.json',
+    /* ⚠️⚠️ 「고쳤다」를 적을 수 있게 하면 **그것이 알리바이가 될 위험**이 같이 생긴다.
+       고침 시각을 궤적보다 앞으로 당기면 = 아직 나타나는데 닫힌 척하는 것이다. 물어야 한다. */
+    mutate: (t) => t.replace(/"고침": "2026-09-04T22:43:00\+09:00"/, '"고침": "2026-09-04T20:00:00+09:00"'),
+    cmd: ['node', ['observatory/learn.mjs', '--check']],
+  },
+  {
+    check: '초안 좌표(observe)',
+    bite: '안 채운 좌표로 재려 함',
+    expect: '좌표가 없는 자리를 가리킨다',
+    file: 'galaxies/tiny-galaxy.json',
+    /* ⚠️ `universe galaxy` 가 만드는 초안은 못 읽은 자리를 `TODO:` 로 남긴다(R51).
+       그 채로 기준선을 심으면 **채우지 않은 좌표에 수치가 붙어** 다음 사람은
+       그것이 합의된 값인 줄 안다. 깊이까지 봐야 한다 — 별이 어디서 태어나는지가
+       `solarSystems[].srcDir` 에 있고 거기가 가장 놓치기 쉬운 자리다. */
+    mutate: (t) => t.replace(/"srcDir": "[^"]*"/, '"srcDir": "TODO: 폴더 경로"'),
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: '문서의 지금 상태(facts --check)',
+    bite: '수치가 낡음',
+    expect: '낡았다',
+    file: 'docs/04-results.md',
+    /* ⚠️ 이 저장소는 수치를 손으로 적었다가 **여섯 번 낡았다**(자기 규율에 적혀 있다).
+       README 는 「법칙 8개」였는데 실제는 10개였다(R55). 생성된 것은 낡을 수 없다. */
+    mutate: (t) => t.replace(/^\| 법칙 \| \d+ \|$/m, '| 법칙 | 8 |'),
+    cmd: ['node', ['observatory/render-facts.mjs', '--check']],
+  },
+  {
+    check: '법칙의 반대 방향(observe)',
+    bite: '법칙이 없는 규칙을 가리킴',
+    expect: '없는 규칙을 가리킨다',
+    file: 'laws/cohesion.md',
+    /* ⚠️ 커버리지는 **규칙→법칙**만 봤다. 법칙에서 나가는 화살은 아무도 안 봤고,
+       그래서 규칙 이름을 바꾸면 그 법칙이 **자기가 말한 것보다 적게 막는다** — 화면은 정상이다. */
+    mutate: (t) => t.replace('rules: [quality/cohesion]', 'rules: [quality/cohesion, quality/ghost-rule]'),
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: '좌표가 실재하는가(observe)',
+    bite: '태양계 폴더가 사라짐',
+    expect: '좌표가 없는 자리를 가리킨다',
+    file: 'galaxies/tiny-galaxy.json',
+    /* ⚠️ 폴더 이름 한 번 바꾸면 **별이 빈 곳에서 태어난다** — 아무도 안 쓰는 코드가 생긴다.
+       그런데 그때까지 화면은 정상이었다(R57). */
+    mutate: (t) => t.replace(/"srcDir": "src\/components\/shop"/, '"srcDir": "src/components/shop-renamed"'),
+    cmd: ['node', ['observatory/observe.mjs']],
+  },
+  {
+    check: 'lint 드리프트(lint)',
+    bite: '기준선보다 늘었는데 통과',
+    expect: '기준선 -1',
+    file: 'galaxies/tiny-galaxy.json',
+    /* ⚠️ 기준선은 **눈감아 주는 값이 아니라 넘지 말아야 할 선**이다.
+       기준선을 실측보다 낮추면 = 늘어난 것과 같은 상태다. 물어야 한다(R61). */
+    mutate: (t) => t.replace(/"lint": \{[^}]*\}/, '"lint": { "errors": -1, "warnings": 0 }'),
+    cmd: ['node', ['observatory/lint-drift.mjs']],
+  },
+  {
+    check: '광속 한계(speed)',
+    bite: '예산이 실측보다 작다',
+    expect: '초기 로드 141KB',
+    file: 'galaxies/tiny-galaxy.json',
+    /* ⚠️ 법칙의 말 그대로다 — 「임계값은 깨끗한 상태의 실측값 이상이어야 한다.
+       아니면 그 축은 **정의상 실패**다.」 예산을 실측 아래로 내리면 통과할 수 없는 축이 된다. */
+    mutate: (t) => t.replace(/"initialLoadKB": \d+/, '"initialLoadKB": 10'),
+    cmd: ['node', ['observatory/light-speed.mjs', '--galaxy', 'tiny-galaxy']],
+  },
+  {
+    check: '기준선 래칫(observe --update)',
+    bite: '사유 없이 기준선을 올림',
+    expect: '기준선 -5',
+    file: 'galaxies/tiny-galaxy.json',
+    /* ⚠️⚠️ 위반을 늘리고 매번 `--update` 하면 우주는 **영원히 초록불**이고 코드는 나빠진다 —
+       관문이 아니라 도장이 된다. 내리는 것은 목표, 올리는 것은 **빚**이다(R64). */
+    mutate: (t) => t.replace(/"tokens": \d+/, '"tokens": -5'),
+    /* ⚠️ **은하를 짚어 준다.** 처음엔 안 짚었더니 `observe --update` 가 **모든 은하 파일**을 썼고,
+       되돌리기는 변이한 한 파일만 본다 — 다른 은하가 더럽혀진 채 남았다(R62 의 잔해와 같은 종류). */
+    cmd: ['node', ['observatory/observe.mjs', '--update', '--galaxy', 'tiny-galaxy']],
+  },
+  {
+    check: '모르는 은하 이름(observe)',
+    bite: '오타를 삼키고 초록불',
+    expect: '그런 은하가 없다',
+    file: 'universe.config.json',
+    /* ⚠️⚠️ `--galaxy tiny-galexy` 라는 오타 하나에 「✅ 기준선이 실측과 같다」가 떴다 —
+       잰 것이 하나도 없는데(R77). §7 이 모르는 **플래그**에 하는 답을 이름에도 해야 한다. */
+    mutate: (t) => t.replace('"tiny-galaxy"', '"tiny-galaxy-오타"'),
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
+  },
+  {
+    check: '승격 감사(round audit)',
+    bite: '성운에서 사라진 승격',
+    expect: '성운',
+    file: 'nebula/README.md',
+    mutate: (t) => t.split('\n').filter((line) => !/R07 자기 적발력/.test(line)).join('\n'),
+    cmd: ['node', ['bin/universe.mjs', 'round', 'audit']],
+  },
+];
+
+
+
+/* 들어올 때의 내용을 통째로 들고 있는다 — 이것이 「원래대로」의 기준이다. */
+const before = new Map();
+for (const file of [...new Set(CASES.map((c) => c.file))]) {
+  before.set(file, await readFile(join(ROOT, file), 'utf8').catch(() => null));
+}
+
+/**
+ * ⚠️ **프로세스가 변이 도중 죽으면 파일이 고쳐진 채 남는다.**
+ * 메모리에 든 원본은 프로세스와 함께 사라진다 — R20 의 샌드박스 누수와 같은 모양이다.
+ * **죽음을 막는 대신 시체를 치운다**: 변이 전에 원본을 디스크에 적어 두고,
+ * 다음 실행이 그것을 보면 먼저 되돌린다.
+ * ⛔ SIGKILL 도 이 방식은 통한다 — 죽기 전에 이미 적혀 있기 때문이다.
+ */
+const RESCUE = join(ROOT, 'observatory/.mutation-rescue.json');
+
+/**
+ * **동시 실행 잠금.**
+ *
+ * ⚠️ R33 이 남긴 구멍이다 — 구조 파일(`RESCUE`)로 「죽어도 되돌린다」는 만들었지만,
+ * **두 실행이 동시에 변이하면 서로의 구조 파일을 덮는다.** 그러면 되돌릴 원본이 사라져
+ * 변이가 저장소에 그대로 남는다. 그때는 「동시 실행을 안 하니까」로 미뤘는데,
+ * **안 한다는 것은 못 하게 막았다는 뜻이 아니다.**
+ *
+ * ⛔ 잠금 파일에 pid 를 적고, 살아 있는 프로세스가 쥐고 있으면 **시작하지 않는다.**
+ * 죽은 프로세스가 남긴 잠금(=낡은 잠금)은 넘겨받는다 — 안 그러면 한 번 죽고 나서
+ * 영영 못 돈다(그건 이 시험을 없는 것으로 만든다).
+ */
+const LOCK = join(ROOT, 'observatory/.mutation-lock');
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const held = await readFile(LOCK, 'utf8').then((t) => JSON.parse(t)).catch(() => null);
+if (held && held.pid !== process.pid && alive(held.pid)) {
+  console.error(`⛔ 다른 실행(pid ${held.pid})이 변이 중이다 — 동시에 돌면 서로의 구조 파일을 덮어 원본이 사라진다.`);
+  console.error('   끝나기를 기다려라. 그 프로세스가 이미 죽었다면 잠금은 다음 실행이 넘겨받는다.');
+  process.exit(1);
+}
+if (held) {
+  console.log(`🔓 죽은 프로세스(pid ${held.pid})가 남긴 잠금을 넘겨받는다.`);
+}
+await writeFile(LOCK, JSON.stringify({ pid: process.pid }), 'utf8');
+/* ⚠️ **종료 훅은 동기 함수만 돈다** — `rm()` 은 Promise 라 종료 중엔 안 끝난다.
+   ⛔ 그리고 ESM 에는 `require` 가 없다 — 처음에 그걸 썼고, 종료 시점에만 터져서
+   시험은 초록불로 끝났다. **끝에서만 터지는 오류는 안 보인다.** */
+process.on('exit', () => {
+  try {
+    rmSync(LOCK, { force: true });
+  } catch { /* 종료 중이라 할 수 있는 게 없다 */ }
+});
+
+const rescued = await readFile(RESCUE, 'utf8').then((t) => JSON.parse(t)).catch(() => null);
+if (rescued) {
+  const names = Object.keys(rescued);
+  console.log(`🚑 지난 실행이 변이 도중 죽었다 — ${names.length}개를 먼저 되돌린다: ${names.join(' · ')}`);
+  for (const [file, original] of Object.entries(rescued)) {
+    await writeFile(join(ROOT, file), original, 'utf8');
+    before.set(file, original);
+  }
+  await rm(RESCUE, { force: true });
+}
+
+console.log('── 검사가 정말 무는가 — 변이 시험\n');
+
+/* 1) 기준선 — 깨끗한 상태에서는 전부 초록불이어야 한다.
+      여기서 빨간불이면 변이 결과를 믿을 수 없다(무엇 때문에 물었는지 모른다). */
+/* ⚠️⚠️ **기준선 단계도 곁가지를 남긴다.** 정리는 변이 루프에만 달아 뒀는데,
+   기준선 실행도 같은 명령을 돌린다 — `bigbang new` 는 **별을 진짜로 만든다.**
+   실측(R62): 픽스처에 `CompileProbe/` 가 남아 다음 실행이 「이미 있다」로 죽었고,
+   그 빨간불은 **검사의 고장이 아니라 앞선 실행의 잔해**였다. 원인이 한 겹 밀린 실패다. */
+const checks = [...new Map(CASES.map((c) => [c.check, [c.cmd, c.cleanup, c.file]])).entries()];
+let failed = 0;
+for (const [name, [[command, args], cleanup, file]] of checks) {
+  const { code } = await run(command, args);
+  if (cleanup) {
+    await rm(join(ROOT, cleanup), { recursive: true, force: true });
+  }
+  /* ⚠️⚠️ **기준선 실행도 상태를 바꾼다.** `observe --update` 는 은하 파일을 다시 쓴다 —
+     변이하지 않았는데도 `measuredAt` 이 움직인다. 정리(`cleanup`)는 **지우는 것**이라
+     이 경우엔 소용이 없다. 들어올 때의 내용으로 **되돌린다**.
+     실측(R64): 이걸 안 해서 시험이 끝난 뒤 `galaxies/tiny-galaxy.json` 이 달라져 있었고,
+     시험대의 마지막 확인(「되돌리기가 실패했다」)이 그것을 잡았다. */
+  if (file && before.get(file) !== undefined) {
+    await restoreFrom(file, before.get(file));
+  }
+  console.log(`  ${code === 0 ? '✅' : '❌'} 기준선 ${name}  exit=${code}`);
+  if (code !== 0) { failed += 1; }
+}
+if (failed > 0) {
+  console.error('\n⛔ 깨끗한 상태에서 빨간 검사가 있다. 변이 시험은 그 위에서 무의미하다.');
+  process.exit(1);
+}
+
+/* 2) 변이 — 알려진 위반을 넣으면 그 검사가 물어야 한다. */
+console.log('');
+let notBiting = 0;
+let reasonChecked = 0;
+for (const testCase of CASES) {
+  const path = join(ROOT, testCase.file);
+  /* ⚠️ **파일을 만드는 변이**도 있다(눈먼 확장자). 그때 원본은 「없음」이고,
+     되돌리기는 쓰기가 아니라 **지우기**다. */
+  const original = await readFile(path, 'utf8').catch(() => null);
+  const mutated = testCase.mutate(original ?? '');
+  if (mutated === original) {
+    console.log(`  ⚠️ ${testCase.check} · ${testCase.bite} — **변이가 안 먹었다**(파일이 그대로다). 시험이 낡았다.`);
+    notBiting += 1;
+    continue;
+  }
+  let code = 0;
+  let out = '';
+  try {
+    /* 죽어도 되돌릴 수 있게 **먼저 디스크에 적는다.** */
+    await writeFile(RESCUE, JSON.stringify({ [testCase.file]: original }, null, 2), 'utf8');
+    await writeFile(path, mutated, 'utf8');
+    ({ code, out } = await run(testCase.cmd[0], testCase.cmd[1]));
+  } finally {
+    await restoreFrom(testCase.file, original);
+    /* ⚠️ **곁가지를 남기는 변이도 있다.** 별을 낳는 변이는 새 폴더를 만든다 —
+       되돌리기가 「고친 파일」만 보면 그 폴더가 저장소에 그대로 남는다. */
+    if (testCase.cleanup) {
+      await rm(join(ROOT, testCase.cleanup), { recursive: true, force: true });
+    }
+    await rm(RESCUE, { force: true });
+  }
+  /* ⛔ **여기가 종료코드만 보고 있었다(R89).** 이 도구는 마지막 줄에서 「판정은 종료코드가
+     아니라 거부 사유로 한다」고 말해 왔는데, 정작 변이 갈래는 `code !== 0` 뿐이었다 —
+     거부 사유 갈래에서만 참인 말을 전체에 대해 했다. 변이가 **문법을 깨서** 죽어도,
+     파일이 없어서 죽어도 ✅ 로 보인다. 이제 사유를 실제로 본다. */
+  const died = code !== 0;
+  /* ⛔ **`bite` 는 사람이 읽는 라벨이지 출력 문자열이 아니다.** 그것으로 판정해 봤더니
+     35건 중 대부분이 「다른 이유로 죽음」이 됐다 — 라벨이 원래 출력에 안 나오기 때문이다.
+     그래서 사유 확인은 **`expect` 를 적은 케이스에서만** 한다. 그리고 몇 개가 확인됐는지
+     끝에 센다. ⚠️ 여기서 「전부 사유로 판정한다」고 말하면 그것이 곧 거짓말이 된다. */
+  const reasoned = !testCase.expect || out.includes(testCase.expect);
+  const bit = died && reasoned;
+  const mark = bit ? '✅' : died ? '⚠️ ' : '❌';
+  console.log(`  ${mark} ${testCase.check} · ${testCase.bite}  exit=${code}`);
+  if (died && !reasoned) {
+    console.log(`     ⛔ **죽긴 했는데 그 이유가 아니다** — 「${testCase.expect}」가 출력에 없다.`);
+  }
+  if (testCase.expect) { reasonChecked += 1; }
+  /* 사유를 눈으로 보고 박기 위한 자리 — `--reasons` 로만 켠다(R95). */
+  if (process.argv.includes('--reasons')) {
+    console.log(`     ⤷ ${whyItFailed(out, 3).split("\n").map((l) => l.trim()).join(" ⏐ ").slice(0, 200)}`);
+  }
+  if (!bit) { notBiting += 1; }
+}
+
+/* 3) 되돌리기가 실제로 됐는지 확인한다 — 안 되면 이 스크립트가 저장소를 더럽힌 것이다. */
+/* 되돌리기가 정말 됐는지 **내용으로** 확인한다 — git 상태가 아니라 바이트를 본다.
+   커밋 안 된 변경이 있어도 「원래대로」의 기준은 **들어올 때의 내용**이다. */
+const broken = [];
+for (const [file, original] of before.entries()) {
+  const now = await readFile(join(ROOT, file), 'utf8').catch(() => null);
+  if (now !== original) { broken.push(file); }
+}
+if (broken.length > 0) {
+  console.error('\n⛔ 시험이 끝났는데 만진 파일이 들어올 때와 다르다 — 되돌리기가 실패했다:');
+  for (const f of broken) { console.error(`   ${f}`); }
+  process.exit(1);
+}
+
+/* ── 2부: 관측 법칙 §7 — 진입점이 모르는 플래그를 거부하는가.
+   ⚠️ 이 규율이 처음 생겼을 때 재는 법이 `argv.ts` **한 곳에만** 붙어 있었다.
+   세어 보니 진입점 6곳이 전부 삼키고 있었다 — 규칙만 있고 관문이 없으면 그렇게 된다. */
+/**
+ * ── **거부 시험** — 「반드시 거부해야 하는 것」을 표현하는 자리.
+ *
+ * ⚠️⚠️ 시험대는 「기준선 초록 → 변이 빨강」만 표현할 수 있었다. 그래서 **거부가 정상 동작**인
+ * 성질은 못 박았고, 세 바퀴(R65·R73·R78)가 「관문에 못 걸었다」로 **미흡**을 남겼다.
+ * ⇒ §7 플래그 시험이 쓰던 모양(**종료코드가 아니라 거부 사유로 판정**)을 그대로 넓힌다.
+ * ⛔ 사유를 안 보면 안 된다 — 다른 이유로 죽어도 초록불로 보인다.
+ */
+const REFUSALS = [
+  ['round close 가 우주 밖 로그를 거부한다',
+    ['node', ['bin/round.mjs', 'close', '--log', '/tmp/우주-밖-로그.md']], '이 우주의 로그여야 한다'],
+  ['observe 가 모르는 은하 이름을 거부한다',
+    ['node', ['observatory/observe.mjs', '--galaxy', '없는은하-시험']], '그런 은하가 없다'],
+  ['lint 가 모르는 은하 이름을 거부한다',
+    ['node', ['observatory/lint-drift.mjs', '--galaxy', '없는은하-시험']], '그런 은하가 없다'],
+  ['galaxy 가 경로가 든 이름을 거부한다',
+    ['node', ['bin/galaxy.mjs', '../탈출-시험', '--dir', '.', '--out', '/tmp/거부-시험.json']], '경로 구분자'],
+  ['bigbang 이 PascalCase 아닌 별 이름을 거부한다',
+    ['node', ['bigbang/bigbang.mjs', 'new', 'tiny-galaxy', 'shop', '../탈출', '--dry-run']], 'PascalCase'],
+];
+
+console.log('\n── 반드시 거부해야 하는 것\n');
+let accepting = 0;
+for (const [name, [command, args], reason] of REFUSALS) {
+  const { code, out } = await run(command, args);
+  const refuses = code !== 0 && out.includes(reason);
+  console.log(`  ${refuses ? '✅' : '❌'} ${name}  exit=${code}`);
+  if (!refuses) {
+    console.error(`     ⛔ 거부해야 하는데 안 했다(또는 사유가 다르다: 「${reason}」을 기대했다).`);
+    accepting += 1;
+  }
+}
+
+/**
+ * 진입점 — **손으로 적지 않는다.**
+ *
+ * ⛔ 실측(R91): 여기는 원래 7개짜리 손 목록이었다. `universe init` 은 진입점인데 아무도 안
+ * 넣었고, 그래서 **프로젝트 내내 모르는 플래그를 삼켰다** — 이 갈래는 매번 「7곳이 거부한다」고
+ * 초록불을 냈다. 관측 법칙 §9 그대로다: **열거 밖은 영영 안 보인다.**
+ *
+ * 그래서 `bin/universe.mjs` 의 배분표에서 **찾아낸다.** 위치 인자가 필요한 명령만
+ * 아래 `POSITIONALS` 에 적고, 거기 없는 것은 플래그 하나만 던진다.
+ */
+const routerSrc = await readFile(join(ROOT, 'bin/universe.mjs'), 'utf8');
+const routerBlock = routerSrc.slice(routerSrc.indexOf('const SUBCOMMANDS'),
+  routerSrc.indexOf('};', routerSrc.indexOf('const SUBCOMMANDS')));
+/** 위치 인자가 없으면 다른 이유로 죽어 「삼켰다」로 오인된다. */
+const POSITIONALS = {
+  new: ['_x', '_y', 'Z'],
+  round: ['audit'],
+  init: ['--dir', 'docs'],
+};
+const ENTRY_POINTS = [...routerBlock.matchAll(/^\s*([a-z-]+):\s*'([^']+)'/gm)]
+  .map(([, name, file]) => [`universe ${name}`,
+    /* ⚠️ 전부 `node` 로 돌렸다가 `.sh` 진입점이 「다른 이유로 죽었다」로 나왔다 — 도구를
+       못 돌린 것을 삼킨 것으로 읽는 자리다(R69 가 가른 그 구분). */
+    [file.endsWith('.sh') ? 'bash' : 'node',
+      [file, ...(POSITIONALS[name] ?? []), '--존재하지-않는-플래그']]]);
+
+/**
+ * ── **말 시험** — 도구가 **맞는 말을 하는가.**
+ *
+ * ⚠️⚠️ 거부 시험(R79)은 「멈춰야 할 때 멈추는가」를 본다. 그런데 **멈추지 않는 것이 옳고
+ * 말만 달라져야 하는** 성질이 있다 — R73 의 `--promote` 가 그렇다(이미 판단한 것은 안 올리고
+ * 「올릴 것이 없다」고 말해야 한다). 종료코드는 **양쪽 다 0** 이라 거부 시험으로는 못 잡는다.
+ * ⛔ 그래서 **말을 본다.** 도구의 말도 산출물이다(R78 에서 그렇게 적었다).
+ */
+const SAYINGS = [
+  /* ⚠️ **시험이 실패할 때 저장소를 건드리면 안 된다.** 이 명령은 말이 틀릴 때(=필터가 깨졌을 때)
+     성운에 줄을 덧붙인다 — 시험 자체가 오염원이 되는 것이다(R62 의 잔해와 같은 종류).
+     그래서 만진 파일을 **들어올 때의 내용으로 되돌린다.** */
+  ['learn --promote 가 이미 판단한 것을 다시 안 올린다',
+    ['node', ['observatory/learn.mjs', '--promote']], '올릴 것이 없다', 'nebula/README.md'],
+  ['observe 가 규칙의 주인을 빠짐없이 셌다고 말한다',
+    ['node', ['observatory/observe.mjs']], '주인 없는 규칙 없음'],
+  /* ⛔ **「못 쟀다」는 종료코드가 없다 — 그래서 변이 갈래로는 안 잡힌다.** 은하가 컴파일
+     명령을 하나도 선언하지 않으면 1차는 그냥 통과하는데, R44 는 그 자리에서 정확히 당했다
+     (별이 `tsc` 를 깼는데 관문은 ✅ 라고 했다). 여기서는 **말**로 잰다 — 조용히 넘어가면
+     이 시험이 죽는다. R90 이 진짜 은하에서 관문이 도는 것을 확인하며 이 틈을 봤다. */
+  ['컴파일 명령이 하나도 없으면 「못 쟀다」고 말한다',
+    ['node', ['bin/universe.mjs', 'new', 'tiny-galaxy', 'shop', 'SayProbe']],
+    '컴파일을 못 쟀다', 'galaxies/tiny-galaxy.json',
+    /* ⚠️ 처음엔 줄을 지우는 변이를 썼는데 **쉼표가 남아 JSON 이 깨졌고**, 그러자 도구가
+       「없는 은하」라고 **틀린 이유**를 댔다 — 그 자체가 이 바퀴의 두 번째 결함이었다.
+       여기서는 그 결함이 아니라 「컴파일 명령이 없다」를 재야 하므로 JSON 을 살려서 지운다. */
+    (text) => JSON.stringify((() => {
+      const g = JSON.parse(text);
+      delete g.commands.build;
+      delete g.commands.typecheck;
+      delete g.commands.extraGates?.typecheck;
+      return g;
+    })(), null, 2),
+    'fixtures/tiny-galaxy/src/components/shop/SayProbe'],
+  /* ⛔ 그 두 번째 결함을 여기서 잠근다 — **틀린 이유를 대는 것이 이유를 안 대는 것보다 나쁘다.** */
+  /* ⛔ **도피구는 세어야 도피구다(R65).** 실측(R102): `forced:` 로 닫힌 라운드가 **0건**이라
+     이 보고는 한 번도 안 나왔다 — 「0은 무죄가 아니다」의 보고판이다.
+     ⚠️ 감사는 도피구를 **죄로 세지 않는다**(exit 0) — 그래서 변이 갈래로는 못 잰다.
+     쓴 것 자체는 죄가 아니고 **세지 않는 것이 죄**라서, 여기서 **말**로 잰다. */
+  ['도피구로 닫힌 라운드를 감사가 말한다',
+    ['node', ['bin/round.mjs', 'audit']], '빨간 관문을 넘어 닫은 라운드',
+    'log/2026-09-05-21-33-기록-없이-관문을-넘는-자리-도피구를-센다.md',
+    (text) => text.replace(/^closed: (.+)$/m, 'closed: $1\nforced: 가짜 관문\nforcedWhy: 시험이다')],
+  ['깨진 좌표를 「없는 은하」라고 하지 않는다',
+    ['node', ['bin/universe.mjs', 'new', 'tiny-galaxy', 'shop', 'BrokenProbe']],
+    '좌표를 못 읽었다', 'galaxies/tiny-galaxy.json',
+    () => '{ "name": "tiny-galaxy", 깨진JSON }', null, true],
+  /* ⛔ **판올림 경로가 없었다(R91).** `check` 는 배달본이 낡으면 「다시 깔고 나서 다시 재라」고
+     말하는데 `init` 은 거부했고, 유일한 길인 `--force` 는 **은하·성운·로그를 지웠다** —
+     도구가 시키는 대로 하면 그 팀의 것이 사라진다. 안내에 `--update` 가 없으면 그 자리로 돌아간다. */
+  /* ⚠️ `--dir` 는 **이미 있는 폴더**를 짚어야 한다. 처음엔 `--dir universe` 로 썼는데
+     그 폴더가 없어서 **우주 안에 우주를 깔았다** — 시험이 오염원이 된 것이다(R62 의 잔해와 같다). */
+  /* ⛔ **좌표를 만들고 목록에 안 올리면 관측이 「아무것도 안 재고 초록불」을 낸다(R121).**
+     새 사람이 문서대로 친 첫 길에서 실제로 그랬다 — 그 침묵을 잰다. */
+  ['좌표만 있고 목록이 비면 초록불을 안 준다',
+    ['node', ['observatory/observe.mjs']], '`galaxies` 에 이름을 올려라',
+    'universe.config.json', (text) => JSON.stringify({ ...JSON.parse(text), galaxies: [] }, null, 2), null, true],
+  /* ⛔ **git 저장소가 아니면 커밋 관문은 못 돈다(R123).** 조용히 깔고 「커밋 관문」이라
+     소개하면 **켤 수 없는 것을 준 것**이다. 그 말을 잰다.
+     ⚠️ `--dir /tmp/…` 은 저장소 밖이라 git 이 없다 — 그 자리를 그대로 쓴다. */
+  /* ⛔ **발행 경로를 아무 시험도 안 태웠다(R128).** R03 이 「실제 발행 경로는 미검증
+     (자격증명 없음)」으로 적어 둔 뒤로 그대로였다 — 그런데 `fetch` **앞까지는 다 잴 수 있다.**
+     ⚠️ 자격증명이 없을 때 **조용히 아무것도 안 하면** 사람은 발행된 줄 안다. 거부해야 한다. */
+  ['자격증명이 없으면 발행을 거부하고 처방을 준다',
+    ['node', ['beacon/publish.mjs']], '자격증명이 없다', null, null, null, true],
+  ['dry-run 은 무엇을 어디로 보낼지 말한다',
+    ['node', ['beacon/publish.mjs', '--dry-run']], '네트워크를 쓰지 않는다'],
+  ['git 저장소가 아니면 커밋 관문이 못 돈다고 말한다',
+    ['node', ['bin/init.mjs', '--dir', '/tmp/universe-git-probe', '--dry-run']], 'git 저장소가 아니다'],
+  ['이미 깔린 곳에서 판올림 길을 안내한다',
+    ['node', ['bin/init.mjs', '--dir', 'docs']], '--update', null, null, null, true],
+];
+
+console.log('\n── 도구가 맞는 말을 하는가\n');
+let mute = 0;
+/* ⛔ 이 갈래는 `code === 0` 을 요구했다 — **거부하면서 하는 말은 표현할 수 없었다**(R90).
+   「좌표를 못 읽었다」는 죽으면서 하는 말이라, 이 틀에서는 영영 못 재는 말이었다.
+   그래서 죽어야 하는 말은 `mustDie` 로 적는다. */
+for (const [name, [command, args], expected, touches, mutate, cleanup, mustDie] of SAYINGS) {
+  const original = touches ? await readFile(join(ROOT, touches), 'utf8').catch(() => null) : null;
+  /* 말을 재려면 **그 말이 나오는 상황을 만들어야** 하는 것도 있다. 되돌리기는 아래 공통 경로가 한다. */
+  if (mutate && original !== null) {
+    await writeFile(join(ROOT, touches), mutate(original), 'utf8');
+  }
+  const { code, out } = await run(command, args);
+  if (cleanup) {
+    await rm(join(ROOT, cleanup), { recursive: true, force: true });
+  }
+  if (original !== null) {
+    await restoreFrom(touches, original);
+  }
+  const says = (mustDie ? code !== 0 : code === 0) && out.includes(expected);
+  console.log(`  ${says ? '✅' : '❌'} ${name}  exit=${code}`);
+  if (!says) {
+    console.error(`     ⛔ 「${expected}」라고 말해야 하는데 안 했다.`);
+    mute += 1;
+  }
+}
+
+console.log('\n── 관측 법칙 §7 — 모르는 플래그를 거부하는가\n');
+let swallowing = 0;
+for (const [name, [command, args]] of ENTRY_POINTS) {
+  const { code, out } = await run(command, args);
+  /* ⚠️ **exit≠0 만 보면 안 된다.** `bigbang new _x …` 는 은하가 없어서도 1 로 죽는다 —
+     플래그를 삼켜도 초록불로 보였을 것이다. 거부 **사유**까지 확인한다.
+     이 우주가 반복해 온 실패가 「엉뚱한 것을 재고 통과라 부르는 것」이다. */
+  const rejects = code !== 0 && out.includes('모르는 플래그');
+  console.log(`  ${rejects ? '✅' : '❌'} ${name}  exit=${code}${code !== 0 && !rejects ? ' (다른 이유로 죽었다 — 플래그를 삼켰다)' : ''}`);
+  if (!rejects) { swallowing += 1; }
+}
+if (swallowing > 0) {
+  console.error(`\n⛔ 모르는 플래그를 삼키는 진입점 ${swallowing}곳. 공짜 모드인 줄 알고 돈을 쓰게 된다.`);
+}
+
+/* ── 3부: 동시 실행 잠금이 정말 무는가.
+   **지금 이 프로세스가 잠금을 쥐고 있다** — 자식을 띄우면 거부돼야 한다.
+   ⚠️ 종료코드만 보지 않는다(§7 과 같은 이유). 자식은 다른 이유로도 죽을 수 있다. */
+console.log('\n── 동시 실행 잠금\n');
+const sibling = await run(process.execPath, [join(ROOT, 'observatory/verify-checks.mjs')]);
+const refused = sibling.code !== 0 && sibling.out.includes('변이 중이다');
+console.log(`  ${refused ? '✅' : '❌'} 잠금을 쥔 채 자식을 띄우면 거부한다  exit=${sibling.code}`);
+if (!refused) {
+  console.error('  ⛔ 두 실행이 동시에 변이하면 서로의 구조 파일을 덮어 **되돌릴 원본이 사라진다.**');
+}
+
+if (notBiting + swallowing + accepting + mute + (refused ? 0 : 1) > 0) {
+  console.error(`\n⛔ 안 무는 검사 ${notBiting}건. 무는 것이 확인되지 않은 검사는 장식이다.`);
+  process.exit(1);
+}
+console.log(`\n✅ 검사 ${checks.length}종 · 변이 ${CASES.length}건 전부 물었고, 진입점 ${ENTRY_POINTS.length}곳이 모르는 플래그를 거부하고, 거부 시험 ${REFUSALS.length}건과 말 시험 ${SAYINGS.length}건이 지켜지며, 동시 실행이 막힌다.`);
+/* ⛔ 이 줄은 두 번 거짓이었다. 처음엔 「전부 사유로 판정한다」고 했는데 **변이 갈래는
+   종료코드만 봤다**(R89). 그다음엔 「대부분 종료코드」라고 고쳤는데, R95 가 36건 전부에
+   사유를 박았다. **말은 실측에서 나와야 한다** — 그래서 수를 찍는다. */
+const allReasoned = reasonChecked === CASES.length;
+console.log(allReasoned
+  ? `   판정은 종료코드가 아니라 **거부 사유**로 한다 — ${reasonChecked}/${CASES.length} 건 전부. 다른 이유로 죽으면 ⚠️ 로 갈린다.`
+  : `   ⚠️ 변이 갈래의 판정은 **일부만 사유**다 — 거부 사유까지 확인한 것은 ${reasonChecked}/${CASES.length} 건이다.`);
