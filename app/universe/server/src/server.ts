@@ -19,6 +19,7 @@ import {
   makeGalaxyDraft,
   readGalaxyDraft,
 } from './galaxy-draft.js';
+import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import { detect } from './provenance.js';
 import { dataDir, locate, workflowRoot } from './paths.js';
 import {
@@ -353,6 +354,37 @@ export const createApp = (): express.Express => {
     const found = readGalaxyDraft(id);
     if (found === null) return fail(res, 404, '그런 좌표 초안이 없습니다.');
     res.json(found);
+  });
+
+  // ── 관측 ────────────────────────────────────────────────
+  // 은하를 **다시 재서** 위반과 처방을 준다. ⛔ 여기서 위반을 세지 않는다 —
+  // `observatory/observe.mjs --json` 이 세고, 서버는 부르고 나른다(observation.ts 머리말).
+
+  /**
+   * `GET /api/observations/:galaxy?sample=<n>`
+   *
+   * ⛔ **못 쟀을 때 4xx 를 주지 않는다.** 「그런 은하가 없다」·「기준선이 낡았다」·
+   *    「훑은 파일이 0개다」는 전부 **결과**이지 요청이 잘못된 것이 아니다.
+   *    `galaxy-draft` 가 「그 폴더에 `package.json` 이 없다」를 4xx 로 안 주는 것과 같은 갈림이다.
+   *    400 은 **입력의 모양**이 틀렸을 때뿐이다(빈 이름 · 이상한 글자 · 음수 표본).
+   * ⭐ 응답에 `exitCode` 를 **그대로** 싣는다 — 없으면 화면은 「위반이 없다」와 「안 봤다」를
+   *    구별할 수 없고, 그 구별이 이 콘솔의 존재 이유다.
+   * ⛔ `--update` 는 넘기지 않는다. 화면에서 기준선이 갱신되면 관문이 도장이 된다.
+   */
+  app.get('/api/observations/:galaxy', (req: Request, res: Response) => {
+    const galaxy = String(req.params['galaxy'] ?? '').normalize('NFC');
+    const nameProblem = galaxyNameProblem(galaxy);
+    if (nameProblem !== null) return fail(res, 400, nameProblem);
+    /* 안 주면 0 이다 — 도구의 기본값과 같다. ⚠️ 0 이면 **표본이 하나도 안 온다**(처방 없음). */
+    const rawSample = String(req.query['sample'] ?? '0');
+    const problem = sampleProblem(rawSample);
+    if (problem !== null) return fail(res, 400, problem);
+
+    void observeGalaxy(galaxy, Number(rawSample)).then(
+      (result) => res.json(result),
+      /* 여기까지 오면 도구를 부르는 것조차 못 한 것이다 — 그것은 서버 잘못이라 5xx 다. */
+      (e: unknown) => fail(res, 500, `관측 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
   });
 
   // ── 지식 생성 ────────────────────────────────────────────

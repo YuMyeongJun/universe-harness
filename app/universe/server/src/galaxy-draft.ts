@@ -18,12 +18,12 @@
  *
  * ⚠️ 이번 조각은 **로컬 폴더까지**다. 원격 git 주소 · gh 로그인 · AI 키는 **안 만들었다**.
  */
-import { execFile, type ExecFileException } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { HARNESS_ROOT, dataDir } from './paths.js';
+import { runNodeTool } from './run-tool.js';
 
 /** 좌표 초안을 만드는 **유일한** 자리. 서버는 이것을 부르기만 한다. */
 const toolPath = (): string => join(HARNESS_ROOT, 'bin/galaxy.mjs');
@@ -175,27 +175,20 @@ const candidatesOf = (draft: Record<string, unknown>): IGalaxyCandidates => {
   };
 };
 
-const runTool = (
+const runTool = async (
   args: string[],
-): Promise<{ exitCode: number | null; stdout: string; stderr: string }> =>
-  new Promise((done) => {
-    execFile(
-      process.execPath,
-      [toolPath(), ...args],
-      /* cwd 는 우주 저장소로 고정한다 — 도구가 찍는 상대 경로가 부르는 자리마다 달라지면
-         재현이 안 된다. 시간 제한을 둬서 도구가 매달려도 화면이 영영 기다리지 않게 한다. */
-      { cwd: HARNESS_ROOT, timeout: 120_000, maxBuffer: 8 * 1024 * 1024 },
-      (err: ExecFileException | null, stdout: string, stderr: string) => {
-        const code = typeof err?.code === 'number' ? err.code : err ? null : 0;
-        const killed = err?.killed === true;
-        done({
-          exitCode: code,
-          stdout,
-          stderr: killed ? `${stderr}\n⛔ 도구가 시간 안에 끝나지 않아 끊었다(120초).` : stderr,
-        });
-      },
-    );
-  });
+): Promise<{ exitCode: number | null; stdout: string; stderr: string }> => {
+  /* ⛔ execFile 을 여기서 다시 짜지 않는다 — cwd·시간 제한·버퍼가 라우트마다 갈리면
+     어떤 라우트는 매달리고 어떤 라우트는 잘린 stdout 을 「빈 결과」로 읽는다(`run-tool.ts`). */
+  const ran = await runNodeTool(toolPath(), args);
+  return {
+    exitCode: ran.exitCode,
+    stdout: ran.stdout,
+    stderr: ran.killed
+      ? `${ran.stderr}\n⛔ 도구가 시간 안에 끝나지 않아 끊었다(120초).`
+      : ran.stderr,
+  };
+};
 
 /** 못 쟀을 때의 답 — 지어낸 초안 대신 **이유**를 준다. */
 const unmeasuredResult = (

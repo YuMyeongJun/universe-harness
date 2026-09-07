@@ -165,6 +165,16 @@ describe('실제 origin 으로 확인', () => {
     const origin = execFileSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' }).trim();
     const coordinate = repoCoordinateOf(origin);
     expect(coordinate, `origin 에서 좌표를 못 세웠다: ${origin}`).not.toBeNull();
-    expect(coordinate?.repo).toBe('qa-harness');
+    /**
+     * ⛔ **저장소 이름을 여기 박지 않는다.** 예전엔 `toBe('qa-harness')` 였고,
+     * 이 도구가 `universe-harness` 로 흡수되자 **깨졌다.** 이 시험이 재려는 것은
+     * 「origin **문자열에서 좌표를 세울 수 있는가**」이지 그 저장소가 무엇이냐가 아니다.
+     * ⚠️ 그리고 그 실패는 **며칠 숨어 있었다** — 흡수하면서 이 시험을 관문에 안 걸었기 때문이다
+     * (지금은 `universe check` 의 「TC 도구 시험」이 돌린다).
+     * ⇒ **origin 에서 읽어서** 대조한다. 이사해도 안 깨지고, 파서가 죽으면 여전히 문다.
+     */
+    const expected = /[/:]([^/]+?)(?:\.git)?$/.exec(origin)?.[1];
+    expect(expected, `origin 에서 저장소 이름을 못 뽑았다: ${origin}`).toBeTruthy();
+    expect(coordinate?.repo).toBe(expected);
   });
 });

@@ -1,0 +1,69 @@
+{
+  "preconditions": [
+    {
+      "id": "browser-binary",
+      "ok": true,
+      "detail": "chromium 130 설치됨"
+    },
+    {
+      "id": "session-alive",
+      "ok": false,
+      "detail": "로그인 세션 수명 1시간 — 주행 42분째 만료됐다"
+    }
+  ],
+  "cases": [
+    {
+      "id": "TC-101",
+      "origin": "policy",
+      "originRef": "정책서 §3.2 발송 한도",
+      "status": "failed",
+      "attribution": "unknown",
+      "evidence": {
+        "url": "https://app.test/login",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    },
+    {
+      "id": "TC-102",
+      "origin": "policy",
+      "originRef": "정책서 §3.4 소진 배지",
+      "status": "failed",
+      "attribution": "star",
+      "evidence": {
+        "url": "https://app.test/login",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    },
+    {
+      "id": "TC-103",
+      "origin": "derived-from-code",
+      "originRef": "src/send/limit.ts",
+      "status": "failed",
+      "attribution": "unknown",
+      "evidence": {
+        "url": "https://app.test/login",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    },
+    {
+      "id": "TC-104",
+      "origin": "human",
+      "originRef": "issues/114",
+      "status": "failed",
+      "attribution": "environment",
+      "evidence": {
+        "url": "https://app.test/login",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    }
+  ],
+  "_why": "전제가 안 서면 케이스가 전부 ⚪ 로 접히는가 — ❌ 로 세면 제품 결함이 아닌 것을 고치려 든다"
+}

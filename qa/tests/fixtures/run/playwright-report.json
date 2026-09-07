@@ -1,0 +1,95 @@
+{
+  "errors": [],
+  "suites": [
+    {
+      "title": "send.spec.ts",
+      "file": "e2e/send.spec.ts",
+      "specs": [
+        {
+          "title": "TC-201 한도 초과면 발송 버튼이 잠긴다",
+          "file": "e2e/send.spec.ts",
+          "ok": true,
+          "tests": [
+            {
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "attachments": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "TC-202 소진 배지가 보인다",
+          "file": "e2e/send.spec.ts",
+          "ok": false,
+          "tests": [
+            {
+              "status": "unexpected",
+              "results": [
+                {
+                  "status": "failed",
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "path": "shots/TC-202.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "TC-203 재시도하면 통과한다",
+          "file": "e2e/send.spec.ts",
+          "ok": true,
+          "tests": [
+            {
+              "status": "flaky",
+              "results": [
+                {
+                  "status": "failed",
+                  "attachments": []
+                },
+                {
+                  "status": "passed",
+                  "attachments": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "TC-204 목록이 그려진다",
+          "file": "e2e/send.spec.ts",
+          "ok": true,
+          "tests": [
+            {
+              "status": "skipped",
+              "results": []
+            }
+          ]
+        },
+        {
+          "title": "제목에 TC 번호가 없는 테스트",
+          "file": "e2e/send.spec.ts",
+          "ok": true,
+          "tests": [
+            {
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "attachments": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

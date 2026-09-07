@@ -1,0 +1,43 @@
+{
+  "preconditions": [
+    {
+      "id": "browser-binary",
+      "ok": true,
+      "detail": "chromium 130 설치됨"
+    },
+    {
+      "id": "session-alive",
+      "ok": true,
+      "detail": "주행 시작·종료 시각 모두 로그인 상태였다"
+    }
+  ],
+  "cases": [
+    {
+      "id": "TC-101",
+      "origin": "derived-from-code",
+      "originRef": "src/send/limit.ts",
+      "status": "passed",
+      "attribution": "unknown",
+      "evidence": {
+        "url": "https://app.test/send",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    },
+    {
+      "id": "TC-103",
+      "origin": "derived-from-code",
+      "originRef": "src/send/limit.ts",
+      "status": "passed",
+      "attribution": "unknown",
+      "evidence": {
+        "url": "https://app.test/send",
+        "httpStatus": 200,
+        "screenshot": null
+      },
+      "verdict": null
+    }
+  ],
+  "_why": "구현에서 나온 TC 만 있으면 검증 분모가 0 이다 — 초록 2건은 뜻이 없다"
+}

@@ -311,6 +311,26 @@ const CASES = [
    *    거절보다 뒤에서 갈리는 플래그라 **재는 것은 그대로이고 틀렸을 때의 값만** 안전하다.
    */
   {
+    check: 'TC 도구 시험(qa)',
+    bite: '흡수한 시험이 깨진 것을 아무도 모르는 것',
+    expect: '1 failed',
+    file: 'qa/tests/github.guards.test.ts',
+    /**
+     * ⛔⛔ **흡수한 시험 239개를 아무도 안 돌리고 있었다.**
+     *
+     * `qa-harness` 를 흡수하며 `qa/tests/` 10벌이 같이 왔는데 **관문에도 CI 에도 안 넣었다.**
+     * 그래서 흡수 시점부터 **빨간 시험 하나가 조용히 숨어 있었다** — 옛 저장소 이름이
+     * 박혀 있어(`toBe('qa-harness')`) origin 이 바뀌자 깨진 것이다. 자식 에이전트가
+     * 다른 일을 하다 `npm test` 를 돌려서야 드러났다.
+     * ⚠️ 「**옮겨지지 않은 방어**」와 같은 종류다(R162 에서 `.gitignore` 가 그랬다) —
+     * 옮겨 온 파일은 세어서 확인하는데 **「누가 돌리는가」는 아무도 안 센다.**
+     * ⇒ 관문에 걸었고, 그 관문이 정말 무는지를 여기서 잰다.
+     */
+    mutate: (t) => t.replace('expect(coordinate?.repo).toBe(expected);',
+      "expect(coordinate?.repo).toBe('절대안맞는이름');"),
+    cmd: ['node', ['observatory/verify-qa.mjs']],
+  },
+  {
     check: '세션 생존(liveness)',
     bite: '선언을 못 읽고도 조용히 지나가는 것',
     /* ⚠️ 사유를 **실제 출력에서** 가져왔다. 처음엔 '못 쟀다'로 적었는데 그 문구가 안 나와
