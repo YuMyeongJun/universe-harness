@@ -71,11 +71,37 @@ src/
 ├── guards/              ② Playwright 가드 — config 주입식, 앱을 알지 않는다
 │   ├── measure.ts         assertMeasured / assertFollows / assertContrast
 │   └── reach.ts           createReach — 404·얇은 본문·의도치 않은 리다이렉트를 던진다
-└── gate/redFirst.ts     ③ 빨간불 관문 — 자기 채점 방지
+├── gate/redFirst.ts     ③ 빨간불 관문 — 자기 채점 방지
+└── github/guards.ts     ④ 원격 계층 가드 — API 가 만드는 거짓 통과 자리
 tests/                   변이 시험 (검사가 죽어 있는지 확인하는 층)
 ```
 
 새 프로젝트에 붙이려면 `qa-harness.config.example.ts` 를 복사해 라우트와 404 문구만 채우면 된다.
+
+## 원격 계층 가드 (`src/github/guards.ts`)
+
+⭐ **「호출이 성공했다」와 「잴 것이 있었다」를 다른 칸에 둔다.**
+
+| 가드 | 막는 자리 |
+|---|---|
+| `assertQueryMeasured` | 200 + 빈 배열. 라벨 소실·쿼리 오류·권한 부족이 **"없음"으로 읽히는** 자리 |
+| `assertLabelsExist` | 라벨이 사라졌는데 쿼리가 조용히 빈 결과를 주는 자리 |
+| `assertPaginationExhausted` | 페이지가 끊겼는데 부분 결과를 전체로 읽는 자리 |
+| `assertWriteVerified` | **쓰기 성공 ≠ 쓰기 확인.** 쓰고 나서 다시 읽어 확인한다 |
+| `assertNotRateLimited` | rate limit 을 성공으로 세지 않는다 (⚪ 로 던진다) |
+| `assertScopeOrUnmeasured` | 스코프가 없는데 조용히 건너뛰어 "동기화됐다"로 읽히는 자리 |
+| `repoCoordinateOf` | 저장소 주소를 코드에 적지 않고 **`origin` 에서 파생**한다 |
+
+**좌표는 지어내지 않는다.** GitHub Enterprise 는 일부러 `null` 이다 — 그 호스트의 위키 주소 규칙을
+확인한 적이 없기 때문이다. 확인 안 한 것을 맞다고 가정하는 것이 지어내기다.
+SSH 짧은 형식(`git@github.com:o/r.git`)은 `null` 이 아니다 — 모르는 호스트가 아니라 **아는 호스트의 다른 표기**다.
+
+**같은 `null` 에 두 판정을 준다. 판정은 「무엇을 하려던 참이었나」가 정한다:**
+
+| 부르는 쪽 | `null` 이면 | 왜 |
+|---|---|---|
+| **쓴다** (`requireRepoCoordinate`) | **실패** | 엉뚱한 저장소에 쓰면 되돌리기가 비싸다. 어디에 쓸지 모르는데 쓰지 않는다 |
+| **잰다** (`repoCoordinateOf` → ⚪) | **못 쟀다** | 못 잰 건 아무것도 안 망친다. 실패로 내면 사람이 검사를 끈다 |
 
 ## 참고
 
