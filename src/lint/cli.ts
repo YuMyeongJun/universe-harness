@@ -38,31 +38,69 @@ const collect = (target: string, ext: string): string[] => {
 };
 
 /** 입력 형식에 따라 파서·규칙을 고른다. 판정 어휘(IFinding·종료 코드)는 공용이다. */
-const ADAPTERS: Record<Format, { ext: string; lint: (file: string, src: string) => IFinding[] }> = {
+const makeAdapters = (
+  majorDictionary: string[] | undefined,
+): Record<Format, { ext: string; lint: (file: string, src: string) => IFinding[] }> => ({
   markdown: { ext: '.md', lint: (file, src) => lintTicket(parseTicket(file, src)) },
-  sheet: { ext: '.json', lint: (file, src) => lintSheet(parseSheetSpec(file, src)) },
+  sheet: {
+    ext: '.json',
+    lint: (file, src) =>
+      lintSheet(parseSheetSpec(file, src), majorDictionary ? { majorDictionary } : {}),
+  },
+});
+
+/**
+ * `--features-dir` — 지식 **폴더 이름**만 읽는다. 파일은 열지 않는다.
+ * 없으면 `대분류` 대조는 ⚪ 로 남는다 — 조용히 통과시키지 않는다.
+ */
+const readFeatureNames = (dir: string): string[] | undefined => {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return undefined;
+  }
+};
+
+/** `--flag value` 또는 `--flag=value` 를 읽고, 소비한 인자를 표시한다 */
+const readOption = (argv: string[], name: string, consumed: Set<string>): string | undefined => {
+  const index = argv.findIndex((a) => a === `--${name}` || a.startsWith(`--${name}=`));
+  if (index === -1) return undefined;
+  const token = argv[index] as string;
+  consumed.add(token);
+  if (token.includes('=')) return token.split('=').slice(1).join('=');
+  const value = argv[index + 1];
+  if (value !== undefined) consumed.add(value);
+  return value;
 };
 
 const main = (): number => {
   const argv = process.argv.slice(2);
-  const formatIndex = argv.findIndex((a) => a === '--format' || a.startsWith('--format='));
-  const rawFormat =
-    formatIndex === -1
-      ? 'markdown'
-      : (argv[formatIndex]?.includes('=') ? argv[formatIndex]?.split('=')[1] : argv[formatIndex + 1]) ??
-        'markdown';
+  const consumed = new Set<string>();
+  const rawFormat = readOption(argv, 'format', consumed) ?? 'markdown';
   if (rawFormat !== 'markdown' && rawFormat !== 'sheet') {
     console.error(`⚪ [tc-lint] 알 수 없는 형식: ${rawFormat} (markdown | sheet)`);
     return EXIT_UNMEASURED;
   }
   const format: Format = rawFormat;
-  const adapter = ADAPTERS[format];
 
-  const consumed = new Set<string>();
-  if (formatIndex !== -1) {
-    consumed.add(argv[formatIndex] as string);
-    if (!argv[formatIndex]?.includes('=')) consumed.add(argv[formatIndex + 1] as string);
+  const featuresDir = readOption(argv, 'features-dir', consumed);
+  let majorDictionary: string[] | undefined;
+  if (featuresDir !== undefined) {
+    majorDictionary = readFeatureNames(resolve(process.cwd(), featuresDir));
+    if (majorDictionary === undefined) {
+      console.error(`⚪ [tc-lint] --features-dir 를 읽지 못했다: ${featuresDir}`);
+      return EXIT_UNMEASURED;
+    }
+    if (majorDictionary.length === 0) {
+      // 폴더가 0개면 "모든 대분류가 틀렸다"가 아니라 **잘못 겨눈 경로**다.
+      console.error(`⚪ [tc-lint] --features-dir 에 하위 폴더가 0개다: ${featuresDir}`);
+      return EXIT_UNMEASURED;
+    }
   }
+  const adapter = makeAdapters(majorDictionary)[format];
+
   const args = argv.filter((a) => !a.startsWith('-') && !consumed.has(a));
   const targets = args.length > 0 ? args : [format === 'sheet' ? 'specs' : 'tickets'];
   const cwd = process.cwd();

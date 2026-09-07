@@ -9,6 +9,7 @@
  */
 import { err, unmeasured, type IFinding, type IRule } from '../core.js';
 import {
+  groupKeyOf,
   hasQuoteSpan,
   leadingNumber,
   narrativeOf,
@@ -41,6 +42,24 @@ const BANNED_WORDS = [
   '일 것으로 보임', '예상됨', '아마',
   '해당 값', '그것', '위 항목',
 ] as const;
+
+/** G4 사전조건 종결 — 상태 명사로 끝난다 */
+const PRECONDITION_TERMINAL_RE = /(상태|ON|OFF|로그인|로그아웃|있음|없음|입력|미입력|선택|미선택|권한|등록|미등록)$/;
+
+/** G4 자명한 전제 — 적을 이유가 없다 */
+const OBVIOUS_PRECONDITIONS = ['브라우저 실행', '인터넷 연결', '네트워크 연결', '전원 켜', 'PC 켜'] as const;
+
+/** G5 분류 컬럼 길이 상한 */
+const CATEGORY_LIMITS = [
+  { field: 'major', label: '대분류', max: 10 },
+  { field: 'middle', label: '중분류', max: 15 },
+  { field: 'minor', label: '소분류', max: 15 },
+  { field: 'sub', label: '세분류', max: 15 },
+] as const;
+
+/** G5 분류는 명사구다 — 문장부호·서술어 종결 금지 */
+const CATEGORY_PUNCT_RE = /[.,!?;:]/;
+const CATEGORY_PREDICATE_RE = /(한다|합니다|된다|됨|하기|하는)$/;
 
 /** G6-2 이모지 금지 — 시트 업로드 시 인코딩이 깨진다 */
 const EMOJI_RE =
@@ -162,44 +181,56 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
     check: (sheet) => {
       const out: IFinding[] = [];
       for (const component of sheet.components) {
-        // 번호는 소분류(없으면 중분류) 그룹 단위로 1. 부터 재시작한다
-        const seen = new Map<string, number[]>();
+        let currentKey: string | undefined;
+        let prevTop: number | undefined;
+        let isFirstGroupOfPayload = true;
         for (const row of component.rows) {
           const number = leadingNumber(row.content);
           if (number === undefined) continue;
-          const key = `${row.major}|${row.middle}|${row.minor}`;
-          const tops = seen.get(key) ?? [];
+          const key = groupKeyOf(row);
           const top = topLevelOf(number);
-          if (tops[tops.length - 1] !== top) tops.push(top);
-          seen.set(key, tops);
-        }
-        for (const [key, tops] of seen) {
-          const where = component.tab || '(탭 없음)';
-          // 건너뜀·되돌아감은 확실한 위반이다 — 스펙이 부분이든 전체든 성립하지 않는다
-          const broken = tops.some((top, i) => i > 0 && top !== (tops[i - 1] ?? 0) + 1);
-          if (broken) {
+          const where = `${component.tab || '(탭 없음)'} [${key}]`;
+
+          if (key !== currentKey) {
+            // 그룹이 바뀌었다 — 번호는 1. 로 돌아와야 한다
+            if (top !== 1) {
+              // 예외는 딱 하나: 이어 붙이는 페이로드의 **첫** 그룹.
+              // 그 앞에 무엇이 있었는지는 시트에 있지 스펙에 없다.
+              const exempt = sheet.isPartial && isFirstGroupOfPayload;
+              out.push(
+                exempt
+                  ? unmeasured(
+                      'G1-restart',
+                      `${where} 가 ${top} 부터 시작한다 — 이어 붙이는 페이로드의 첫 그룹이라 못 쟀다`,
+                      '선행 행은 시트에 있고 페이로드에 없다. 두 번째 그룹부터는 잰다',
+                      where,
+                    )
+                  : err(
+                      'G1-restart',
+                      `${where} 의 번호가 ${top} 부터 시작한다`,
+                      '번호는 소분류(없으면 중분류) 그룹이 바뀔 때마다 1. 로 재시작한다',
+                      where,
+                    ),
+              );
+            }
+            currentKey = key;
+            prevTop = top;
+            isFirstGroupOfPayload = false;
+            continue;
+          }
+
+          // 같은 그룹 안 — 번호는 같거나(액션 그룹) 1 늘어야 한다
+          if (prevTop !== undefined && top !== prevTop && top !== prevTop + 1) {
             out.push(
               err(
                 'G1-restart',
-                `분류 [${key}] 의 테스트항목 번호가 이어지지 않는다: ${tops.join(', ')}`,
+                `${where} 의 번호가 이어지지 않는다: ${prevTop} → ${top}`,
                 '번호는 건너뛰거나 되돌아가지 않는다. 빠진 번호는 누락된 검증이다',
                 where,
               ),
             );
-            continue;
           }
-          // 시작이 1이 아닌 것은 **위반이라 단정할 수 없다** — `append-rows` 로 이어 붙이는
-          // 부분 스펙은 정당하게 중간 번호에서 시작한다. 전체 스펙인지 여기서는 못 잰다.
-          if (tops[0] !== undefined && tops[0] !== 1) {
-            out.push(
-              unmeasured(
-                'G1-restart',
-                `분류 [${key}] 의 번호가 ${tops[0]} 부터 시작한다 — 전체 스펙인지 못 쟀다`,
-                '전체 스펙이면 1부터여야 하지만, append-rows 로 이어 붙이는 부분 스펙이면 정상이다',
-                where,
-              ),
-            );
-          }
+          prevTop = top;
         }
       }
       return out;
@@ -389,6 +420,147 @@ export const sheetRules: Array<IRule<IParsedSheet>> = [
       ),
   },
   {
+    id: 'G3-abbrev-consistency',
+    check: (sheet) => {
+      // 축약형 `노출` 과 기본형 `노출 됨` 은 **한 시트 안에서 하나로 통일**한다.
+      // 행 단위 검사로는 절대 안 잡히는 시트 단위 일관성 규칙이다.
+      const abbrev: string[] = [];
+      const full: string[] = [];
+      for (const component of sheet.components) {
+        for (const row of component.rows) {
+          const body = row.expected.trim();
+          if (/노출\s*됨$/.test(body)) full.push(at(component, row));
+          else if (/노출$/.test(body)) abbrev.push(at(component, row));
+        }
+      }
+      if (abbrev.length === 0 || full.length === 0) return [];
+      return [
+        err(
+          'G3-abbrev-consistency',
+          `축약형 \`노출\`(${abbrev.length}건)과 기본형 \`노출 됨\`(${full.length}건)이 섞였다`,
+          '한 시트 안에서 하나로 통일한다. 섞이면 수행 쪽 판정 기준이 흔들린다',
+          `${abbrev[0]} / ${full[0]}`,
+        ),
+      ];
+    },
+  },
+  {
+    id: 'G4-precondition-form',
+    check: (sheet) =>
+      eachRow(sheet, (c, row) => {
+        const out: IFinding[] = [];
+        const raw = row.precondition.trim();
+        // ⚠️ 사전조건이 **비어 있는 것은 정상이다.** 해당 TC 의 기대결과를 바꾸는 조건만 적는다.
+        if (raw === '') return out;
+
+        const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+        lines.forEach((line, i) => {
+          const number = leadingNumber(line);
+          if (number === undefined || Number(number) !== i + 1) {
+            out.push(
+              err(
+                'G4-precondition-form',
+                `\`사전 조건\` 번호가 어긋난다: "${line.slice(0, 30)}" (기대 ${i + 1}.)`,
+                '항상 1. 부터 붙이고, 2건 이상이면 줄바꿈으로 나눈다',
+                at(c, row),
+              ),
+            );
+          }
+          const body = line.replace(/^\s*\d+\.?\s+/, '').trim();
+          if (body === '') return;
+          if (!PRECONDITION_TERMINAL_RE.test(body)) {
+            out.push(
+              err(
+                'G4-precondition-form',
+                `\`사전 조건\` 이 상태 명사로 끝나지 않는다: "${body.slice(0, 30)}"`,
+                '사전조건은 상태다. 동작 서술(`~한다`·`~하고 진입`)이 아니라 결과 상태를 적는다',
+                at(c, row),
+              ),
+            );
+          }
+          for (const obvious of OBVIOUS_PRECONDITIONS) {
+            if (body.includes(obvious)) {
+              out.push(
+                err(
+                  'G4-precondition-form',
+                  `\`사전 조건\` 에 자명한 전제가 있다: "${obvious}"`,
+                  '적어야 하는 것은 그 TC 의 기대결과를 바꾸는 조건뿐이다',
+                  at(c, row),
+                ),
+              );
+            }
+          }
+        });
+        return out;
+      }),
+  },
+  {
+    id: 'G5-category-form',
+    check: (sheet) =>
+      eachRow(sheet, (c, row) => {
+        const out: IFinding[] = [];
+        for (const { field, label, max } of CATEGORY_LIMITS) {
+          const value = row[field].trim();
+          if (value === '') continue;
+          if (value.length > max) {
+            out.push(
+              err(
+                'G5-category-form',
+                `\`${label}\` 이 ${value.length}자다 (상한 ${max}): "${value}"`,
+                '분류는 짧은 명사구다. 길어지면 축이 아니라 설명이 된다',
+                at(c, row),
+              ),
+            );
+          }
+          if (CATEGORY_PUNCT_RE.test(value) || CATEGORY_PREDICATE_RE.test(value)) {
+            out.push(
+              err(
+                'G5-category-form',
+                `\`${label}\` 이 명사구가 아니다: "${value}"`,
+                '동사·서술어·문장부호를 쓰지 않는다',
+                at(c, row),
+              ),
+            );
+          }
+        }
+        return out;
+      }),
+  },
+  {
+    id: 'G5-category-consistency',
+    check: (sheet) => {
+      // 같은 대상은 **철자·띄어쓰기까지 완전 동일**해야 한다.
+      // 공백을 지우면 같아지는 값 쌍이 곧 위반이다 (`AI 도구관리` vs `AI 도구 관리`).
+      const buckets = new Map<string, Map<string, string>>();
+      for (const component of sheet.components) {
+        for (const row of component.rows) {
+          for (const { field, label } of CATEGORY_LIMITS) {
+            const value = row[field].trim();
+            if (value === '') continue;
+            const key = `${label}|${value.replace(/\s+/g, '')}`;
+            const seen = buckets.get(key) ?? new Map<string, string>();
+            if (!seen.has(value)) seen.set(value, at(component, row));
+            buckets.set(key, seen);
+          }
+        }
+      }
+      const out: IFinding[] = [];
+      for (const [key, variants] of buckets) {
+        if (variants.size < 2) continue;
+        const label = key.split('|')[0];
+        const list = [...variants.entries()].map(([v, where]) => `"${v}"(${where})`).join(' · ');
+        out.push(
+          err(
+            'G5-category-consistency',
+            `\`${label}\` 에 같은 대상의 표기가 갈렸다: ${list}`,
+            '같은 대상은 철자·띄어쓰기까지 완전 동일해야 한다. 갈리면 집계가 쪼개진다',
+          ),
+        );
+      }
+      return out;
+    },
+  },
+  {
     id: 'tab-placeholder',
     check: (sheet) =>
       sheet.components.flatMap((component) =>
@@ -435,8 +607,8 @@ export const knowledgeRules: Array<IRule<IParsedSheet>> = [
     check: () => [
       unmeasured(
         'G5-category-dictionary',
-        '분류값(대·중·소·세분류)이 사전에 있는 값인지 확인하지 않았다',
-        'distinct 목록이 있어야 잰다',
+        '`중분류`·`소분류` 가 실제 존재하는 화면인지 확인하지 않았다',
+        '형식·길이·내부 일관성은 쟀다. 실재 여부는 도메인 지식이 있어야 잰다',
       ),
     ],
   },
@@ -455,14 +627,67 @@ export const knowledgeRules: Array<IRule<IParsedSheet>> = [
     check: () => [
       unmeasured(
         'G4-precondition-judgment',
-        '`사전 조건` 에 자명한 전제가 섞였는지 판단하지 않았다',
-        '자명 여부는 도메인 판단이라 형식으로 못 가른다',
+        '`사전 조건` 이 **필요한** 조건인지 판단하지 않았다',
+        '형식·자명 전제·번호는 쟀다. "이 조건이 기대결과를 바꾸는가"는 도메인 판단이다',
       ),
     ],
   },
 ];
 
-export const lintSheet = (sheet: IParsedSheet): IFinding[] => [
-  ...sheetRules.flatMap((rule) => rule.check(sheet)),
-  ...knowledgeRules.flatMap((rule) => rule.check(sheet)),
-];
+export interface ILintSheetOptions {
+  /**
+   * `대분류` 로 허용되는 이름 목록 — 지식 **폴더 이름**만 있으면 된다(파일을 열지 않는다).
+   * 언더스코어 접두 폴더에 속하는 화면은 `대분류` 를 `공통` 으로 고정한다.
+   */
+  majorDictionary?: string[];
+}
+
+const COMMON_MAJOR = '공통';
+
+/** 폴더 목록이 주어졌을 때만 도는 규칙. 없으면 ⚪ 로 남는다. */
+const majorDictionaryRule = (dictionary: string[]): IRule<IParsedSheet> => ({
+  id: 'G5-major-dictionary',
+  check: (sheet) => {
+    const allowed = new Set([
+      ...dictionary.filter((name) => !name.startsWith('_')),
+      COMMON_MAJOR,
+    ]);
+    return eachRow(sheet, (c, row) => {
+      const value = row.major.trim();
+      if (value === '' || allowed.has(value)) return [];
+      return [
+        err(
+          'G5-major-dictionary',
+          `\`대분류\` "${value}" 가 목록에 없다`,
+          `허용: ${[...allowed].join(' · ')} (언더스코어 접두 폴더는 대분류가 아니라 \`${COMMON_MAJOR}\` 이다)`,
+          at(c, row),
+        ),
+      ];
+    });
+  },
+});
+
+export const lintSheet = (sheet: IParsedSheet, options: ILintSheetOptions = {}): IFinding[] => {
+  const dictionary = options.majorDictionary;
+  const dictionaryRules: Array<IRule<IParsedSheet>> =
+    dictionary === undefined || dictionary.length === 0
+      ? [
+          {
+            id: 'G5-major-dictionary',
+            check: () => [
+              unmeasured(
+                'G5-major-dictionary',
+                '`대분류` 가 지식 폴더 이름과 일치하는지 확인하지 않았다',
+                '`--features-dir` 로 폴더 경로를 주면 잰다 — 파일을 열 필요는 없다',
+              ),
+            ],
+          },
+        ]
+      : [majorDictionaryRule(dictionary)];
+
+  return [
+    ...sheetRules.flatMap((rule) => rule.check(sheet)),
+    ...dictionaryRules.flatMap((rule) => rule.check(sheet)),
+    ...knowledgeRules.flatMap((rule) => rule.check(sheet)),
+  ];
+};

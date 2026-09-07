@@ -45,6 +45,14 @@ export interface IParsedSheet {
   file: string;
   title: string;
   components: ISheetComponent[];
+  /**
+   * 이어 붙이는 페이로드인가.
+   *
+   * 입력의 **형태가 이미 다르다** — 별도 필드가 필요 없다:
+   * - `create-from-template --spec` → `{title, path, project, components[]}` **객체**. 항상 새 시트를 만들므로 선행 행이 없다
+   * - `append-rows --rows`          → `[...]` **행 배열**. 시트의 마지막 행을 CLI 가 직접 이어받는다
+   */
+  isPartial: boolean;
 }
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -80,6 +88,14 @@ export const leadingNumber = (text: string): string | undefined => {
 
 /** 번호 깊이 (`1` → 1, `1.1` → 2) */
 export const numberDepth = (number: string): number => number.split('.').length;
+
+/**
+ * 번호 재시작 경계 — `소분류`(없으면 `중분류`) 그룹.
+ *
+ * ⚠️ 경계는 탭도 스펙도 아니다. 이 값이 바뀌는 지점마다 번호는 `1.` 로 돌아와야 한다.
+ */
+export const groupKeyOf = (row: ISheetRow): string =>
+  row.minor.trim() !== '' ? `${row.major}|${row.middle}|${row.minor}` : `${row.major}|${row.middle}`;
 
 /** 번호에서 최상위 자리 (`3.1` → 3) */
 export const topLevelOf = (number: string): number => Number(number.split('.')[0]);
@@ -120,6 +136,17 @@ export const parseSheetSpec = (file: string, source: string): IParsedSheet => {
   } catch (error) {
     throw new Error(`스펙 JSON 을 읽지 못했다: ${(error as Error).message}`);
   }
+  // 행 배열이면 `append-rows` 페이로드다 — 이어 붙이는 부분 스펙
+  if (Array.isArray(json)) {
+    const rows = json.map((r, i) => toRow((r ?? {}) as Record<string, unknown>, i));
+    return {
+      file,
+      title: '',
+      isPartial: true,
+      components: [{ tab: '(append-rows)', desc: '', rows, groups: groupActions(rows) }],
+    };
+  }
+
   const root = (json ?? {}) as Record<string, unknown>;
   const rawComponents = Array.isArray(root['components']) ? root['components'] : [];
 
@@ -135,5 +162,5 @@ export const parseSheetSpec = (file: string, source: string): IParsedSheet => {
     };
   });
 
-  return { file, title: str(root['title']), components };
+  return { file, title: str(root['title']), components, isPartial: false };
 };

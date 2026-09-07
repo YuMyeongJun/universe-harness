@@ -34,6 +34,11 @@ const MUTATIONS: Array<{ fixture: string; rule: string }> = [
   { fixture: 'initial-values.json', rule: 'initial-values' },
   { fixture: 'no-ids-in-spec.json', rule: 'no-ids-in-spec' },
   { fixture: 'tab-placeholder.json', rule: 'tab-placeholder' },
+  { fixture: 'g3-abbrev-mixed.json', rule: 'G3-abbrev-consistency' },
+  { fixture: 'g4-precondition-action.json', rule: 'G4-precondition-form' },
+  { fixture: 'g4-precondition-obvious.json', rule: 'G4-precondition-form' },
+  { fixture: 'g5-category-length.json', rule: 'G5-category-form' },
+  { fixture: 'g5-category-consistency.json', rule: 'G5-category-consistency' },
 ];
 
 describe('정상 스펙', () => {
@@ -64,13 +69,55 @@ describe('변이 시험 — 각 규칙이 무는가', () => {
   }
 });
 
+describe('사전 조건 공란', () => {
+  it('사전 조건이 비어 있는 것은 위반이 아니다', () => {
+    // 실측: 전체 행의 10% 만 사전조건을 채운다. 해당 TC 의 기대결과를 바꾸는 조건만 적는다.
+    const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    for (const row of spec.components[0].rows) row.precondition = '';
+    const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)));
+    expect(findings.filter((f) => f.severity === 'error').map((f) => f.rule)).toEqual([]);
+  });
+});
+
+describe('대분류 사전 (--features-dir)', () => {
+  it('폴더 목록이 없으면 ⚪ 로 남는다', () => {
+    const finding = lint('good.json').find((f) => f.rule === 'G5-major-dictionary');
+    expect(finding?.severity).toBe('unmeasured');
+  });
+
+  it('폴더 목록이 있으면 잰다 — 목록 밖 대분류는 위반', () => {
+    const sheet = parseSheetSpec('x', readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    const findings = lintSheet(sheet, { majorDictionary: ['회원', '결제'] });
+    expect(findings.filter((f) => f.rule === 'G5-major-dictionary' && f.severity === 'error').length)
+      .toBeGreaterThan(0);
+  });
+
+  it('언더스코어 접두 폴더는 대분류가 아니고 `공통` 이 허용된다', () => {
+    const spec = JSON.parse(readFileSync(join(FIXTURES, 'good.json'), 'utf8'));
+    for (const row of spec.components[0].rows) row.major = '공통';
+    const findings = lintSheet(parseSheetSpec('x', JSON.stringify(spec)), {
+      majorDictionary: ['_common', '회원'],
+    });
+    expect(findings.filter((f) => f.rule === 'G5-major-dictionary' && f.severity === 'error')).toEqual([]);
+  });
+});
+
 describe('부분 스펙 (append-rows 흐름)', () => {
-  it('번호가 1이 아닌 것으로 시작하면 위반이 아니라 ⚪ 다', () => {
-    // README 의 대량 작성 흐름: 시트를 먼저 만들고 나머지를 append-rows 로 이어 붙인다.
-    // 그때 부분 스펙은 정당하게 중간 번호에서 시작한다 — 전체 스펙인지 여기서는 못 잰다.
+  it('행 배열(append-rows)의 **첫** 그룹이 1이 아닌 것은 ⚪ 다', () => {
+    // 선행 행은 시트에 있고 페이로드에 없다. 스펙만 봐서는 못 잰다.
     expect(ruleIds('g1-partial-spec.json')).not.toContain('G1-restart');
     const finding = lint('g1-partial-spec.json').find((f) => f.rule === 'G1-restart');
     expect(finding?.severity).toBe('unmeasured');
+  });
+
+  it('행 배열이어도 **두 번째** 그룹부터는 잰다', () => {
+    // 소분류가 바뀌면 번호는 1. 로 돌아와야 한다 — 페이로드 안에서 확인 가능하다.
+    expect(ruleIds('g1-partial-second-group.json')).toContain('G1-restart');
+  });
+
+  it('객체 스펙(create-from-template)은 첫 그룹도 1이어야 한다', () => {
+    // create-from-template 은 항상 새 시트를 만든다 — 선행 행이 존재할 수 없다.
+    expect(ruleIds('g1-full-spec-not-one.json')).toContain('G1-restart');
   });
 
   it('번호를 건너뛰면 부분 스펙이어도 위반이다', () => {
