@@ -28,6 +28,7 @@
  *    「0건」을 기준선으로 심은 적이 있다(`galaxies/console.json` 의 `//appDir` 주석이 그 자국이다).
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
  */
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -55,6 +56,23 @@ const BLIND_KINDS = ['코드', '설정', '스크립트', '생성물'];
  * @param {string} root 훑을 자리(절대경로)
  * @returns {Promise<object>} 센 것. `reachable` 이 false 면 자리를 못 열었다는 뜻이다.
  */
+/**
+ * **git 이 무시하는 파일**을 통째로 받아 온다. ⛔ 파일마다 `git check-ignore` 를 부르지 않는다 —
+ * 1,400개면 프로세스를 1,400번 띄운다. 한 번에 묻는다.
+ *
+ * ⚠️ **못 물었으면 `null` 이다.** 빈 집합이 아니다 — 「무시된 것이 없다」와
+ * 「git 에게 못 물었다」는 다르다(§8). git 저장소가 아니거나 git 이 없을 수 있다.
+ * ⛔ 파이프 뒤에서 종료코드를 읽지 않는다(관측 법칙 §3) — spawn 으로 직접 받는다.
+ */
+const ignoredPaths = async (root) => new Promise((resolve) => {
+  const child = spawn('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
+    { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  child.on('close', (code) => resolve(code === 0 ? new Set(out.split('\0').filter(Boolean)) : null));
+  child.on('error', () => resolve(null));
+});
+
 export const census = async (root) => {
   const acc = {
     reachable: true,
@@ -66,7 +84,19 @@ export const census = async (root) => {
     notCodeByExt: {},
     /** 훑지 **않은** 자리. ⛔ 「0개였다」와 「안 봤다」를 가르려면 이것을 말해야 한다. */
     skipped: { 생성물: [], 설치물: [], 숨은자리: [] },
+    /**
+     * git 이 무시하는 파일 — **분모 밖**이다(버려질 코드라서). 확장자별로 세서 **보여 준다.**
+     * ⛔ 조용히 빼지 않는다: 안 보이면 「원래 없었다」와 구별이 안 되고,
+     *    그러면 다음 사람이 「이 저장소엔 `.mjs` 가 2개뿐이다」로 읽는다.
+     */
+    ignoredByExt: {},
+    /** git 이 무시하는 경로 집합. **git 이 없거나 저장소가 아니면 빈 집합**이다(못 물었다는 뜻). */
+    ignored: await ignoredPaths(root),
+    /** ⛔ git 에게 **물을 수 있었는가.** 못 물었으면 「무시된 것이 0개」가 아니라 「모른다」다(§8). */
+    askedGit: null,
   };
+  acc.askedGit = acc.ignored !== null;
+  if (acc.ignored === null) { acc.ignored = new Set(); }
 
   const walk = async (dir) => {
     const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => null);
@@ -100,6 +130,27 @@ export const census = async (root) => {
         continue;
       }
       const ext = path.extname(entry.name) || '(확장자 없음)';
+      /**
+       * ⛔⛔ **git 이 무시하는 것은 분모에 넣지 않는다 — 그건 버려질 코드다.**
+       *
+       * ⚠️ 실측(R163): 진짜 은하에서 「못 읽는다 59개(4.2%)」가 나왔는데, 옆 저장소 세션이
+       * 재보니 그중 **57개가 `e2e/__screenshots__/` 안의 일회용 QA 프로브**였다
+       * (`chk-err.mjs` · `probe-404.mjs` · `qa-blue.mjs` …). 그 저장소의 `CLAUDE.md` 가
+       * 그 자리를 **스크래치**라고 못 박아 두고 gitignore 하고 있었다.
+       * ⇒ **「모수가 다르다」가 아니라 「한쪽은 버려질 것을 센다」**가 정확한 진술이다.
+       *
+       * ⛔ 그리고 더 나쁜 것: 스크래치가 분모에 들어오면 **기준선이 노이즈로 흔들린다.**
+       * 프로브를 하나 만들면 늘고 지우면 준다 — **코드 품질과 무관하게.**
+       * 이 하네스의 기준선은 「절대 0이 아니라 **늘었는가**」라서 그 흔들림이 그대로 판정이 된다.
+       *
+       * ⚠️ `.gitignore` 는 **그 저장소가 스스로 「이건 산출물이다」라고 선언한 것**이다.
+       * 좌표가 따로 정의할 필요가 없는 **이미 있는 신뢰할 만한 신호**다 —
+       * 이 저장소도 보존 법칙과 고아 별에서 같은 신호(`git ls-files`)를 쓴다.
+       */
+      if (acc.ignored.has(rel)) {
+        acc.ignoredByExt[ext] = (acc.ignoredByExt[ext] ?? 0) + 1;
+        continue;
+      }
       if (READABLE.test(entry.name)) {
         acc.readByExt[ext] = (acc.readByExt[ext] ?? 0) + 1;
       } else if (CODE_BUT_BLIND.test(entry.name)) {
@@ -191,6 +242,25 @@ export const report = (where, acc, opts = {}) => {
   lines.push(skipped.length > 0
     ? `     안 훑은 자리: ${skipped.map(([k, v]) => `${k} ${v.length}곳(${v.slice(0, 3).join(' · ')}${v.length > 3 ? ' …' : ''})`).join(' · ')}`
     : '     안 훑은 자리: 없다');
+
+  /**
+   * ⛔⛔ **무시한 것을 조용히 빼지 않는다.** 안 보이면 「원래 없었다」와 구별이 안 되고,
+   * 그러면 다음 사람은 「이 저장소엔 `.mjs` 가 2개뿐이다」로 읽는다.
+   * ⚠️ 실측(R163): 이 축을 넣기 전 「못 읽는다 59개(4.2%)」였는데 그중 **57개가
+   * gitignore 된 일회용 QA 프로브**였다. 넣고 나니 **2개(0.1%)** 다.
+   * ⇒ 뺀 것도 **수로 말한다.** 그래야 두 수가 왜 다른지 사람이 안다.
+   */
+  const ignored = ranked(acc.ignoredByExt);
+  if (!acc.askedGit) {
+    lines.push('     ⚪ **git 에게 못 물었다** — 무시되는 파일이 분모에 섞여 있을 수 있다.');
+    lines.push('        (git 저장소가 아니거나 git 이 없다. 「무시된 것이 0개」라는 뜻이 **아니다**.)');
+  } else if (ignored.length > 0) {
+    const total = ignored.reduce((a, [, n]) => a + n, 0);
+    lines.push(`     🚮 git 이 무시하는 것 ${total}개 — **분모 밖이다**(버려질 코드다): `
+      + `${ignored.slice(0, 5).map(([e, n]) => `${e} ${n}`).join(' · ')}${ignored.length > 5 ? ' …' : ''}`);
+    lines.push('        ⚠️ 이것을 분모에 넣으면 **기준선이 노이즈로 흔들린다** — 프로브를 하나');
+    lines.push('           만들면 늘고 지우면 준다. **코드 품질과 무관하게.**');
+  }
   lines.push('');
   lines.push('   ⛔ 못 읽는 것은 **위반이 없는 게 아니라 안 재진 것**이다.');
   lines.push('      이 도구는 여기까지다 — 「이 비율이면 못 쓴다」는 사람이 정한다.');
