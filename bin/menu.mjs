@@ -21,8 +21,12 @@
  * 다음엔 메뉴를 안 거치게 되는 것이 성공이다 — **화면이 목적이 아니라 입구다.**
  *
  * ## ⛔ 의존성 0
- * `node:readline/promises` 만 쓴다. 이 저장소는 `dependencies` 도 `devDependencies` 도
- * 비어 있고 문서가 그것을 강점으로 적어 뒀다 — 입구 하나 때문에 깨지 않는다.
+ * `node:readline/promises` 만 쓴다 — 입구 하나 때문에 깨지 않는다.
+ *
+ * ⚠️ 여기 처음엔 「**문서가 그것을 강점으로 적어 뒀다**」고 적었는데 **거짓이었다.**
+ * 비어 있는 것은 사실인데(`dependencies` 0 · `devDependencies` 0) **문서에 그런 자리가
+ * 없었고 관문도 안 지키고 있었다.** 짐작을 근거처럼 적은 것이다 — 같은 날 다른 세션에도
+ * 같은 말을 했고 거기서도 틀렸다. ⇒ 무르는 대신 **관문으로 만들었다**(부품 시험이 잰다).
  */
 import { spawn } from 'node:child_process';
 import { readdir, readFile, realpath } from 'node:fs/promises';
