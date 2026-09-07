@@ -762,6 +762,38 @@ const main = async () => {
     const blindTotal = blindNow.reduce((sum, [, n]) => sum + n, 0);
 
     /**
+     * ⛔⛔ **훑는 곳마다 분모를 낸다 — 「통째로 못 봤다」와 「일부만 봤다」는 다르다.**
+     *
+     * 바로 아래 가드는 **전부 0개**일 때만 문다. 그런데 은하가 훑을 곳을 **여럿** 적으면
+     * 그중 하나가 오타거나 사라져도 **나머지가 파일을 내므로 조용하다** — 화면에는 그 자리가
+     * 「훑는 곳」으로 **나열까지 된다.** 안 본 것을 본 것처럼 적는 자리다.
+     *
+     * ⚠️ 실측(R163): `codeDirs: ["server/src","web/src","오타난-폴더"]` 로 걸었더니
+     * 화면은 셋을 나란히 찍고 「네이밍 14건」을 냈다. **오타를 아무도 말하지 않았다.**
+     * ⛔ 옆 저장소 세션이 같은 형태를 자기 검사에서 찾아 줬다: 「0개면 안 봤다」 가드는
+     *    **통째로 못 본 것**은 잡지만 **일부만 본 것**은 못 잡는다.
+     *
+     * ⇒ 훑개가 실제로 읽은 경로로 **자리마다 세어** 0인 자리를 말한다.
+     *   ⚠️ 판정은 ⚪(못 쟀다)다 — 「위반이 없다」도 「빨간불」도 아니다.
+     */
+    const perTarget = wholeApp.map((target) => [
+      target,
+      new Set(scannedPaths.filter((rel) => rel === target || rel.startsWith(`${target}/`))).size,
+    ]);
+    const emptyTargets = perTarget.filter(([, n]) => n === 0).map(([t]) => t);
+    if (scanRan && emptyTargets.length > 0 && emptyTargets.length < perTarget.length) {
+      say(`\n  ⚪ **훑는다고 적어 놓고 파일이 0개인 자리 ${emptyTargets.length}곳** — ${emptyTargets.join(' · ')}`);
+      say('     나머지 자리가 파일을 내서 **수치는 멀쩡해 보인다.** 그래서 조용히 지나가는 자리다.');
+      for (const [target, n] of perTarget) {
+        say(`     ${n === 0 ? '⚪' : '  '} ${target} — ${n}개`);
+      }
+      say('     → 좌표의 `codeDirs` 에서 그 자리를 고치거나 빼라. 오타거나 옮겨진 폴더다.');
+      cannotMeasure(gReport.unmeasured, 'declared-target-empty', emptyTargets.join(' · '),
+        '훑는다고 선언한 자리에 파일이 0개다 — 나머지가 파일을 내서 조용히 지나간다(§8)');
+      emit(EXIT_UNMEASURED);
+    }
+
+    /**
      * ⛔⛔ **파일 0개를 봤으면 그건 「0건」이 아니라 「못 쟀다」다** — `--update` 여부와 무관하다.
      *
      * 실측(R163): 우주 자신을 은하로 걸어 재 봤더니 화면이 이렇게 나왔다:

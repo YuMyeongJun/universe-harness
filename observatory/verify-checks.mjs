@@ -220,6 +220,25 @@ const CASES = [
     cmd: ['node', ['observatory/verify-names.mjs']],
   },
   {
+    check: '자리마다 분모(observe)',
+    bite: '훑는다고 적어 놓고 비어 있는 자리를 그냥 지나감',
+    expect: '훑는다고 적어 놓고 0개인 자리',
+    file: 'observatory/observe.mjs',
+    /**
+     * ⛔⛔ **「통째로 못 봤다」와 「일부만 봤다」는 다르다.**
+     *
+     * 「전부 0개」 가드는 있었다. 그런데 은하가 훑을 곳을 **여럿** 적으면 그중 하나가
+     * 오타여도 **나머지가 파일을 내므로 조용하다** — 화면에는 그 자리가 「훑는 곳」으로
+     * **나열까지 된다.** 안 본 것을 본 것처럼 적는 자리다.
+     * ⚠️ 옆 저장소 세션이 자기 검사(`SCANNED_ROOTS` 고정)에서 같은 형태를 찾아 줬다.
+     *
+     * ⚠️ 겨냥: 갈래를 **옛 상태**(전부 0개일 때만 문다)로 되돌린다. 「지운다」보다 이쪽이
+     *    정확하다 — 잡으려는 것이 **가드의 부재**가 아니라 **가드의 좁음**이기 때문이다.
+     */
+    mutate: (t) => t.replace('emptyTargets.length < perTarget.length', 'emptyTargets.length === 0'),
+    cmd: ['bash', ['observatory/probe-draft.sh']],
+  },
+  {
     check: '좌표 초안(galaxy)',
     bite: '코드가 없는 자리를 가리키는 좌표를 낸다',
     expect: '훑은 파일이 0개다',

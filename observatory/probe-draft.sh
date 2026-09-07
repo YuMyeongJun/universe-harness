@@ -44,3 +44,38 @@ if [ "$code" -eq 3 ]; then
 fi
 grep -q '기준선 없음' /tmp/초안탐침.txt || { echo "⛔ 초안을 걸었는데 법칙을 하나도 못 쟀다"; exit 1; }
 echo "✅ 초안대로 걸면 관측이 파일을 본다 (src/ 를 안 쓰는 저장소에서)"
+
+# ── 둘째 경우: **일부만 봤다** ──────────────────────────────────────────────
+#
+# ⛔ 「전부 0개」는 위에서 잡힌다. 그런데 훑을 곳을 **여럿** 적으면 그중 하나가 오타여도
+#    나머지가 파일을 내서 **조용하다** — 화면엔 그 자리가 「훑는 곳」으로 나열까지 된다.
+# ⚠️ 옆 저장소 세션이 자기 검사에서 같은 형태를 찾아 줬다: 「0개면 안 봤다」 가드는
+#    **통째로 못 본 것**은 잡지만 **일부만 본 것**은 못 잡는다.
+cat > galaxies.local/부분탐침.json <<'JSON'
+{
+  "name": "부분탐침", "description": "임시 — 훑는다고 적어 놓고 비어 있는 자리", "path": ".",
+  "appWorkspace": "", "appDir": "app/universe",
+  "codeDirs": ["server/src", "web/src", "없는-폴더"],
+  "laws": ["naming"], "commands": {}, "thresholds": {}, "solarSystems": [], "observed": {}
+}
+JSON
+node -e '
+const fs = require("node:fs");
+const c = JSON.parse(fs.readFileSync("universe.config.json", "utf8"));
+c.galaxies.push("부분탐침");
+fs.writeFileSync("universe.config.json", `${JSON.stringify(c, null, 2)}\n`);
+'
+node observatory/observe.mjs --galaxy 부분탐침 > /tmp/부분탐침.txt 2>&1
+partial=$?
+rm -f galaxies.local/부분탐침.json
+git checkout universe.config.json 2>/dev/null
+
+if [ "$partial" -ne 3 ]; then
+  cat /tmp/부분탐침.txt
+  echo "⛔ **훑는다고 적어 놓고 0개인 자리**를 관측이 그냥 지나갔다(종료코드 $partial)."
+  echo "   나머지 자리가 파일을 내면 수치는 멀쩡해 보인다 — 그래서 조용한 자리다."
+  exit 1
+fi
+grep -q '파일이 0개인 자리' /tmp/부분탐침.txt || {
+  echo "⛔ ⚪ 로 죽긴 했는데 **그 이유가 아니다** — 「파일이 0개인 자리」를 안 말했다"; exit 1; }
+echo "✅ 훑는다고 적어 놓고 비어 있는 자리를 ⚪ 로 말한다 (일부만 본 것도 잡는다)"
