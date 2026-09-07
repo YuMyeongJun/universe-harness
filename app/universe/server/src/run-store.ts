@@ -346,10 +346,19 @@ export const readRun = async (id: string): Promise<IJudgedRun | null> => {
     return { ...receipt, id, run: { ...meta, remeasured: false }, judgments };
   }
 
-  const receipt = await receiveRunResult(
-    JSON.stringify(withJudgments(input, judgments.current)),
-    { from: 'contract' },
-  );
+  const merged = withJudgments(input, judgments.current);
+  /**
+   * ⛔⛔ **붙인 결과를 파일로도 남긴다 — 안 그러면 사람의 판정이 화면 밖으로 못 나간다.**
+   *
+   * 실측(R163): `universe loop`(관문 밖 도구)가 「이 은하는 끝났는가」를 재는데, 그 답의 재료인
+   * **판정은 이 서버 안에만** 있었다. 그래서 사람이 콘솔에서 판정을 다 붙여도 CLI 는 늘
+   * 「판단하지 않은 fail」이라고 말했다 — **끝낼 수 없는 고리**였다.
+   * ⇒ 붙인 입력을 그대로 `judged.json` 으로 쓴다. `universe loop --report <그 파일>` 이 읽는다.
+   * ⛔ 판정을 여기서 **만들지 않는다**(계약이 한다) — **붙여서 내놓을** 뿐이다.
+   * ⚠️ `.data/` 안이라 gitignore 된다 — 주행 본문에는 URL·계정이 섞여 온다.
+   */
+  writeFileSync(join(storeDir(), id, 'judged.json'), `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
+  const receipt = await receiveRunResult(JSON.stringify(merged), { from: 'contract' });
   return { ...receipt, id, run: { ...meta, remeasured: true }, judgments };
 };
 
@@ -393,7 +402,11 @@ export const recordVerdict = async (
     return {
       ok: false,
       kind: 'no-such-case',
-      why: `이 주행에 그런 케이스가 없다: ${caseId} — 서버가 만들어 주지 않는다.`,
+      /* ⛔ **받은 것을 그대로 찍으면 `[object Object]` 가 나온다**(실측으로 걸렸다 — 인자 모양을
+         잘못 준 부름에서 그렇게 나왔고, 사람은 **무엇을 잘못 줬는지 알 수 없었다**).
+         ⚠️ 거절은 사람이 고칠 수 있어야 거절이다 — **받은 것**과 **아는 것**을 같이 말한다. */
+      why: `이 주행에 그런 케이스가 없다: ${typeof caseId === 'string' ? caseId : JSON.stringify(caseId)}`
+        + ` — 서버가 만들어 주지 않는다. 이 주행이 아는 것: ${known.join(' · ') || '(없다)'}`,
       knownIds: known,
     };
   }

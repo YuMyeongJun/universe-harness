@@ -25,8 +25,9 @@
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
  */
 import { spawn } from 'node:child_process';
-import { readFile, stat, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 
 import { EXIT_UNMEASURED } from '../lib/gates.mjs';
@@ -166,6 +167,50 @@ if (health === null) {
   failed = true;
 } else {
   console.log('  ✅ 지식 저장소를 못 찾으면 **못 찾았다고 말한다** (빈 목록으로 삼키지 않는다)');
+}
+
+/**
+ * ⛔⛔ **사람의 판정이 화면 밖으로 나가는가** — 이게 없으면 고리가 **끝날 수 없다**.
+ *
+ * 실측(R163): `universe loop` 는 「이 은하는 끝났는가」를 재는데, 그 답의 재료인 **판정은
+ * 콘솔 안에만** 있었다. 사람이 판정을 다 붙여도 CLI 는 늘 「판단하지 않은 fail」이라 말했다.
+ * ⇒ 판정을 적을 때 **붙인 주행을 `judged.json` 으로도 쓴다.** 여기서 그 파일이 실제로
+ *   생기는지 본다 — ⛔ 화면 문구가 아니라 **파일이 있는가**가 판정이다.
+ */
+/**
+ * ⛔⛔ **묵은 산출을 근거라 부르지 않는다.** 처음엔 저장된 주행 폴더에 `judged.json` 이
+ * **있는지**만 봤는데, 예전 주행이 남아 있어 **배선을 끊어도 통과했다**(변이가 「놓쳤다」로 알려 줬다).
+ * ⇒ **지금 만들어서** 잰다: 작은 주행을 저장하고 · 판정을 붙이고 · 그 파일이 생겼는지 본다.
+ * ⛔ 판정을 여기서 만들지 않는다 — 콘솔의 것을 부른다. 두 자리에서 만들면 갈린다.
+ */
+const RUN = {
+  preconditions: [{ id: 'probe', ok: true, detail: '탐침이 만든 주행이다' }],
+  cases: [{ id: 'TC-PROBE', origin: 'human', status: 'failed', attribution: 'star', verdict: null }],
+};
+const storeMod = await import(pathToFileURL(path.join(APP, 'dist/run-store.js')).href).catch(() => null);
+const resultMod = await import(pathToFileURL(path.join(APP, 'dist/run-result.js')).href).catch(() => null);
+if (storeMod === null || resultMod === null) {
+  console.log('  ⏭  판정이 밖으로 나가는가 — 콘솔이 안 지어져 있다. 못 쟀다(§8).');
+} else {
+  const raw = JSON.stringify(RUN);
+  const receipt = await resultMod.receiveRunResult(raw, { from: 'contract' });
+  const meta = storeMod.saveRun(raw, receipt, { from: '탐침' });
+  const wrote = await storeMod.recordVerdict(meta.id, 'TC-PROBE',
+    { kind: 'fixed', why: '탐침이 붙인 판정이다 — 배선이 살아 있는지만 잰다' }, { by: 'probe-console' });
+  const at = path.join(APP, '.data/run-judgments', meta.id, 'judged.json');
+  const made = Boolean(await stat(at).catch(() => null));
+  /* ⛔ 흔적을 남기지 않는다 — 저장소의 `.data/` 는 사람이 보는 자리다. */
+  await rm(path.join(APP, '.data/run-judgments', meta.id), { recursive: true, force: true });
+  if (!wrote.ok) {
+    console.error(`  ⛔ 판정을 못 붙였다: ${wrote.kind} — ${wrote.why ?? ''}`);
+    failed = true;
+  } else if (!made) {
+    console.error('  ⛔ 판정을 붙였는데 **붙인 주행 파일이 안 생겼다**');
+    console.error('     사람이 판정을 붙여도 `universe loop` 가 못 읽는다 — 고리가 **끝날 수 없다**.');
+    failed = true;
+  } else {
+    console.log('  ✅ 판정이 파일로도 나간다 (지금 붙여서 확인했다 — 묵은 파일이 아니다)');
+  }
 }
 
 stop();
