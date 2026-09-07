@@ -269,7 +269,7 @@ export const admitPatch = async ({ action, starDir, starName, targetBase, files,
  * 에이전트에게 주는 관측
  * ──────────────────────────────────────────────────────────────────── */
 
-const firstObservation = async ({ requirement, galaxyName, solarName, starName, starDir, targetBase, files, laws, maxTurns }) => {
+const firstObservation = async ({ requirement, galaxyName, solarName, starName, starDir, targetBase, files, laws, maxTurns, canRunTests }) => {
   const shown = [];
   for (const file of files) {
     const content = await fs.readFile(path.join(targetBase, file.path), 'utf8').catch(() => '(못 읽음)');
@@ -297,12 +297,36 @@ const firstObservation = async ({ requirement, galaxyName, solarName, starName, 
     '[3차 팽창의 규칙]',
     `1. patch 의 path 는 **은하 기준 상대경로**다(예: ${starDir}/${starName}.tsx). 슬래시가 없으면 별의 폴더 안으로 읽는다.`,
     `2. 별의 폴더 **밖**은 쓸 수 없다. 은하의 다른 파일은 사람이 고친다.`,
-    `3. ⛔ ${starDir}/${starName}.test.tsx 는 **행동 계약**이다. 고칠 수 없다 — 관문이 막는다.`,
-    '   테스트를 고쳐 통과시키는 것은 수정이 아니라 증거 인멸이다. 구현을 고쳐라.',
-    '   (대소문자만 바꾼 같은 이름도 막힌다 — 이 파일시스템에서는 같은 물리 파일이다.)',
-    `4. ✅ 요구사항이 **새 동작**을 더하면 그 동작을 검증하는 **새 테스트 파일**을 같이 내라`,
-    `   (예: ${starDir}/${starName}.feature.test.tsx). 관문은 기존 계약 파일 하나만 지킨다 —`,
-    '   새 동작에 계약이 생기는지는 네가 새 파일을 내야만 생긴다. 안 내면 그 동작은 테스트 없이 태어난다.',
+    /**
+     * ⚠️⚠️ **테스트 규칙은 은하가 테스트를 돌릴 수 있을 때만 준다**(R148 실측).
+     *
+     * 예전엔 아래 4번(「새 테스트 파일을 같이 내라」)을 **무조건** 줬다. 그런데 1차 팽창은
+     * 같은 실행에서 `commands.test` 가 비었다는 이유로 **행동 계약 파일을 안 만들었고**,
+     * 사람에게 「만들면 `tsc` 가 `vitest`·`@testing-library/react` 를 못 찾아 빌드가 깨진다」고
+     * 경고까지 했다. 그러고는 에이전트에게 **테스트를 내라고 시켰다.**
+     *
+     * 실측(진짜 은하 · 실주행): 에이전트는 시킨 그대로 `<Star>.feature.test.tsx` 를 냈고,
+     * 그 파일 하나가 lint error **6건**(`no-unsafe-member-access` — 타입이 `any` 로 풀린다)을
+     * 냈다. 구현 파일 셋은 **error 0** 이었다. **별을 빨갛게 만든 것은 우주 자신의 지시였다.**
+     * ⇒ 프로그램이 200줄 앞에서 내린 판단을 브리핑이 뒤집으면 안 된다.
+     */
+    ...(canRunTests
+      ? [
+          `3. ⛔ ${starDir}/${starName}.test.tsx 는 **행동 계약**이다. 고칠 수 없다 — 관문이 막는다.`,
+          '   테스트를 고쳐 통과시키는 것은 수정이 아니라 증거 인멸이다. 구현을 고쳐라.',
+          '   (대소문자만 바꾼 같은 이름도 막힌다 — 이 파일시스템에서는 같은 물리 파일이다.)',
+          `4. ✅ 요구사항이 **새 동작**을 더하면 그 동작을 검증하는 **새 테스트 파일**을 같이 내라`,
+          `   (예: ${starDir}/${starName}.feature.test.tsx). 관문은 기존 계약 파일 하나만 지킨다 —`,
+          '   새 동작에 계약이 생기는지는 네가 새 파일을 내야만 생긴다. 안 내면 그 동작은 테스트 없이 태어난다.',
+        ]
+      : [
+          '3. ⛔ **이 은하는 테스트를 못 돌린다** — 좌표에 `commands.test` 가 없다.',
+          '   그래서 빅뱅도 행동 계약 파일을 **안 만들었다.**',
+          `4. ⛔ **테스트 파일을 내지 마라.** 이 저장소엔 \`vitest\`·\`@testing-library/react\` 가 없어서`,
+          '   타입이 `any` 로 풀리고 **네 파일이 lint·타입 검사를 빨갛게 만든다**(실측: 그 파일 하나로 error 6건).',
+          '   ⚠️ 이 별에는 지켜 줄 계약이 없다는 뜻이다. 그것은 네가 고칠 수 있는 것이 아니다 —',
+          '   사람이 은하에 테스트 도구를 붙여야 한다. **구현만 내라.**',
+        ]),
     '5. probe 는 읽기 전용이다. 파일을 바꾸는 명령·인터프리터·리다이렉션은 막혀 있다.',
     '6. submit 은 **게이트**다 — 관측소가 은하에서 lint·build·test 를 실제로 돌린다. 비싸다.',
     '   빨간불이면 그 출력이 그대로 너에게 돌아온다.',
@@ -489,6 +513,9 @@ export const runThirdExpansion = async ({
     files,
     laws: galaxy.laws ?? [],
     maxTurns,
+    /* 1차가 `canRunTests` 로 계약 파일을 만들지 말지 정한 것과 **같은 근거**를 쓴다 —
+       두 자리가 다른 근거를 쓰면 브리핑이 프로그램의 판단을 뒤집는다(R148). */
+    canRunTests: Boolean(galaxy.commands?.test),
   });
   let sessionId = null;
   let gateRuns = 0;
