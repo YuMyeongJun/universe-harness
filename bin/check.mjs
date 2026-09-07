@@ -94,6 +94,8 @@ let skipped = 0;
 let outOfScope = 0;
 /** 엔진이 없어서 못 잰 검사 — 고장이 아니다. */
 let needsBuild = 0;
+/** 관문별 소요 시간 — CI 를 어떻게 나눌지 정하는 근거다(R154). */
+const timings = [];
 for (const gate of GATES) {
   if (gate.scope === 'universe' && !isUniverseRepo) {
     console.log(`   ⏭  ${gate.label}  (여기선 못 잰다 — 우주 자신의 소스를 읽는 검사다)`);
@@ -112,21 +114,16 @@ for (const gate of GATES) {
     skipped += 1;
     continue;
   }
+  const startedAt = process.hrtime.bigint();
   /* eslint-disable-next-line no-await-in-loop */
   const { code, out } = await run(gate.file, gate.args ?? [], from);
-  /**
-   * ⛔ **엔진이 없어서 죽은 것은 「고장」이 아니라 「못 쟀다」이다.**
-   * 실측(R82): 갓 클론한 우주에서 `universe check` 가 **빨간불 6개**를 냈다 —
-   * `dist` 는 gitignore 라 없는 것이 정상인데. 받은 사람은 **깨진 도구**를 본다.
-   * R58 이 소비 저장소에 세운 규율(「여기선 못 잰다」)이 이 자리에도 그대로 필요했다.
-   */
-  if (false) {
-    console.log(`   ⏭  ${gate.label}  (엔진이 아직 없다 — 빌드하면 잰다)`);
-    needsBuild += 1;
-    continue;
-  }
+  const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
+  timings.push({ label: gate.label, ms, code });
   ran += 1;
-  console.log(`   ${code === 0 ? '✅' : '❌'} ${gate.label}  exit=${code}`);
+  /* ⚠️ **시간을 같이 찍는다**(R154). CI 를 세우려면 「무엇이 느린가」를 알아야 하는데,
+     그 수가 어디에도 없어서 짐작으로 나눌 뻔했다. 느린 관문을 모르고 CI 에 넣으면
+     CI 가 느려지고 **아무도 안 보게 된다** — 관문을 죽이는 가장 흔한 방법이다. */
+  console.log(`   ${code === 0 ? '✅' : '❌'} ${gate.label}  exit=${code} · ${(ms / 1000).toFixed(1)}초`);
   if (code !== 0) {
     console.log(whyItFailed(out));
     failed += 1;
