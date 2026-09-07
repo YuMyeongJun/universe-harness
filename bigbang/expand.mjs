@@ -81,8 +81,8 @@ const runChild = (command, args, { cwd, prefix }) =>
     });
   });
 
-/** 셸이 필요한 명령(은하의 lint 명령은 문자열 하나로 온다). */
-const runShell = (command, { cwd, prefix }) =>
+/** 셸이 필요한 명령(은하의 lint 명령은 문자열 하나로 온다). ⚠️ 3차의 계약 단계도 이것을 쓴다 — 두 번 구현하지 않는다. */
+export const runShell = (command, { cwd, prefix }) =>
   new Promise((resolve) => {
     const child = spawn(command, { cwd, stdio: ['inherit', 'pipe', 'pipe'], shell: true });
     let output = '';

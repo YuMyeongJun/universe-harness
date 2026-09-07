@@ -51,7 +51,7 @@ const root = await requireUniverseHome(argvUniverse());
 const argv = process.argv.slice(2);
 /* 관측 법칙 §7 — 은하를 찾기 **전에** 거부한다.
    전엔 없는 은하 오류가 먼저 나서 「플래그 때문에 죽었는지」를 가릴 수 없었다. */
-rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base', '--lane', '--max-turns', '--skills'], 'bigbang new');
+rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base', '--lane', '--max-turns', '--skills', '--contract-first'], 'bigbang new');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
 /** 값을 받는 플래그. ⚠️ 여기 빠뜨리면 그 값이 **위치 인자로 오해**된다(예: `--base HEAD~1` 의 HEAD~1). */
@@ -82,6 +82,8 @@ const usage = () => {
     `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL} · 게이트웨이 레인은 슬러그를 준다)`,
     `  --lane <레인>   (3차) 누가 답하는가: subscription(기본) · ${GATEWAY_LANES.join(' · ')} · script`,
     `  --max-turns <수> (3차) 턴 예산 (기본 ${MAX_TURNS} · 1~40). 진짜 은하는 조사에 턴이 많이 든다`,
+    '  --contract-first (3차) 요구사항을 **테스트로 먼저** 번역하고 그것이 빨간불인지 확인한다 (**기본 꺼짐**)',
+    '                  ⛔ 처음부터 통과하는 계약은 거부한다 — 자기 채점을 막는 유일한 기계 장치다.',
     '  --skills        (3차) 지난 주행에서 뽑은 지식 카드를 브리핑에 넣는다 (**기본 꺼짐**)',
     '                  ⚠️ 이것이 결과를 낫게 하는지는 **아직 안 쟀다** — 켜면 궤적에 무엇이 들어갔는지 남는다.',
     '                  ⛔ 자동으로 갈아타지 않는다 — 구독이 없어도 openrouter 로 몰래 안 넘어간다.',
@@ -602,6 +604,7 @@ if (requirement !== undefined) {
       keepOnFail: has('--keep-on-fail'),
       maxTurns,
       useSkills: has('--skills'),
+      useContractFirst: has('--contract-first'),
       maxGateRuns: MAX_GATE_RUNS_THIRD,
       dirtyBefore,
     }),
