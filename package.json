@@ -9,6 +9,7 @@
     "tc-redfirst": "./dist/gate/cli.js"
   },
   "scripts": {
+    "pretest": "npm run build",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
