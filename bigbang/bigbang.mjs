@@ -38,6 +38,7 @@ import { createClaudeAsk, createScriptedAsk, loadScript, MAX_GATE_RUNS_THIRD, MA
 import { firstFilled } from '../lib/pick.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { cannotStandMessage, missingEnv } from '../lib/required-env.mjs';
+import { createOpenRouterAsk, OPENROUTER_DEFAULT_MODEL, OPENROUTER_ENV } from './agent-openrouter.mjs';
 
 /** `--universe <경로>` 를 argv 에서 먼저 꺼낸다(우주의 집을 찾기 전에 필요하다). */
 const argvUniverse = () => {
@@ -50,11 +51,11 @@ const root = await requireUniverseHome(argvUniverse());
 const argv = process.argv.slice(2);
 /* 관측 법칙 §7 — 은하를 찾기 **전에** 거부한다.
    전엔 없는 은하 오류가 먼저 나서 「플래그 때문에 죽었는지」를 가릴 수 없었다. */
-rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base'], 'bigbang new');
+rejectUnknownFlags(argv, ['--universe', '--from', '--expand', '--dry-run', '--out', '--model', '--agent-script', '--judge', '--no-fix', '--keep-on-fail', '--base', '--lane'], 'bigbang new');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
 /** 값을 받는 플래그. ⚠️ 여기 빠뜨리면 그 값이 **위치 인자로 오해**된다(예: `--base HEAD~1` 의 HEAD~1). */
-const VALUE_FLAGS = ['--out', '--base', '--universe', '--from', '--model', '--agent-script'];
+const VALUE_FLAGS = ['--out', '--base', '--universe', '--from', '--model', '--agent-script', '--lane'];
 const positionals = argv.filter((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(argv[i - 1]));
 
 const readJson = async (p) => JSON.parse(await fs.readFile(p, 'utf8'));
@@ -78,7 +79,9 @@ const usage = () => {
     '  --keep-on-fail  게이트가 빨간불이어도 별을 지우지 않는다 (기본은 되돌리기)',
     '  --no-fix        (2차) 자가 수정을 끄고 빨간불을 그대로 본다',
     '  --judge         관문/게이트의 판정 레인(LLM)까지 켠다 (기본은 결정론 레인만)',
-    `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL})`,
+    `  --model <별칭>  (3차) 에이전트 모델 (기본 ${DEFAULT_MODEL} · openrouter 레인은 ${OPENROUTER_DEFAULT_MODEL})`,
+    `  --lane <레인>   (3차) 누가 답하는가: subscription(기본) · openrouter · script`,
+    '                  ⛔ 자동으로 갈아타지 않는다 — 구독이 없어도 openrouter 로 몰래 안 넘어간다.',
     `  --base <ref>    게이트가 볼 변경분 기준 (기본 ${DEFAULT_BASE})`,
     '',
     '  --agent-script <파일>  (3차 · 시험용) 모델 대신 대본(JSONL)을 순서대로 낸다.',
@@ -128,6 +131,34 @@ const missing = missingEnv(galaxy, process.env);
 if (missing.length > 0) {
   console.error(cannotStandMessage(galaxyName, missing));
   process.exit(2);
+}
+
+/**
+ * **레인을 별보다 먼저 검증한다**(R153).
+ *
+ * ⚠️⚠️ 처음엔 레인 검사를 3차 블록 안에 뒀는데, 그 자리는 **별을 이미 쓴 뒤**였다 —
+ * 키 없이 `--lane openrouter` 를 부르자 「멈춘다」고 말해 놓고 **은하에 별을 남겼다.**
+ * 「못 잴 것이 뻔한 곳에 별을 쓰지 않는다」가 이 검사의 이유인데 그 이유를 스스로 어긴 것이다.
+ * ⇒ 이름과 필수 환경변수는 **여기서** 본다. 만드는 것(`resolveAsk`)은 나중이어도 된다.
+ */
+const LANES = ['subscription', 'openrouter', 'script'];
+const laneName = flag('--lane') ?? (flag('--agent-script') ? 'script' : 'subscription');
+if (requirement !== undefined) {
+  if (!LANES.includes(laneName)) {
+    console.error(`⛔ 모르는 레인: ${laneName}\n   아는 것: ${LANES.join(' · ')}`);
+    process.exit(2);
+  }
+  if (flag('--agent-script') && laneName !== 'script') {
+    console.error(`⛔ --agent-script 를 줬는데 --lane ${laneName} 이다. 둘 중 하나만 골라라.`);
+    process.exit(2);
+  }
+  if (laneName === 'openrouter' && !process.env[OPENROUTER_ENV]) {
+    console.error(`⛔ **openrouter 레인이 서지 않는다** — \`${OPENROUTER_ENV}\` 가 비어 있다.`);
+    console.error('   이것은 「못 쟀다」가 아니다 — **부르기 시작할 수도 없다는 뜻**이다.');
+    console.error('   ⛔ 그래서 별을 쓰기 전에 멈춘다 — 못 잴 것이 뻔한 곳에 사용량을 쓰지 않는다.');
+    console.error('   키 발급: https://openrouter.ai/keys');
+    process.exit(2);
+  }
 }
 
 const solar = galaxy.solarSystems.find((s) => s.name === solarName);
@@ -454,15 +485,44 @@ if (!wantsGate) {
 /* ── 3차 팽창 ──────────────────────────────────────────────────────
    `--from` 이 있으면 3차가 게이트를 **자기 루프 안에서** 돈다. 2차를 이어서 부르지 않는다 —
    같은 별에 게이트를 두 벌 돌리는 것이고, 2차의 `--fix` 는 3차의 관문을 지나지 않은 수정이다. */
-if (requirement !== undefined) {
-  const scriptPath = flag('--agent-script');
-  if (scriptPath) {
-    console.log(`\n⚠️ 대본 에이전트 — 모델을 부르지 않는다: ${scriptPath}`);
+/**
+ * **누가 답하는가 — 사람이 고른다.**
+ *
+ * ⛔⛔ **자동으로 갈아타지 않는다**(R153). R145 가 못 박은 것이 「모드가 바뀌는데 아무도 안 잰다」였다:
+ * 예전엔 키가 환경에 있으면 조용히 과금 경로로 넘어갔다. 같은 실수를 레인에서 반복하지 않는다 —
+ * `claude` 가 없다고 OpenRouter 로 **몰래 넘어가지 않는다.** 없으면 없다고 말하고 멈춘다.
+ *
+ * ⚠️ 레인을 **한 번 말한다.** 어느 레인으로 돌았는지는 궤적에도 남아야 하고(3차가 남긴다),
+ *    화면에도 있어야 한다 — 「구독인 줄 알았는데 청구됐다」가 이 저장소가 가장 싫어하는 사건이다.
+ */
+const resolveAsk = async ({ scriptPath, harness }) => {
+  if (laneName === 'script') {
+    if (!scriptPath) {
+      console.error('⛔ --lane script 는 --agent-script <파일> 이 있어야 한다.');
+      process.exit(2);
+    }
+    console.log(`\n🛤  레인 — 대본 (모델 호출 0회): ${scriptPath}`);
     console.log('   (관문의 우회로가 아니다 — 대본의 patch 도 관문을 그대로 지난다)');
+    return createScriptedAsk(await loadScript(path.resolve(scriptPath)));
   }
-  const ask = scriptPath
-    ? createScriptedAsk(await loadScript(path.resolve(scriptPath)))
-    : createClaudeAsk({ harness, model: flag('--model') ?? DEFAULT_MODEL });
+
+  if (laneName === 'openrouter') {
+    const model = flag('--model') ?? OPENROUTER_DEFAULT_MODEL;
+    console.log(`\n🛤  레인 — OpenRouter (**과금된다** · 구독이 아니다): ${model}`);
+    return createOpenRouterAsk({
+      model,
+      apiKey: process.env[OPENROUTER_ENV],
+      systemPrompt: await fs.readFile(harness.AGENT_PROTOCOL_PATH, 'utf8'),
+    });
+  }
+
+  console.log(`\n🛤  레인 — 구독 (claude CLI · ANTHROPIC_API_KEY 를 자식에서 지운다)`);
+  return createClaudeAsk({ harness, model: flag('--model') ?? DEFAULT_MODEL });
+};
+
+if (requirement !== undefined) {
+  /* 레인 안내는 `resolveAsk` 한 자리에서만 한다 — 두 곳에서 말하면 갈린다. */
+  const ask = await resolveAsk({ scriptPath: flag('--agent-script'), harness });
 
   process.exit(
     await runThirdExpansion({

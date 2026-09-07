@@ -138,6 +138,27 @@ universe new my-app dashboard DashboardToday --expand
 universe new my-app wallet CouponList --from "쿠폰 목록 위에 남은 개수를 보여 주고, 없으면 안내 문구를 띄워라"
 ```
 
+#### `--lane` — 누가 답하는가
+
+**1차·2차는 모델이 없어도 완전히 돈다**(결정론 규칙 + 정적 레인). 모델이 필요한 것은 **3차뿐**이다.
+그 3차를 누가 답할지는 **사람이 고른다**:
+
+```bash
+universe new my-app wallet CouponList --from "…"                      # 기본 — 구독(claude CLI)
+universe new my-app wallet CouponList --from "…" --lane openrouter    # 구독이 없을 때 (과금된다)
+universe new my-app wallet CouponList --from "…" --lane script --agent-script <대본>   # 0원
+```
+
+| 레인 | 무엇으로 | 돈 |
+|---|---|---|
+| `subscription`(기본) | `claude` CLI · `ANTHROPIC_API_KEY` 를 **자식에서 지운다** | 그 기계의 구독 |
+| `openrouter` | `OPENROUTER_API_KEY` · 모델 슬러그(`anthropic/claude-sonnet-5`) | **과금된다** |
+| `script` | 미리 적어 둔 JSONL 대본 | **0원** — 배선만 잰다 |
+
+⛔ **자동으로 갈아타지 않는다.** `claude` 가 없다고 과금 레인으로 몰래 넘어가지 않는다 —
+「모드가 바뀌는데 아무도 안 잰다」가 이 저장소가 가장 싫어하는 사건이다(R145).
+키가 없으면 **별을 쓰기도 전에** 멈춘다.
+
 빈 별이 아니라 **요구사항이 반영된 별**이 나온다. 1차로 뼈대와 관문을 세운 뒤 그 위에서 돈다:
 
 ```

@@ -86,6 +86,30 @@ export const callClaude = ({
     const child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'inherit'] });
     let stdout = '';
     let timedOut = false;
+
+    /**
+     * ⚠️⚠️ **CLI 가 아예 없을 때 생 스택으로 죽었다**(R153 실측). 구독이 없는 사람이 3차를 돌리면
+     * 첫 화면이 `Error: spawn claude ENOENT` 였다 — 무엇이 없는지도, 다른 길이 있는지도 안 말한다.
+     * ⛔ 「도구가 없는 것」은 실패가 아니라 **다른 사건**이다(R146 이 컴파일 관문에서 가른 그것).
+     *    신호로 바꿔 돌려주고, **다른 레인이 있다는 것까지** 말한다.
+     */
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
+      resolve({
+        text: '',
+        sessionId: resumeSessionId ?? null,
+        isError: true,
+        costUsd: null,
+        usage: null,
+        failure:
+          error.code === 'ENOENT'
+            ? `\`${bin}\` 를 못 찾았다 — 이 레인은 Claude Code CLI(구독)로 돈다.\n`
+              + '   · 구독이 있으면: CLI 를 깔고 로그인하라 (https://claude.com/claude-code)\n'
+              + '   · 구독이 없으면: `--lane openrouter` 로 돌 수 있다 (OPENROUTER_API_KEY 필요 · **과금된다**)\n'
+              + '   · 배선만 보려면: `--lane script --agent-script <대본>` (모델 호출 0회)'
+            : `${bin} 을 못 불렀다: ${error.message}`,
+      });
+    });
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
