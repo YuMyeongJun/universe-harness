@@ -21,6 +21,11 @@ import {
   readGalaxyDraft,
 } from './galaxy-draft.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
+import {
+  fromParamProblem,
+  receiveRunResult,
+  unwrapEnvelope,
+} from './run-result.js';
 import { detect } from './provenance.js';
 import { dataDir, locate, workflowRoot } from './paths.js';
 import {
@@ -59,7 +64,21 @@ const domainOf = (req: Request, res: Response): string | null => {
 
 export const createApp = (): express.Express => {
   const app = express();
-  app.use(express.json({ limit: '4mb' }));
+
+  /**
+   * ⛔⛔ **주행 결과 길만 `express.json` 을 태우지 않는다.**
+   *    `express.json` 은 깨진 본문을 **400** 으로 만든다. 그런데 「JSON 이 깨졌다」는
+   *    ⚪ **못 쟀다**이지 「요청이 잘못됐다」가 아니고, 그 말을 하는 자리는 계약
+   *    (`qa/src/run/cli.ts`)이다. 앞에서 400 을 내면 판정 어휘가 하나 사라지고,
+   *    화면은 「못 쟀다」를 「보내다 실패했다」로 그린다.
+   *    ⇒ 이 길은 본문을 **글자 그대로** 받아(`express.text`) 도구에게 그대로 넘긴다.
+   */
+  const jsonBody = express.json({ limit: '4mb' });
+  const RUNS_PATH = '/api/runs';
+  app.use((req: Request, res: Response, next: express.NextFunction) => {
+    if (req.path === RUNS_PATH) return next();
+    jsonBody(req, res, next);
+  });
 
   /**
    * 지식 저장소를 찾았는지. **못 찾았으면 화면 맨 위에 그대로 띄운다** —
@@ -439,6 +458,46 @@ export const createApp = (): express.Express => {
       fail(res, 400, (e as Error).message);
     }
   });
+
+  // ── 주행 결과 ────────────────────────────────────────────
+  // Playwright 가 **밖에서** 돌고, 그 결과를 여기로 던진다. ⛔ 서버는 브라우저를 띄우지 않는다.
+  // ⛔ 여기서 판정을 만들지 않는다 — 접는 것·세는 것·「끝났는가」는 `qa/src/run` 이 안다
+  //    (자세한 이유는 run-result.ts 머리말). 서버는 **부르고 나른다.**
+
+  /**
+   * `POST /api/runs?from=playwright|contract`
+   *
+   * 본문은 **주행 결과 그 자체**다 — 계약 모양(`preconditions[]`·`cases[]`) 이거나
+   * Playwright JSON 리포터(`suites[]`). 출처 표를 함께 주려면 봉투로 싼다:
+   * `{ "report": <결과>, "origins": { "TC-201": { "origin": "policy" } } }`.
+   *
+   * ⛔ **결과에 4xx 를 쓰지 않는다.** 「전제가 안 섰다」(→ 케이스 전부 ⚪) ·
+   *    「검증 분모가 0이다」(전부 구현에서 나온 TC) · 「본문이 깨졌다」는 전부 **결과**다.
+   *    400 은 **질의 문자열의 모양**이 틀렸을 때뿐이다.
+   * ⭐ 응답의 `exitCode` 를 **그대로** 싣는다 — 0(끝났다) · 1(판단하지 않은 fail) ·
+   *    3(**못 쟀다**). 없으면 화면은 「다 봤는데 괜찮다」와 「안 봤다」를 구별할 수 없다.
+   * ⛔ 도구의 JSON 은 **통째로** `report` 에 담는다. 칸을 골라 담으면 `stats`(분모)가 빠지고,
+   *    「fail 3건」이 3/3 인지 3/300 인지 모르게 된다.
+   */
+  app.post(
+    RUNS_PATH,
+    express.text({ type: () => true, limit: '16mb' }),
+    (req: Request, res: Response) => {
+      const from = req.query['from'] === undefined ? undefined : String(req.query['from']);
+      const problem = fromParamProblem(from);
+      if (problem !== null) return fail(res, 400, problem);
+      /* 본문이 아예 안 왔다 — 이건 **요청의 모양**이라 400 이다(결과가 아니다). */
+      const raw = typeof req.body === 'string' ? req.body : '';
+      if (raw.trim() === '') return fail(res, 400, '주행 결과 본문이 비어 있습니다.');
+
+      const unwrapped = unwrapEnvelope(raw);
+      void receiveRunResult(unwrapped.raw, { from, origins: unwrapped.origins }).then(
+        (receipt) => res.json(receipt),
+        /* 여기까지 오면 도구를 부르는 것조차 못 한 것이다 — 그것은 서버 잘못이라 5xx 다. */
+        (e: unknown) => fail(res, 500, `주행 결과 도구를 부르지 못했습니다: ${(e as Error).message}`),
+      );
+    },
+  );
 
   return app;
 };

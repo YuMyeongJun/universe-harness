@@ -110,8 +110,25 @@ export const census = async (root) => {
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(root, full).split(path.sep).join('/');
-      if (entry.name.startsWith('.')) {
-        if (entry.isDirectory()) {
+      /**
+       * ⛔⛔ **점 규칙은 디렉터리에만 건다 — 파일에 걸면 조용히 사라진다.**
+       *
+       * ⚠️ 실측(R163): 이 자리가 **파일에도** 걸려 있었다. `.eslintrc.js`·`.probe.mjs` 를 둔
+       * 폴더를 재니 **「코드 파일 1개 · 100.0% 를 읽는다 · 안 훑은 자리: 없다」**가 나왔다.
+       * ⛔ 못 읽는 파일(`.probe.mjs`)이 **분모에서도 빠지고 「안 훑았다」에도 안 적혔다** —
+       * 어느 칸에도 안 남으니 **아무도 그것이 있었다는 걸 모른다.**
+       *
+       * ⚠️ 옆 저장소 세션이 **다른 층에서 같은 함정**을 만났다: 변이 프로브를 `.nul-probe.mjs`
+       * 로 지었더니 훑개가 건너뛰어 **검사가 조용히 안 잡혔다.** 그쪽은 「검사가 약하다」로
+       * 읽을 뻔했는데 **실은 훑개의 사각**이었고, 그 김에 `.eslintrc` 류가 아예 안 훑히는
+       * 진짜 사각도 드러났다. ⇒ **「변이가 대상에 도달했는가」를 안 물으면 어느 층에서든
+       * 같은 거짓 음성이 난다.**
+       *
+       * ⇒ 숨기는 것은 **폴더**다(`.git`·`.claude`·`.cursor`). 점으로 시작하는 **파일**은
+       *   설정이거나 도구이고, `classifyBlind` 가 이미 「설정」으로 갈라 준다.
+       */
+      if (entry.name.startsWith('.') && entry.isDirectory()) {
+        {
           acc.skipped.숨은자리.push(rel);
         }
         continue;
