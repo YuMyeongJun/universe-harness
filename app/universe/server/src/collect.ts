@@ -22,20 +22,32 @@ interface ISession {
   domain: string;
   browser: Browser;
   page: Page;
+  /** 언제 열었나 — 세션 나이를 사람에게 보여주기 위한 것이다. ⛔ 시계로 살았는지 죽었는지 **판정하지 않는다.** */
+  openedAt: string;
 }
 
 /** 한 번에 한 세션만 둔다 — 두 도메인을 섞으면 수집이 오염된다. */
 let session: ISession | null = null;
 
-export const sessionState = (): { open: boolean; domain: string | null; url: string | null } => {
-  if (!session) return { open: false, domain: null, url: null };
+export const sessionState = (): {
+  open: boolean;
+  domain: string | null;
+  url: string | null;
+  openedAt: string | null;
+} => {
+  if (!session) return { open: false, domain: null, url: null, openedAt: null };
   let url: string | null = null;
   try {
     url = session.page.url();
   } catch {
     url = null;
   }
-  return { open: true, domain: session.domain, url };
+  /**
+   * ⚠️⚠️ 여기 URL 은 **새로고침하지 않은 화면**이다. SPA 는 세션이 갈려도 새로고침 전까지
+   *    옛 계정이 그대로 남아 있어서, 이 값으로 「로그인돼 있다」를 판정하면 **거짓 초록**이 난다.
+   *    살았는지를 재려면 `reloadSession` 을 써라 — 그건 반드시 새로고침한 뒤에 답한다.
+   */
+  return { open: true, domain: session.domain, url, openedAt: session.openedAt };
 };
 
 export const closeBrowser = async (): Promise<void> => {
@@ -46,6 +58,39 @@ export const closeBrowser = async (): Promise<void> => {
     await s.browser.close();
   } catch {
     /* 이미 사람이 창을 닫았을 수 있다 */
+  }
+};
+
+/**
+ * 지금 열린 세션을 **새로고침한 뒤** 어디에 있는지 답한다.
+ *
+ * ⚠️⚠️ **새로고침이 이 함수의 존재 이유다.** SPA 는 세션이 갈려도 새로고침 전까지 옛 계정이
+ *      화면에 남는다 — 새로고침 없이 재면 **죽은 세션이 초록으로 나온다.**
+ * ⛔ 살았는지 죽었는지의 **판정은 여기서 하지 않는다.** 여기는 사실(URL·나이)만 주고,
+ *    판정은 좌표(로그인 URL)를 아는 `preconditions.ts` 가 한다.
+ */
+export const reloadSession = async (
+  domain: string,
+): Promise<
+  | { kind: 'none' }
+  | { kind: 'other'; domain: string }
+  | { kind: 'reloaded'; url: string; openedAt: string; ageMs: number }
+  | { kind: 'error'; message: string }
+> => {
+  if (!session) return { kind: 'none' };
+  if (session.domain !== domain) return { kind: 'other', domain: session.domain };
+  const s = session;
+  try {
+    await s.page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
+    return {
+      kind: 'reloaded',
+      url: s.page.url(),
+      openedAt: s.openedAt,
+      ageMs: Date.now() - Date.parse(s.openedAt),
+    };
+  } catch (e) {
+    /* 사람이 창을 닫았거나 네트워크가 끊겼다. **둘을 구별 못 하므로 단정하지 않는다.** */
+    return { kind: 'error', message: e instanceof Error ? e.message : String(e) };
   }
 };
 
@@ -62,7 +107,7 @@ export const openBrowser = async (
     ignoreHTTPSErrors: opts.allowInsecureTls,
   });
   const page = await context.newPage();
-  session = { domain, browser, page };
+  session = { domain, browser, page, openedAt: new Date().toISOString() };
 
   await page.goto(opts.loginUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 

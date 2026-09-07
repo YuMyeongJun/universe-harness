@@ -16,6 +16,13 @@ import { applyEmit, planEmit } from './emit.js';
 import { detect } from './provenance.js';
 import { dataDir, locate, workflowRoot } from './paths.js';
 import {
+  cannotMeasureBecause,
+  galaxyName,
+  measurePreconditions,
+  stands,
+  type IPrecondition,
+} from './preconditions.js';
+import {
   emptySurvey,
   progressOf,
   readSurvey,
@@ -119,6 +126,47 @@ export const createApp = (): express.Express => {
     res.json({ survey: saved, progress: progressOf(saved) });
   });
 
+  /**
+   * ⭐ **재기 전에 「잴 수 있는가」를 묻는 자리.** 화면이 주행 버튼을 누르기 **전에** 부른다.
+   *
+   * ⛔ 여기서 `ok:false` 나 `ok:null` 이 나오면 그 주행의 결과는 전부 ⚪ 다 — ❌ 로 세지 않는다.
+   *    이걸 안 물어보고 돌리면, 「환경이 없어서 못 잰 것」이 「제품이 깨진 것」으로 보고된다.
+   */
+  app.get('/api/preconditions', (_req: Request, res: Response) => {
+    /* ⛔ 주행이 안 정해진 자리다 — 세션 축을 쓸지는 **좌표만** 말한다. 여기서 요구하지 않는다. */
+    void measurePreconditions({ galaxy: galaxyName() }).then((preconditions: IPrecondition[]) => {
+      res.json({
+        preconditions,
+        measurable: stands(preconditions),
+        unmeasured: cannotMeasureBecause(preconditions),
+      });
+    });
+  });
+
+  /**
+   * 도메인까지 정해졌을 때 — 여기서만 `session-alive` 를 **실제로 새로고침해서** 잰다.
+   *
+   * ⭐ `requiresSession: true` 는 **이 주행의 선언**이다(좌표와 OR). 화면을 걷는 주행은
+   *    좌표가 세션을 안 적었어도 **살아 있는 세션이 있어야 잰다** — 짐작이 아니라 선언이다.
+   */
+  app.get('/api/domains/:domain/preconditions', (req: Request, res: Response) => {
+    const domain = domainOf(req, res);
+    if (domain === null) return;
+    const survey = readSurvey(domain);
+    void measurePreconditions({
+      domain,
+      loginUrl: survey.entry.loginUrl,
+      galaxy: galaxyName(),
+      requiresSession: true,
+    }).then((preconditions: IPrecondition[]) => {
+      res.json({
+        preconditions,
+        measurable: stands(preconditions),
+        unmeasured: cannotMeasureBecause(preconditions),
+      });
+    });
+  });
+
   // ── 브라우저 ──────────────────────────────────────────────
   // 사람이 직접 로그인한다. 서버는 창을 띄우고, 사람이 누르면 그 화면을 걷는다.
 
@@ -157,6 +205,44 @@ export const createApp = (): express.Express => {
   app.post('/api/domains/:domain/scan', (req: Request, res: Response) => {
     const domain = domainOf(req, res);
     if (domain === null) return;
+    const before = readSurvey(domain);
+    /**
+     * ⭐⭐ **전제를 먼저 잰다.** 걷고 나서 실패 메시지를 보고 「환경 탓인가」를 맞히지 않는다.
+     *    세션은 여기서 **새로고침**해서 재므로, 오래 도는 루프 중간에 세션이 죽어도
+     *    그 다음 주행이 ❌ 가 아니라 ⚪ 로 갈린다.
+     */
+    void measurePreconditions({
+      domain,
+      loginUrl: before.entry.loginUrl,
+      galaxy: galaxyName(),
+      /* ⭐ **이 주행은 세션을 요구한다** — 걷는 화면이 로그인 뒤에 있기 때문이다.
+         좌표가 안 적었어도 여기서 선언한다. 그래야 브라우저가 없을 때 400(❌ 처럼 보임)이
+         아니라 ⚪ 로 갈린다. */
+      requiresSession: true,
+    }).then((preconditions: IPrecondition[]) => {
+      if (!stands(preconditions)) {
+        /**
+         * ⛔ **아무것도 쓰지 않는다.** 항목도 안 붙이고 `collectedAt` 도 안 찍는다 —
+         *    못 잰 주행이 실측일을 남기면 문서에 「그날 열어서 확인했다」는 거짓이 박힌다.
+         * ⛔ `cases` 는 `[]` 가 **아니라 `null`** 이다. 빈 목록은 「0건을 쟀다」로 읽힌다.
+         */
+        res.json({
+          preconditions,
+          measurable: false,
+          cases: null,
+          unmeasured: cannotMeasureBecause(preconditions),
+          survey: before,
+          progress: progressOf(before),
+          scanned: null,
+        });
+        return;
+      }
+      runScan(domain, preconditions, res);
+    });
+  });
+
+  /** 전제가 선 뒤에만 부른다 — 실제로 화면을 걷는 자리. */
+  const runScan = (domain: string, preconditions: IPrecondition[], res: Response): void => {
     void scan(domain).then(
       (result) => {
         const current = readSurvey(domain);
@@ -181,7 +267,12 @@ export const createApp = (): express.Express => {
           items: merged,
           ...(measured ? { collectedAt: new Date().toISOString() } : {}),
         });
+        /* ⭐ `preconditions` 를 `cases` **보다 먼저** 싣는다 — 숫자보다 「믿어도 되는가」가 먼저다. */
         res.json({
+          preconditions,
+          measurable: true,
+          cases: result.items,
+          unmeasured: result.unmeasured,
           survey: saved,
           progress: progressOf(saved),
           scanned: {
@@ -197,7 +288,7 @@ export const createApp = (): express.Express => {
       },
       (e: unknown) => fail(res, 400, (e as Error).message),
     );
-  });
+  };
 
   app.get('/api/domains/:domain/shots/:file', (req: Request, res: Response) => {
     const domain = domainOf(req, res);

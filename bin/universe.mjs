@@ -71,6 +71,8 @@ const SUBCOMMANDS = {
   fix: 'observatory/verify-fix.mjs',
   messy: 'fixtures/messy-galaxy/generate.mjs',
   parts: 'lib/selftest.mjs',
+  /* 존재가 아니라 **생존**을 잰다 — 토큰 문자열은 만료돼도 그대로 있다. */
+  liveness: 'observatory/liveness.mjs',
   hooks: 'bin/hooks.mjs',
   learn: 'observatory/learn.mjs',
   /* 성공 궤적 → 지식 카드. ⛔ 기본은 모델을 안 부른다(`--write` 를 줘야 부른다 · R155). */

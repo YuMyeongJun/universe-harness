@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** dist/paths.js → app/knowledge → app → 저장소 루트 */
+/** dist/paths.js → app/universe → app → 저장소 루트 */
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const HARNESS_ROOT = resolve(HERE, '../../..');
 
@@ -25,8 +25,18 @@ export const workflowRoot = (): string =>
 
 export const domainsDir = (): string => join(workflowRoot(), 'domains');
 
-/** 실측 초안은 **이 저장소 안**에 둔다 — 지식 저장소를 더럽히지 않는다. gitignore 됨. */
-export const dataDir = (): string => resolve(HARNESS_ROOT, 'app/knowledge/.data');
+/**
+ * 실측 초안은 **이 저장소 안**에 둔다 — 지식 저장소를 더럽히지 않는다.
+ *
+ * ⛔⛔ **여기에 계정 비밀번호가 들어간다**(`survey.entry.accountPw`). 그래서 이 자리는
+ *    반드시 **gitignore 되는 자리**여야 한다. 실측으로 확인한다:
+ *      `git check-ignore -v app/universe/.data/x.json` → `app/universe/.gitignore:4:.data/` (막힌다)
+ *    ⚠️ 콘솔이 `qa-harness` 에서 흡수돼 오면서 이 경로만 옛 이름(`app/knowledge`)에 남아 있었다.
+ *      그 자리는 **어느 .gitignore 도 안 덮는다**(`git check-ignore` 가 exit 1 로 답한다) —
+ *      즉 첫 수집을 하는 순간 계정 정보가 **커밋 대상으로 올라온다.** 이름만 바뀐 것이 아니라
+ *      **가려지는 자리에서 안 가려지는 자리로 옮겨진 것**이었다.
+ */
+export const dataDir = (): string => resolve(HARNESS_ROOT, 'app/universe/.data');
 
 /**
  * 지식 저장소를 찾았는가. **못 찾았으면 조용히 빈 목록을 주지 않는다** —
