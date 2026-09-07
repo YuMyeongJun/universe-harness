@@ -334,6 +334,23 @@ const CASES = [
   },
   {
     check: '좌표 감사(coordinates)',
+    bite: '옛 손 목록 **밖**의 설정이 기계 경로를 흘림',
+    expect: '그 기계에만 있는 경로가 있다',
+    file: 'qa/package.json',
+    /**
+     * ⛔⛔ **질문을 손으로 적으면 그 목록 밖은 안 보인다.**
+     * 이 감사는 예전에 설정 파일 **세 개**(`universe.config.json`·`beacon/pages.json`·
+     * `package.json`)만 봤다. 넷째가 생기면 **질문 자체가 못 본다** — 그리고 이 저장소는
+     * **공개 MIT** 라 새면 그대로 나간다.
+     * ⇒ git 에게 묻게 바꿨다(3개 → 82개). 이 변이는 **옛 목록 밖**의 파일을 고른다 —
+     *   `qa/package.json` 은 세 개 중 어디에도 없었다. 예전 판이면 **조용히 통과**한다.
+     * ⛔ 회사 이름을 심지 않는다. 구조(홈 아래 절대 경로)만으로 물려야 §9 를 지킨 것이다.
+     */
+    mutate: (t) => t.replace('"private": true', '"private": true,\n  "//기계": "/Users/someone/qa"'),
+    cmd: ['node', ['observatory/verify-coordinates.mjs']],
+  },
+  {
+    check: '좌표 감사(coordinates)',
     bite: '커밋되는 은하의 절대 경로',
     expect: '절대 경로',
     file: 'galaxies/tiny-galaxy.json',
