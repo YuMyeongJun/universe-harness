@@ -335,10 +335,21 @@ const CASES = [
        `.tsx` 가 분모에서 통째로 빠질 뿐 「못 읽는다」로 안 넘어온다(훑개가 `READABLE` 을
        먼저 본다). ⇒ 실측으로 조준을 잡았다: 둘을 같이 옮기면 **0/35 → 16/35(45.7%)** 로
        선을 넘어 판정이 **0 → 1** 로 뒤집힌다. */
+    /**
+     * ⚠️⚠️ **리터럴이 낡으면 변이가 「조용히」 안 일어난다.** `.replace` 는 못 찾으면
+     * **원문을 그대로 돌려준다** — 자식이 `.js`·`.jsx` 를 열자 옛 리터럴이 사라졌고
+     * 이 변이는 아무것도 안 바꾸게 됐다.
+     * ⛔ 다행히 이 틀은 `mutated === original` 을 보고 **「변이가 안 먹었다」고 말한다** —
+     *    그 한 줄이 없었으면 「검사가 약하다」로 읽혔을 것이다(옆 저장소 세션이 `sed` 로
+     *    정확히 그 함정에 걸렸다). ⚠️ 그래도 **사람이 그 줄을 읽어야** 안다.
+     * ⇒ 리터럴을 지금 것에 맞춘다. **읽는 쪽에서 `.tsx` 를 빼고 못 읽는 쪽에 넣는다** —
+     *   둘을 같이 옮겨야 판정이 뒤집힌다(하나만 바꾸면 분모에서 빠질 뿐이다).
+     */
     mutate: (t) => t
-      .replace("export const READABLE = /\\.(ts|tsx)$/;", "export const READABLE = /\\.(ts)$/;")
-      .replace("export const CODE_BUT_BLIND = /\\.(js|jsx|mjs|cjs|vue|svelte|astro)$/;",
-        "export const CODE_BUT_BLIND = /\\.(js|jsx|mjs|cjs|vue|svelte|astro|tsx)$/;"),
+      .replace('export const READABLE = /\\.(ts|tsx|js|jsx|mjs|cjs)$/;',
+        'export const READABLE = /\\.(ts|js|jsx|mjs|cjs)$/;')
+      .replace('export const CODE_BUT_BLIND = /\\.(vue|svelte|astro)$/;',
+        'export const CODE_BUT_BLIND = /\\.(vue|svelte|astro|tsx)$/;'),
     /**
      * ⚠️ **선을 0 → 5 로 올렸다. 도구가 나빠져서가 아니라 훑개를 고쳐서다.**
      * 점 규칙을 디렉터리 한정으로 좁히자 `scripts/free-ports.mjs` 가 **드러났다**(35 → 47).

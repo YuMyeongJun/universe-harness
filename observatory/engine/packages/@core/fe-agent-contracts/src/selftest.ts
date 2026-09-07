@@ -245,6 +245,32 @@ return isValid;
     positive: `export const Box = () => <div className="${LONG_TOKEN_CLASS}" />;\n`,
     negative: `export const Box = () => <div className="flex items-center gap-2" />;\n`,
   },
+  /* ─────────────────────────────────────────────────────────────────────────
+   * **확장자 자체를 재는 칸** — 규칙이 아니라 `applies` 를 겨눈다.
+   *
+   * ⚠️⚠️ 왜 필요한가: 규칙 20개는 전부 정규식이라 TS 문법에 매인 것이 없는데도
+   * `.js`·`.jsx` 를 **한 줄(`isSource`/`isTsx`) 때문에** 안 읽고 있었다. 그 한 줄이
+   * 되돌아가도 **위 20칸은 전부 `.ts`/`.tsx` 라 하나도 안 문다** — 조용히 닫힌다.
+   * ⇒ 아래 두 칸은 **확장자만 다른 중복**이다. 일부러 중복이다. 이것이 물지 않으면
+   *   「JS 를 연다」가 거짓이 된 것이고, 매 관문에서 그것이 재진다.
+   *   그리고 `fixtures/messy-galaxy` 가 이 표에서 **생성**되므로, 더러운 은하에도
+   *   `.js`/`.jsx` 파일이 생겨 **파이프라인 층(훑개→확장자 거르기→스캔)까지** 재진다.
+   *
+   * ⛔ `.vue`·`.svelte`·`.astro` 칸은 **없다.** 안 열었기 때문이다 — 이유는
+   *   `rules/helpers.ts` 와 `lib/blind.mjs` 에 적었다(템플릿 문법을 못 읽는다).
+   * ───────────────────────────────────────────────────────────────────────── */
+  {
+    id: 'quality/naming-intent',
+    path: 'src/rulebite/NamingIntentJs.js',
+    positive: `export const load = async () => {\n  const responseData = await fetchData();\n  return responseData;\n};\n`,
+    negative: `export const load = async () => {\n  const pendingTemplates = await fetchData();\n  return pendingTemplates;\n};\n`,
+  },
+  {
+    id: 'a11y/button-type',
+    path: 'src/rulebite/ButtonTypeJsx.jsx',
+    positive: `export const Save = () => <button onClick={handleClick}>저장</button>;\n`,
+    negative: `export const Save = () => <button type="button" onClick={handleClick}>저장</button>;\n`,
+  },
 ];
 
 const BAD = `import { useEffect, useState } from 'react';

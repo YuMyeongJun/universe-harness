@@ -12,7 +12,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { runStaticRules } from '@core/fe-agent-contracts';
+import { isBlindPath, isSourcePath, runStaticRules } from '@core/fe-agent-contracts';
 import type { IContractLanes, IPatchFile, IStaticRule } from '@core/fe-agent-harness';
 
 const ALL_LANES: IContractLanes = { quality: true, typeSafety: true, tailwind: true, a11y: true, delivery: true };
@@ -24,10 +24,16 @@ const ALL_LANES: IContractLanes = { quality: true, typeSafety: true, tailwind: t
  * 코드 파일 217개 중 `.vue` 95개를 규칙이 아예 안 읽는데, 105건이 보고돼 정상으로 보였다.
  * 규칙 13개 중 11개가 **0건**인 것도 「위반 없음」으로 읽혔다 — 관측 법칙 §8 이 제품 층에서 난 것이다.
  * ⇒ 못 읽은 것을 **세어서 말한다.** 세지 않으면 사용자는 자기 UI 절반이 안 재졌다는 걸 알 길이 없다.
+ *
+ * ⛔⛔ **여기 목록을 다시 적지 마라 — 적었다가 갈렸다(R47·R91).**
+ * 이 파일은 `READABLE`/`CODE_BUT_BLIND` 를 **자기 것으로 한 벌 더** 갖고 있었다. 그래서
+ * 규칙 쪽(`applies`)에서 `.js`·`.jsx` 를 열었는데도 **파일이 규칙까지 오지 못했고**,
+ * `census` 는 「.js 를 100% 읽는다」 · `observe` 는 「못 읽은 파일 2개」라고 **서로 반대말을 했다.**
+ * ⇒ 판정은 규칙 패키지(`rules/helpers.ts`)가 한 자리에서 한다. 여기는 **가져다 쓴다.**
+ *
+ * ⛔ `.vue`·`.svelte`·`.astro` 가 아직 「못 읽는」 쪽인 이유도 거기 적혀 있다 —
+ *    **문법이 달라서**지(`<template>` 블록) 깜빡한 것이 아니다. 열려면 그 주석부터 읽어라.
  */
-const READABLE = /\.(ts|tsx)$/;
-/** 코드인데 지금 규칙이 못 읽는 것. ⛔ 여기 없는 확장자는 조용히 안 보인다 — 발견하면 늘려라. */
-const CODE_BUT_BLIND = /\.(js|jsx|mjs|cjs|vue|svelte|astro)$/;
 
 const walk = async (dir: string): Promise<{ seen: string[]; blind: string[] }> => {
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -44,10 +50,10 @@ const walk = async (dir: string): Promise<{ seen: string[]; blind: string[] }> =
       if (/\.(test|spec)\./.test(entry.name)) {
         return { seen: [], blind: [] };
       }
-      if (READABLE.test(entry.name)) {
+      if (isSourcePath(entry.name)) {
         return { seen: [full], blind: [] };
       }
-      return { seen: [], blind: CODE_BUT_BLIND.test(entry.name) ? [full] : [] };
+      return { seen: [], blind: isBlindPath(entry.name) ? [full] : [] };
     }),
   );
   return {

@@ -5,8 +5,48 @@ import type { IContractLanes, IContractReason, IPatchFile, IStaticRule } from '@
 
 export const lineOf = (content: string, index: number): number => content.slice(0, index).split('\n').length;
 
-export const isTsx = (file: IPatchFile): boolean => /\.tsx$/.test(file.path);
-export const isSource = (file: IPatchFile): boolean => /\.(ts|tsx)$/.test(file.path);
+/**
+ * **어느 확장자를 규칙에 여는가.** 규칙 20개가 전부 정규식이라, 여는 자리는 여기다.
+ *
+ * ⚠️ 실측으로 열었다: 같은 내용을 `.tsx` 와 `.jsx` 로 각각 먹여 보니 **양쪽 다 규칙 6개가 물었다**
+ * (`quality/naming-intent` · `a11y/img-alt` · `a11y/button-type` · `a11y/input-label` ·
+ *  `tailwind/arbitrary-value` · `tailwind/theme-hardcoded`).
+ * ⇒ 「JS 를 못 읽는다」는 **규칙의 한계가 아니라 `applies` 한 줄**이었다.
+ *
+ * ⛔⛔ **확장자 목록은 여기 한 벌뿐이어야 한다 — 세 벌이었다가 갈렸다(R47·R91).**
+ * 실측: `applies` 를 열었는데 관측은 **그대로였다.** 훑개(`@plugins/…/scan.ts`)가 **자기 목록을
+ * 한 벌 더** 갖고 있었기 때문이다. 그동안 `census` 는 「.js 를 100% 읽는다」, `observe` 는
+ * 「못 읽은 파일 2개」라고 **서로 반대말을 했고 아무도 몰랐다.**
+ * ⇒ 훑개는 이제 아래 `isSourcePath`·`isBlindPath` 를 **가져다 쓴다. 목록을 다시 적지 마라.**
+ * ⚠️ 남은 한 벌은 `lib/blind.mjs` 다 — 엔진 밖(우주 루트)이라 import 로 못 묶는다.
+ *    **갈리는지 재는 검사**로 묶어야 한다(`lib/selftest.mjs`).
+ */
+const SOURCE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+/** JSX 를 담을 수 있는 확장자. */
+const JSX_EXT = /\.(tsx|jsx)$/;
+/**
+ * **코드인데 규칙이 못 읽는 것.** ⛔ `SOURCE_EXT` 와 **겹치면 안 된다** — 겹치면 분모가 두 번 세어진다.
+ *
+ * ⛔⛔ **`.vue`·`.svelte`·`.astro` 를 여기 남긴 것은 깜빡한 것이 아니다.**
+ * 문법이 다르다(`<template>`·`<script>`·`<style>` 블록). 정규식이 `<script>` 안의 JS 를
+ * 우연히 맞힐 수는 있어도 **`<template>` 문법은 못 읽는다.** 열면 「읽는다고 말하면서
+ * 못 읽는」 상태가 되고, 그건 **못 읽는다고 말하는 것보다 나쁘다** — 분모에서 빠져
+ * 아무도 모르게 된다. 여는 조건: 블록을 갈라 템플릿을 따로 읽는 파서가 생겼을 때.
+ */
+const BLIND_EXT = /\.(vue|svelte|astro)$/;
+
+/**
+ * **경로 문자열만으로 판정한다.** 훑개는 파일을 **열기 전에** 물어야 해서 `IPatchFile` 을 못 만든다
+ * (내용을 읽고 나서 거르면 안 읽을 파일까지 전부 읽게 된다).
+ */
+export const isSourcePath = (filePath: string): boolean => SOURCE_EXT.test(filePath);
+/** 코드처럼 생겼는데 규칙이 못 읽는 자리인가. **못 읽는 것은 「위반 없음」이 아니라 「안 재진 것」이다.** */
+export const isBlindPath = (filePath: string): boolean => BLIND_EXT.test(filePath);
+
+/** **JSX 를 담는 파일** — 태그를 보는 규칙(a11y·tailwind 일부)이 쓴다. */
+export const isTsx = (file: IPatchFile): boolean => JSX_EXT.test(file.path);
+/** **규칙이 읽는 소스 전부.** ⚠️ `lib/blind.mjs` 의 `READABLE` 과 **같이** 움직여야 한다 — 갈리면 분모가 거짓말한다. */
+export const isSource = (file: IPatchFile): boolean => isSourcePath(file.path);
 /**
  * 문자열·주석·정규식을 **길이를 지켜** 공백으로 지운다.
  *

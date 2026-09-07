@@ -90,6 +90,8 @@ export const census = async (root) => {
      *    그러면 다음 사람이 「이 저장소엔 `.mjs` 가 2개뿐이다」로 읽는다.
      */
     ignoredByExt: {},
+    /** 코드가 아닌 갈래(설정·스크립트·생성물) — **분모 밖**이지만 수는 보여 준다. */
+    outOfScopeByKind: {},
     /** git 이 무시하는 경로 집합. **git 이 없거나 저장소가 아니면 빈 집합**이다(못 물었다는 뜻). */
     ignored: await ignoredPaths(root),
     /** ⛔ git 에게 **물을 수 있었는가.** 못 물었으면 「무시된 것이 0개」가 아니라 「모른다」다(§8). */
@@ -168,10 +170,26 @@ export const census = async (root) => {
         acc.ignoredByExt[ext] = (acc.ignoredByExt[ext] ?? 0) + 1;
         continue;
       }
-      if (READABLE.test(entry.name)) {
+      /**
+       * ⛔⛔ **「규칙의 대상인가」를 「읽을 수 있는가」보다 먼저 묻는다.**
+       *
+       * ⚠️ 실측(R163): 이 갈래가 **못 읽는 쪽에서만** `classifyBlind` 를 불렀다. 그래서
+       * `.js`·`.mjs` 를 규칙에 열자 **설정·스크립트가 읽는 쪽으로 넘어와 분모에 들어왔고**,
+       * whitehole 이 **「1368/1368 (100.0%) 를 읽는다」**가 됐다(분모 밖 설정 5·스크립트 13 → 0·0).
+       * ⛔ 규칙이 `vite.config.js` 를 **읽는 것은 사실**이지만 그건 **규칙의 대상이 아니다** —
+       * 분모에 넣으면 비율이 **좋아 보이는 방향으로** 틀린다.
+       * ⚠️ 그 방향의 오류는 **사람을 안심시키므로 조용하다.** 자식 에이전트가 잡아 줬다.
+       *
+       * ⇒ 순서를 뒤집는다: **분모에 들 자격**(코드인가)을 먼저 보고, 그다음에 읽는가를 묻는다.
+       */
+      const kind = classifyBlind(rel);
+      if (kind !== '코드') {
+        /* 설정·스크립트·생성물 — **읽든 못 읽든 분모 밖이다.** */
+        acc.outOfScopeByKind[kind] = acc.outOfScopeByKind[kind] ?? {};
+        acc.outOfScopeByKind[kind][ext] = (acc.outOfScopeByKind[kind][ext] ?? 0) + 1;
+      } else if (READABLE.test(entry.name)) {
         acc.readByExt[ext] = (acc.readByExt[ext] ?? 0) + 1;
       } else if (CODE_BUT_BLIND.test(entry.name)) {
-        const kind = classifyBlind(rel);
         acc.blindByKind[kind][ext] = (acc.blindByKind[kind][ext] ?? 0) + 1;
       } else {
         acc.notCodeByExt[ext] = (acc.notCodeByExt[ext] ?? 0) + 1;
@@ -204,8 +222,17 @@ export const tally = (acc) => {
     share: code === 0 ? null : blind / code,
     blindByExt: ranked(acc.blindByKind['코드']),
     readByExt: ranked(acc.readByExt),
+    /**
+     * ⛔ **분모 밖은 두 자리에서 온다 — 둘을 합쳐서 보여야 어느 칸에도 안 빠진다.**
+     * ⚠️ 실측(R163): `classifyBlind` 를 **가르기 전에** 부르게 고치면서 새 칸
+     * (`outOfScopeByKind`)을 만들었는데, 여기서 안 더해서 **분모에서는 빠지고 화면엔
+     * 「설정 0 · 스크립트 0」**으로 찍혔다 — **어느 칸에도 안 남는** 그 병을 내가 다시 만들었다.
+     * (읽는 확장자로 열린 설정·스크립트는 새 칸으로, 못 읽는 것은 옛 칸으로 온다.)
+     */
     outOfScope: Object.fromEntries(
-      BLIND_KINDS.filter((k) => k !== '코드').map((k) => [k, sum(acc.blindByKind[k])]),
+      BLIND_KINDS.filter((k) => k !== '코드').map((k) => [
+        k, sum(acc.blindByKind[k]) + sum(acc.outOfScopeByKind?.[k] ?? {}),
+      ]),
     ),
     notCode: sum(acc.notCodeByExt),
     notCodeByExt: ranked(acc.notCodeByExt),
