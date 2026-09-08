@@ -164,6 +164,20 @@ const inputFromReport = (report: unknown): Record<string, unknown> | null => {
 };
 
 /** 케이스 id 목록 — 없는 케이스에 판정을 다는 것을 **거절**하려고 본다. */
+/**
+ * 그 케이스의 **상태**를 읽는다. ⛔ 없으면 `null` — 「통과했다」로 짐작하지 않는다.
+ * ⚠️ 상태는 **처음 받은 입력**(`input.json`)의 것이다. 판정이 상태를 바꾸지는 않는다.
+ */
+const statusOf = (input: Record<string, unknown> | null, caseId: string): string | null => {
+  if (input === null || !Array.isArray(input['cases'])) return null;
+  for (const c of input['cases']) {
+    if (isRecord(c) && c['id'] === caseId) {
+      return typeof c['status'] === 'string' ? c['status'] : null;
+    }
+  }
+  return null;
+};
+
 const caseIdsOf = (input: Record<string, unknown> | null): string[] => {
   if (input === null || !Array.isArray(input['cases'])) return [];
   return input['cases']
@@ -367,7 +381,9 @@ export type IRecordResult =
   | { ok: true; run: IJudgedRun }
   | { ok: false; kind: 'no-such-run' }
   | { ok: false; kind: 'no-verdict-slot'; why: string }
-  | { ok: false; kind: 'no-such-case'; why: string; knownIds: string[] };
+  | { ok: false; kind: 'no-such-case'; why: string; knownIds: string[] }
+  /** ⛔ fail 이 아닌 케이스에 판정을 붙이려 했다. 지우는 것(`verdict: null`)은 막지 않는다. */
+  | { ok: false; kind: 'not-a-fail'; why: string };
 
 /**
  * 판정 하나를 적는다. **한 번에 한 케이스다.**
@@ -409,6 +425,34 @@ export const recordVerdict = async (
         + ` — 서버가 만들어 주지 않는다. 이 주행이 아는 것: ${known.join(' · ') || '(없다)'}`,
       knownIds: known,
     };
+  }
+
+  /**
+   * ⛔⛔ **fail 이 아닌 케이스에는 판정을 못 붙인다 — 실측으로 데였다.**
+   *
+   * 판정 셋(`fixed` 고쳤다 · `test-wrong` 테스트가 틀렸다 · `accepted` 받아들인다)은 전부
+   * **「이 fail 을 어떻게 할 것인가」**의 답이다. 그런데 이 자리가 상태를 안 봐서,
+   * **통과한 케이스에 「테스트가 틀렸다」가 붙었다**(실제로 붙었다: TC-BO-010 · 사유 「2222」).
+   * ⇒ 화면이 초록 케이스 옆에 「🧪 판단: 테스트가 틀렸다」를 그렸다. 읽는 사람은
+   *   **통과한 시험이 틀렸다**는 뜻으로 읽는다 — 아무도 그렇게 판단한 적이 없는데.
+   * ⚠️ ⚪(못 쟀다)도 마찬가지다: 못 잰 것을 「고쳤다」고 적으면 **안 잰 것이 판단된 것**이 된다.
+   *
+   * ⭐ **지우는 것(`verdict: null`)은 언제나 허용한다.** 잘못 붙은 판정을 못 지우면
+   *   이 규칙이 사람을 가둔다 — 위의 「2222」도 그렇게 지웠다.
+   */
+  if (verdict !== null) {
+    const status = statusOf(input, caseId);
+    if (status !== 'failed') {
+      return {
+        ok: false,
+        kind: 'not-a-fail',
+        why:
+          `이 케이스는 fail 이 아니다(${status ?? '상태를 못 읽었다'}) — 판정을 못 붙인다: ${caseId}\n` +
+          '   판정 셋(고쳤다 · 테스트가 틀렸다 · 받아들인다)은 **fail 을 어떻게 할 것인가**의 답이다.\n' +
+          '   ⛔ 통과한 것에 붙이면 화면이 「통과한 시험이 틀렸다」로 읽히고, ⚪ 에 붙이면 **안 잰 것이 판단된 것**이 된다.\n' +
+          '   ⚠️ 잘못 붙은 판정을 지우는 것은 언제나 된다 — `verdict: null` 을 보내라.',
+      };
+    }
   }
 
   const before = readLedger(id);

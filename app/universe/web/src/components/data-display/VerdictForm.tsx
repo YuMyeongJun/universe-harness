@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { postVerdict } from '@api/client';
-import type { ICaseVerdict, IJudgedRun, VerdictKind } from '@api/types';
+import type { CaseStatus, ICaseVerdict, IJudgedRun, VerdictKind } from '@api/types';
 import { judgeVerdictKind } from '@lib/run-judge';
 
 import { Banner } from '@components/ui';
@@ -55,6 +55,14 @@ export interface IVerdictFormProps {
   /** 지금 붙어 있는 판정. `null` 이면 아직 안 붙였다. */
   current: ICaseVerdict | null;
   /**
+   * 그 케이스의 상태. ⛔⛔ **fail 이 아니면 판정을 못 붙인다** — 실측으로 데였다:
+   * 이 칸이 상태를 안 봐서 **통과한 케이스에 「테스트가 틀렸다」가 붙었다**(사유 「2222」).
+   * 화면은 초록 케이스 옆에 「🧪 판단」을 그렸고, 읽는 사람은 **통과한 시험이 틀렸다**로 읽는다.
+   * ⚠️ 서버도 막는다(409 `not-a-fail`) — 여기만 막으면 다른 부름이 그대로 지나간다.
+   *    ⛔ 그렇다고 화면을 안 막으면 사람은 **적고 눌러 본 뒤에** 거절당한다.
+   */
+  status: CaseStatus;
+  /**
    * ⛔ `null` 이면 **이 주행에는 판정을 붙일 자리가 없다.** 그때 칸을 그려 두면
    * 사람이 적고 눌렀는데 아무 데도 안 간다 — 왜 못 붙이는지를 대신 적는다.
    */
@@ -63,12 +71,33 @@ export interface IVerdictFormProps {
   onJudged: (run: IJudgedRun) => void;
 }
 
-export function VerdictForm({ caseId, current, runId, onJudged }: IVerdictFormProps) {
+export function VerdictForm({ caseId, current, runId, status, onJudged }: IVerdictFormProps) {
   const [kind, setKind] = useState<VerdictKind | null>(current?.kind ?? null);
   const [why, setWhy] = useState(current?.why ?? '');
   const [busy, setBusy] = useState(false);
   /** ⛔ 실패를 삼키지 않는다 — 삼키면 「적혔다」로 보인다. */
   const [refused, setRefused] = useState<string | null>(null);
+
+  /**
+   * ⛔ fail 이 아니면 **칸을 그리지 않는다.** 그릴 수 없는 칸을 그려 두면 사람이
+   * 적고 눌러 본 뒤에야 거절당한다 — 「없는 손잡이를 만들지 않는다」와 같은 규율이다.
+   * ⚠️ 이미 붙어 있는 판정이 있으면 **지우는 길은 남긴다**(잘못 붙은 것을 못 지우면 사람이 갇힌다).
+   */
+  if (status !== 'failed' && current === null) {
+    return (
+      <Banner tone="unknown">
+        <strong>⚪ 이 케이스에는 판정을 붙이지 않는다 — fail 이 아니다({status}).</strong>
+        <div className="mt-1.5">
+          판정 셋(<strong>고쳤다 · 테스트가 틀렸다 · 받아들인다</strong>)은 전부{' '}
+          <strong>「이 fail 을 어떻게 할 것인가」</strong>의 답입니다.
+        </div>
+        <div className="mt-1.5">
+          ⛔ 통과한 것에 붙이면 화면이 <strong>「통과한 시험이 틀렸다」</strong>로 읽히고,
+          ⚪ 에 붙이면 <strong>안 잰 것이 판단된 것</strong>이 됩니다.
+        </div>
+      </Banner>
+    );
+  }
 
   if (runId === null) {
     return (

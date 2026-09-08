@@ -580,7 +580,12 @@ export const createApp = (): express.Express => {
         if (result.kind === 'no-such-case') {
           return res.status(404).json({ error: result.why, knownIds: result.knownIds });
         }
-        /* 판정을 붙일 칸 자체가 없다 — 요청이 잘못된 게 아니라 **그 주행의 상태**다. */
+        /**
+         * 409 — **요청이 잘못된 게 아니라 그 자리의 상태**다. 둘이 여기로 온다:
+         *  · `no-verdict-slot` — 이 주행에는 판정을 붙일 칸 자체가 없다(⚪ 로 끝난 주행).
+         *  · `not-a-fail` — fail 이 아닌 케이스에 붙이려 했다. ⛔ 지우는 것은 안 막는다.
+         * ⚠️ 400 이 아니다: 사람이 보낸 모양은 옳았고, **그 케이스가 그럴 상태가 아닌 것**이다.
+         */
         return res.status(409).json({ error: result.why });
       },
       (e: unknown) => fail(res, 500, `판정을 적지 못했습니다: ${(e as Error).message}`),

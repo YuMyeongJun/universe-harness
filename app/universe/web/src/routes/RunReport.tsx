@@ -411,6 +411,8 @@ export function RunReport() {
               <VerdictForm
                 caseId={picked.id}
                 current={picked.verdict}
+                /* ⛔ 상태를 넘긴다 — fail 이 아니면 칸 자체를 안 그린다(그 이유는 그 파일에). */
+                status={picked.status}
                 runId={openId}
                 onJudged={takeJudged}
               />

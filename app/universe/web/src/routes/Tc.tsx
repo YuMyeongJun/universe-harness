@@ -459,10 +459,24 @@ export function Tc() {
             {watched.unmeasured && (
               <Banner tone="unknown">
                 <strong>⚪ 못 쟀다 (종료코드 {watched.exitCode ?? '없다'}).</strong>
+                {/**
+                  * ⚠️⚠️ **전에는 여기서 이유를 짐작했다 — 실측으로 틀렸다.**
+                  * 「대개는 그 은하가 `commands.e2eWatch` 를 선언 안 한 것입니다」라고 적어 뒀는데,
+                  * ⚪ 가 실제로 난 자리는 **세션이 만료돼 시험 7건이 비켜선 것**이었다.
+                  * 그 은하는 `e2eWatch` 를 **선언하고 있었다.** ⛔ 화면이 틀린 원인을 대면
+                  * 사람은 **엉뚱한 데를 고치러 간다** — 좌표를 열어 이미 있는 줄을 다시 적는다.
+                  * ⇒ **짐작하지 않는다.** 도구가 적은 말이 바로 아래 있고, 그것이 답이다.
+                  *   여기서는 **⚪ 가 무슨 뜻인지**와 **어디를 봐야 하는지**만 말한다.
+                  */}
                 <div className="mt-1.5">
-                  ⛔ <strong>실패가 아닙니다.</strong> 대개는 그 은하가{' '}
-                  <code>commands.e2eWatch</code> 를 <strong>선언 안 한 것</strong>입니다 —
-                  아래에 무엇을 적어야 하는지 도구가 그대로 말합니다.
+                  ⛔ <strong>실패가 아닙니다</strong> — 재 봤는데 <strong>답을 못 얻은 것</strong>입니다.
+                  왜 못 쟀는지는 <strong>아래 도구의 말</strong>에 있습니다 — 화면이 짐작하지 않습니다.
+                </div>
+                <div className="mt-1.5">
+                  ⚠️ 자주 나오는 것 둘: <strong>비켜섬(skipped)</strong> 이 있으면 시험이 스스로
+                  물러난 것이고(예: 로그인 세션이 만료됐다), <strong>축이 없다</strong>고 적혀 있으면
+                  그 은하가 <code>commands.e2eWatch</code> 를 선언하지 않은 것입니다.
+                  ⛔ 둘은 고치는 자리가 <strong>다릅니다.</strong>
                 </div>
               </Banner>
             )}
