@@ -344,6 +344,34 @@ const CASES = [
     cmd: ['node', ['observatory/probe-console.mjs']],
   },
   {
+    check: 'TC 양식이 계약과 같은가(verify-tc)',
+    bite: '양식의 칸 이름이 계약과 갈린다',
+    expect: '칸',
+    file: 'qa/templates/tc-cases.tsv',
+    /**
+     * ⛔⛔ 사람이 채워 오는 표와 계약이 **두 벌**이 되면, 채운 표가 **조용히 안 읽힌다** —
+     * 화면은 「TC 13건 올렸다」인데 계약은 「0건」이 되는 자리다(R47·R91 의 그 형태).
+     * ⚠️ 겨냥은 **머리 줄 한 곳**이다 — 설명 문단에도 같은 낱말이 있어 앵커가 둘이었다(실측).
+     */
+    mutate: (t) => t.replace('\tattribution\tflaky\t', '\tattributionXX\tflaky\t'),
+    cmd: ['node', ['observatory/verify-tc.mjs']],
+  },
+  {
+    check: 'TC 입구가 도는가(probe-tc)',
+    bite: '사람이 안 본 초안이 검증으로 세어진다',
+    expect: '초안 미리보기가 죽었다',
+    file: 'qa/src/tc/draft.ts',
+    /**
+     * ⛔⛔ **모델이 만든 TC 는 사람이 보기 전엔 아무것도 검증하지 않는다.**
+     * 계약이 `derived-from-code`·`unknown` 을 **검증 분모 밖**으로 정해 뒀고, 초안은 그중 하나를
+     * 달고 나가야 한다. 검증으로 세는 출처를 달면 **사람이 확인 안 한 TC 가 통과로 세어진다.**
+     * ⚠️ 도구가 스스로 그걸 막는다 — 그 갈래를 깨면 「계약이 바뀌었다」로 죽는다.
+     * ⚠️ 탐침이 **빌드본을 쓴다** — 그래서 소스 변이가 닿게 탐침이 낡으면 다시 짓는다(실측으로 고쳤다).
+     */
+    mutate: (t) => t.replace("  const wanted: CaseOrigin = 'unknown';", "  const wanted: CaseOrigin = 'human';"),
+    cmd: ['bash', ['observatory/probe-tc.sh']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',

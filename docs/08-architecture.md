@@ -191,7 +191,8 @@ universe/
 │   └── templates/
 ├── bin/  ← 명령 진입점
 ├── docs/  ← 사람이 읽는 문서
-│   └── img/
+│   ├── img/
+│   └── wiki/
 ├── examples/
 ├── fixtures/  ← 시험용 은하 — 배달되지 않는다
 │   ├── agent-scripts/

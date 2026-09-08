@@ -86,7 +86,9 @@ const capture = (cmd, args) => new Promise((done) => {
 
 /** ⚪ 못 쟀다 — 사유를 대고 3으로 끝낸다. ⛔ 「없다」로 말하지 않는다(§8). */
 const unmeasured = (lines) => {
-  console.error(`⚪ 못 쟀다 — ${lines[0]}`);
+  /* ⛔ ⚪ 는 **실패가 아니라 못 쟀다**다 — `console.error` 로 내면 `lib/why.mjs` 의 실패 패턴에
+     새 기호가 필요해지고, 진단이 「왜 죽었나」에 「안 쟀다」를 섞는다(부품 시험이 옳게 물었다). */
+  console.log(`⚪ 못 쟀다 — ${lines[0]}`);
   for (const line of lines.slice(1)) {
     console.error(`   ${line}`);
   }

@@ -291,6 +291,37 @@ if (reposRes === null || reposRes.status !== 400) {
   }
 }
 
+/**
+ * ⛔⛔ **서버가 내는데 화면이 안 부르는 자리를 센다** — 「터미널 없이 다 된다」의 유일한 척도다.
+ *
+ * 이 제품의 전제는 **사용자가 터미널에 접근하지 않는다**는 것이다(`docs/09-console-first.md`).
+ * 서버에 라우트가 있어도 **화면이 안 부르면 그 칸은 그 사람에게 없는 것**이다.
+ * ⚠️ 실측: `/api/clones`·`/api/adopt` 가 **서버에만 있던 회전**이 실제로 있었다 —
+ *   그때 「받아 오기는 된다」고 말할 뻔했다. CLI 를 아는 사람만 되는 것이었다.
+ *
+ * ⛔ 여기서 **빨간불을 내지 않는다** — 아직 화면이 안 붙은 칸이 여럿이고, 매번 빨가면
+ *   사람이 이 관문을 **끄는 법부터** 배운다. ⇒ **수로 말한다.** 판정은 사람이 한다.
+ * ⚠️ 그래서 이 줄은 **하한**이다: 「부르는 코드가 있다」지 「화면에서 쓸 수 있다」가 아니다.
+ */
+const routesOf = (text, re) => new Set([...text.matchAll(re)].map((m) => m[1]));
+const serverSrc = await readFile(path.join(APP, 'server/src/server.ts'), 'utf8').catch(() => '');
+const clientSrc = await readFile(path.join(APP, 'web/src/api/client.ts'), 'utf8').catch(() => '');
+const served = routesOf(serverSrc, /app\.(?:get|post)\('(\/api\/[a-z-]+)/g);
+const called = routesOf(clientSrc, /'(\/api\/[a-z-]+)/g);
+if (served.size === 0 || clientSrc === '') {
+  console.log('  ⏭  화면이 부르는 자리 — 소스를 못 읽었다(배달본이다). 못 쟀다.');
+} else {
+  const onlyServer = [...served].filter((r) => !called.has(r));
+  console.log(`  ⓘ 서버가 내는 자리 ${served.size}개 · 화면이 부르는 것 ${called.size}개`);
+  if (onlyServer.length > 0) {
+    console.log(`     ⚠️ **화면이 안 부르는 자리 ${onlyServer.length}개**: ${onlyServer.join(' · ')}`);
+    console.log('        ⛔ 이 칸은 **터미널을 아는 사람만** 쓸 수 있다 — 이 제품의 전제와 어긋난다.');
+    console.log('        (빨간불로 만들지 않는다 — 판정은 사람이 한다. 다만 **수는 늘 보인다.**)');
+  } else {
+    console.log('     ✅ 서버가 내는 자리를 화면이 전부 부른다 — 터미널 없이 닿는다.');
+  }
+}
+
 stop();
 if (failed) {
   console.error('\n⛔ 콘솔이 사람의 계획이 지나가는 자리인데 그 자리가 거짓말을 한다.');
