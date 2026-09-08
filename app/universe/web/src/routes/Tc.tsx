@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { getTcTemplate, postTcRun } from '@api/client';
-import type { ITcRunResult, ITcTemplateResult } from '@api/types';
+import { getGalaxies, getTcTemplate, postTcRun, postWatch } from '@api/client';
+import type { ITcRunResult, ITcTemplateResult, IWatchResult } from '@api/types';
 
 import { ActionButton } from '@components/form-controls/ActionButton';
 import { ConsoleShell } from '@components/layout/ConsoleShell';
@@ -40,11 +40,12 @@ import { Banner, CARD, CARD_NEXT, ContentPane, HELP_TEXT, PageHead, SECTION, Til
  *    (아무것도 검증하지 않는 TC)은 그대로 남는다(§8 — 0 은 무죄가 아니다).
  */
 
-type TcStep = 'template' | 'upload';
+type TcStep = 'template' | 'upload' | 'watch';
 
 const STEPS: { id: TcStep; label: string }[] = [
   { id: 'template', label: '① 양식 내려받기' },
   { id: 'upload', label: '② 채운 것 올리기' },
+  { id: 'watch', label: '③ 보면서 돌리기' },
 ];
 
 const SAY = 'mt-1.5 max-h-code overflow-auto whitespace-pre-wrap rounded-control border border-ui-line bg-ui-surface-sunken p-2.5 font-mono text-xs leading-code';
@@ -125,8 +126,45 @@ export function Tc() {
   const [cases, setCases] = useState<{ name: string; text: string } | null>(null);
   const [pre, setPre] = useState<{ name: string; text: string } | null>(null);
   const [ran, setRan] = useState<ITcRunResult | null>(null);
+
+  /** 보면서 돌릴 은하. ⛔ 목록은 **우주가 아는 것**을 그대로 받는다 — 화면이 짓지 않는다. */
+  const [galaxies, setGalaxies] = useState<string[] | null>(null);
+  const [galaxy, setGalaxy] = useState('');
+  const [watched, setWatched] = useState<IWatchResult | null>(null);
+  const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getGalaxies().then(
+      (list) => setGalaxies(list.galaxies.map((one) => one.name)),
+      /* ⛔ 못 불렀으면 **빈 목록으로 접지 않는다** — `null` 이 「모른다」다. */
+      () => setGalaxies(null),
+    );
+  }, []);
+
+  /**
+   * ⛔⛔ **돌릴 명령을 화면이 안 보낸다** — 은하 이름만 보낸다.
+   *    축은 은하 파일의 `commands.e2eWatch` 가 정한다. 명령을 보내면 이 콘솔이
+   *    화면을 여는 사람의 **원격 명령 실행기**가 된다.
+   */
+  const watch = (): void => {
+    if (galaxy === '') return;
+    setWatching(true);
+    setRefused(null);
+    /* ⛔ 도는 순간 앞의 판정을 지운다 — 남으면 묵은 판정이 지금 판정으로 읽힌다. */
+    setWatched(null);
+    void postWatch(galaxy).then(
+      (came) => {
+        setWatching(false);
+        setWatched(came);
+      },
+      (why: Error) => {
+        setWatching(false);
+        setRefused(why.message);
+      },
+    );
+  };
 
   const fetchTemplate = (): void => {
     setAsking(true);
@@ -348,6 +386,101 @@ export function Tc() {
               브라우저를 여는 사람의 <strong>원격 명령 실행기</strong>가 됩니다. 브라우저 주행은
               은하가 선언한 축으로 돕니다 — 사람이 타이핑하는 것이 아닙니다.
             </p>
+          </div>
+        )}
+
+        {/* ── ③ 보면서 돌리기 ────────────────────────────────────────── */}
+        {step === 'watch' && (
+          <div className={CARD}>
+            <h2 className={SECTION}>③ 보면서 돌리기 — 창이 뜨고 느리게 움직인다</h2>
+
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <label className="shrink-0 whitespace-nowrap text-xs text-ui-ink-dim" htmlFor="watch-galaxy">
+                은하
+              </label>
+              <select
+                id="watch-galaxy"
+                className="w-56 shrink-0 rounded-control border border-ui-line bg-ui-surface-sunken px-2 py-1.5 font-mono text-xs"
+                value={galaxy}
+                onChange={(e) => setGalaxy(e.target.value)}
+              >
+                <option value="">고르세요</option>
+                {(galaxies ?? []).map((one) => (
+                  <option key={one} value={one}>
+                    {one}
+                  </option>
+                ))}
+              </select>
+              <span className="shrink-0 whitespace-nowrap">
+                <ActionButton primary disabled={galaxy === '' || watching} onClick={watch}>
+                  {watching ? '도는 중…' : '보면서 돌리기'}
+                </ActionButton>
+              </span>
+            </div>
+
+            {galaxies === null && (
+              <Banner tone="unknown">
+                <strong>⚪ 은하 목록을 못 불렀다 — 「은하가 없다」가 아니다.</strong>
+              </Banner>
+            )}
+
+            <p className={HELP_TEXT}>
+              ⛔ <strong>여기서 돌릴 명령을 정하지 않습니다.</strong> 은하 파일이{' '}
+              <code>commands.e2eWatch</code> 로 <strong>선언한 축</strong>만 돕니다 — 화면은
+              은하를 고르기만 합니다. 명령을 받는 순간 이 콘솔이 화면을 여는 사람의{' '}
+              <strong>원격 명령 실행기</strong>가 됩니다.
+            </p>
+            <p className={HELP_TEXT}>
+              ⚠️ <strong>창은 서버가 도는 기계에 뜹니다.</strong> 원격에서 이 콘솔만 열었다면
+              그 창을 <strong>못 봅니다</strong> — 그때 이 칸은 「보면서 돌렸다」가 아니라
+              그냥 주행입니다.
+            </p>
+            <p className={HELP_TEXT}>
+              ⚠️ <strong>OS 마우스 커서 자체는 안 움직입니다.</strong> Playwright 는 페이지
+              안으로 이벤트를 쏩니다 — 클릭·입력·이동이 화면에 <strong>반영되는 것이</strong>{' '}
+              느리게 보이는 것이지, 바탕화면의 커서가 끌려다니지는 않습니다.
+            </p>
+          </div>
+        )}
+
+        {watching && (
+          <Banner tone="unknown">
+            <strong>⚪ 보면서 도는 중 — 아직 판정이 없다.</strong>
+            <div className="mt-1.5">
+              브라우저 창을 보세요. 느린 것이 <strong>이 축의 목적</strong>입니다 — 최대 15분까지
+              기다립니다. ⛔ 기다리는 동안 앞의 판정을 남겨 두지 않았습니다.
+            </div>
+          </Banner>
+        )}
+
+        {watched !== null && (
+          <div className={CARD_NEXT}>
+            <h2 className={SECTION}>보면서 돌린 판정 — 도구가 낸 것을 그대로</h2>
+            {watched.unmeasured && (
+              <Banner tone="unknown">
+                <strong>⚪ 못 쟀다 (종료코드 {watched.exitCode ?? '없다'}).</strong>
+                <div className="mt-1.5">
+                  ⛔ <strong>실패가 아닙니다.</strong> 대개는 그 은하가{' '}
+                  <code>commands.e2eWatch</code> 를 <strong>선언 안 한 것</strong>입니다 —
+                  아래에 무엇을 적어야 하는지 도구가 그대로 말합니다.
+                </div>
+              </Banner>
+            )}
+            {!watched.unmeasured && !watched.ok && (
+              <Banner tone="bad">
+                <strong>❌ 판단하지 않은 fail 이 있다 (종료코드 {watched.exitCode ?? '없다'}).</strong>
+                <div className="mt-1.5">
+                  ⛔ <strong>단정을 약하게 만들어 fail 을 없애지 마세요</strong> — 그래서 종료
+                  조건이 「fail 0」이 아닙니다.
+                </div>
+              </Banner>
+            )}
+            {watched.ok && (
+              <Banner tone="ok">
+                <strong>✅ 끝났다 — 「판단하지 않은 fail 0」.</strong>
+              </Banner>
+            )}
+            {watched.say !== '' && <div className={SAY}>{watched.say}</div>}
           </div>
         )}
 

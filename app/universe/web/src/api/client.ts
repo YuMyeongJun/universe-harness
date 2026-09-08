@@ -15,6 +15,7 @@ import type {
   ISurvey,
   ITcRunResult,
   ITcTemplateResult,
+  IWatchResult,
 } from './types';
 
 /** 서버가 준 오류 메시지를 **그대로** 던진다 — 화면에서 삼키지 않는다. */
@@ -299,3 +300,13 @@ export const postTcRun = (input: {
   preconditionsName?: string;
 }): Promise<ITcRunResult> =>
   req<ITcRunResult>('/api/tc/runs', { method: 'POST', body: JSON.stringify(input) });
+
+/**
+ * ── TC ③ ── **보면서 돌린다.** `POST /api/e2e/watch`. 브라우저 창이 뜬다.
+ *
+ * ⛔⛔ **돌릴 명령을 보내지 않는다** — 은하 이름만 보낸다. 축은 은하 파일이 선언한다
+ *    (`commands.e2eWatch`). 명령을 보내는 순간 이 콘솔이 원격 명령 실행기가 된다.
+ * ⚠️ 오래 걸린다(최대 15분). 느리게 도는 것이 이 축의 목적이다.
+ */
+export const postWatch = (galaxy: string): Promise<IWatchResult> =>
+  req<IWatchResult>('/api/e2e/watch', { method: 'POST', body: JSON.stringify({ galaxy }) });

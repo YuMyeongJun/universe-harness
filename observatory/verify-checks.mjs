@@ -541,6 +541,40 @@ const CASES = [
     cmd: ['node', ['observatory/probe-console.mjs']],
   },
   {
+    check: '콘솔이 서는가(console)',
+    bite: '**축이 없는데 서버가 지어 줘서** 화면이 임의 명령을 돌리게 됨',
+    expect: '서버가 축을 지어 줬다',
+    file: 'observatory/loop-state.mjs',
+    /**
+     * ⛔⛔ **이 콘솔에서 제일 위험한 칸의 자물쇠 ②다.**
+     * `commands.e2eWatch` 는 셸 문자열이다 — 없을 때 서버가 **지어 주기 시작하면**
+     * 화면을 여는 사람이 서버 기계에서 명령을 돌리는 길이 열린다.
+     *
+     * ⚠️ **판정은 종료코드로 못 한다.** 축을 지어 주는 변이도 ⚪ **3** 으로 끝난다
+     *    (실측으로 확인했다 — 「명령을 못 불렀다」로 죽는다).
+     *    ⇒ **거부 사유**가 `commands.e2eWatch` 를 가리키는지까지 봐야 물린다.
+     */
+    mutate: (t) => t.replace(
+      'const e2e = watching ? galaxy.commands?.e2eWatch : galaxy.commands?.e2e;',
+      'const e2e = watching ? (galaxy.commands?.e2eWatch ?? `${galaxy.commands?.e2e ?? \'\'} --headed`) : galaxy.commands?.e2e;'),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
+    check: '콘솔이 서는가(console)',
+    bite: '은하 이름에 **명령을 섞어도** 받아서 원격 명령 실행기가 됨',
+    expect: '명령을 섞어도 받는다',
+    file: 'app/universe/server/src/tc.ts',
+    /**
+     * ⛔⛔ 자물쇠 ①. 서버는 **은하 이름만** 받는다 — 그 이름이 셸로 흘러가는 자리가 있으므로
+     * 모양을 좁히는 것이 유일한 방벽이다. `adopt` 가 「받아 온 자리 안의 초안만」으로 막은 것,
+     * `repos` 가 사람이 준 값을 정수로 좁힌 것과 **같은 자리**다(R76).
+     */
+    mutate: (t) => t.replace(
+      "  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(galaxy)) return '은하 이름은 영소문자·숫자·하이픈만 됩니다.';\n",
+      ''),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
     check: '자리마다 분모(observe)',
     bite: '훑는다고 적어 놓고 비어 있는 자리를 그냥 지나감',
     expect: '훑는다고 적어 놓고 0개인 자리',

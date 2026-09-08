@@ -21,7 +21,7 @@ import {
   readGalaxyDraft,
 } from './galaxy-draft.js';
 import { adoptDraft, adoptInputProblem, cloneInputProblem, cloneRepo, listRepos } from './clone.js';
-import { emitTemplate, runTc, tcInputProblem, type TcFormat } from './tc.js';
+import { emitTemplate, runTc, tcInputProblem, watchInputProblem, watchRun, type TcFormat } from './tc.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import {
   fromParamProblem,
@@ -446,6 +446,24 @@ export const createApp = (): express.Express => {
     void runTc(req.body as Parameters<typeof runTc>[0]).then(
       (result) => res.json(result),
       (e: unknown) => fail(res, 500, `TC 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **보면서 돌린다.** `{ galaxy }` — 브라우저 창이 뜨고 느리게 움직인다.
+   *
+   * ⛔⛔ **명령을 받지 않는다.** 은하 이름만 받고, 돌릴 축은 **은하 파일이 선언한다**
+   *    (`commands.e2eWatch`). 안 그러면 이 자리가 원격 명령 실행기가 된다.
+   * ⛔ **못 쟀다(3)를 4xx 로 만들지 않는다** — 「그 은하가 보는 축을 선언 안 했다」는
+   *    **결과**다(200 + `unmeasured:true`). 400 은 요청의 모양이 틀렸을 때뿐이다.
+   */
+  app.post('/api/e2e/watch', (req: Request, res: Response) => {
+    const body = req.body as { galaxy?: unknown };
+    const problem = watchInputProblem(body.galaxy);
+    if (problem !== null) return fail(res, 400, problem);
+    void watchRun(String(body.galaxy)).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `보는 축을 부르지 못했습니다: ${(e as Error).message}`),
     );
   });
 

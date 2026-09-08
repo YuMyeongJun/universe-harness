@@ -343,6 +343,59 @@ if (tplRes === null || tplRes.status !== 400) {
 }
 
 /**
+ * ⛔⛔ **보면서 돌리는 자리의 자물쇠 둘이 서 있는가.**
+ *
+ * 사용자가 원한 것: 「화면에 테스트케이스 기반으로 **화면 테스트하는 게 보였으면** 좋겠어.」
+ * 그래서 화면이 브라우저를 띄우는 자리가 생겼다 — **여기가 이 콘솔에서 제일 위험한 칸이다.**
+ *
+ * 도구에는 임의의 명령을 도는 힘이 있다(`commands.e2eWatch` 는 셸 문자열이다).
+ * ⛔ 그 힘을 **화면이 못 쥐게** 하는 것이 자물쇠 둘이다:
+ *   ① 서버는 **은하 이름만** 받는다 — 명령을 안 받는다.
+ *   ② 돌릴 축은 **은하 파일이 선언해야** 있다 — 없으면 서버가 지어 주지 않고 ⚪ 로 끝난다.
+ * 하나라도 풀리면 이 콘솔은 **화면을 여는 사람의 원격 명령 실행기**가 된다.
+ *
+ * ⭐ 판정은 **거부 사유**로 한다. 「⚪ 3 이 나왔다」로는 부족하다 —
+ *    축을 지어 주는 변이도 ⚪ 3 으로 끝나기 때문이다(실측으로 확인했다).
+ *    ⇒ **무엇이 없어서 못 쟀는지**(`commands.e2eWatch`)를 말하는지까지 본다.
+ */
+const watchRefuses = async (body, expect) => {
+  const res = await fetch(`http://127.0.0.1:${PORT}/api/e2e/watch`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (res === null) return false;
+  const said = JSON.stringify(await res.json().catch(() => ({})));
+  return res.status === 400 && said.includes(expect);
+};
+/* ⛔ ① **명령을 받지 않는다.** 은하 자리에 셸 문자열을 넣으면 모양에서 막혀야 한다. */
+if (!(await watchRefuses({}, '은하를 골라'))) {
+  console.error('  ⛔ 은하 없이 불렀는데 **400 으로 거절하지 않는다** — 보는 자리가 없거나 죽었다');
+  failed = true;
+} else if (!(await watchRefuses({ galaxy: 'x; rm -rf /' }, '영소문자'))) {
+  console.error('  ⛔⛔ **은하 이름에 명령을 섞어도 받는다** — 이 콘솔이 원격 명령 실행기가 된다');
+  failed = true;
+} else {
+  /* ⛔ ② **축을 지어 주지 않는다.** 선언 없는 은하는 ⚪ 이고, **무엇이 없는지** 말해야 한다. */
+  const noAxis = await fetch(`http://127.0.0.1:${PORT}/api/e2e/watch`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ galaxy: 'tiny-galaxy' }),
+  }).then((r) => r.json()).catch(() => null);
+  if (noAxis === null || noAxis.unmeasured !== true) {
+    console.error(`  ⛔ 축이 없는 은하가 **못 쟀다로 안 끝난다**(unmeasured=${String(noAxis?.unmeasured)})`);
+    failed = true;
+  } else if (!String(noAxis.say ?? '').includes('commands.e2eWatch')) {
+    /* ⛔ 사유가 「명령을 못 불렀다」로 바뀌면 **축을 지어 준 것**이다 — 자물쇠 ②가 풀렸다. */
+    console.error('  ⛔⛔ 축이 없는데 **서버가 축을 지어 줬다** — 사유가 `commands.e2eWatch` 를 안 가리킨다');
+    console.error(`     도구가 한 말: ${String(noAxis.say ?? '').split('\n')[0]}`);
+    failed = true;
+  } else {
+    console.log('  ✅ 보는 자리가 **명령을 안 받고**, 축이 없으면 **지어 주지 않고 ⚪ 로 끝난다**');
+  }
+}
+
+/**
  * ⛔⛔ **서버가 내는데 화면이 안 부르는 자리를 센다** — 「터미널 없이 다 된다」의 유일한 척도다.
  *
  * 이 제품의 전제는 **사용자가 터미널에 접근하지 않는다**는 것이다(`docs/09-console-first.md`).

@@ -8,6 +8,17 @@
  */
 import { defineConfig } from '@playwright/test';
 
+/**
+ * **사람이 보면서 돌릴 때만** 느리게 한다 — `UNIVERSE_WATCH_SLOWMO=<밀리초>`.
+ *
+ * ⛔⛔ **기본 주행을 건드리지 않는다.** 안 주면 `0` 이고, 그때 `launchOptions` 는
+ *    아예 안 붙는다 — 관문이 재는 것과 **똑같은 주행**이어야 「보면서 잰 것」이
+ *    「관문이 잰 것」과 같은 사실이 된다. 둘이 갈리면 화면에서 본 초록불이
+ *    관문의 초록불을 보증하지 못한다.
+ * ⛔ 이 값을 **화면이 정하지 않는다** — 은하가 선언한 축(`commands.e2eWatch`)이 정한다.
+ */
+const watchSlowMo = Number(process.env['UNIVERSE_WATCH_SLOWMO'] ?? '0');
+
 export default defineConfig({
   testDir: './e2e',
   // ⛔ vitest 와 이름이 겹치지 않게 `*.e2e.ts` 만 집는다.
@@ -21,5 +32,9 @@ export default defineConfig({
   use: {
     // 실패한 케이스의 증거를 계약의 `evidence.screenshot` 으로 흘려보내는 배선을 같이 잰다.
     screenshot: 'only-on-failure',
+    /* ⛔ 0 이면 **아무것도 안 붙인다** — 기본 주행은 예전과 한 글자도 다르지 않다. */
+    ...(Number.isFinite(watchSlowMo) && watchSlowMo > 0
+      ? { launchOptions: { slowMo: watchSlowMo } }
+      : {}),
   },
 });

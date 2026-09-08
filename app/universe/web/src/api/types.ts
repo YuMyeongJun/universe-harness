@@ -718,3 +718,18 @@ export interface ITcRunResult {
   report: unknown;
   say: string;
 }
+
+/**
+ * **보면서 돌린 결과.**
+ *
+ * ⛔ `ok:false` 를 다 ❌ 로 그리지 않는다 — `unmeasured` 는 「그 은하가 보는 축을
+ *    선언 안 했다」·「리포트가 안 났다」이고, 그건 실패가 아니라 **모른다**다.
+ */
+export interface IWatchResult {
+  ok: boolean;
+  unmeasured: boolean;
+  exitCode: number | null;
+  killed: boolean;
+  /** 도구가 사람에게 한 말 — ⛔ 줄바꿈째로 그대로. */
+  say: string;
+}

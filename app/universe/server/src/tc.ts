@@ -192,3 +192,63 @@ export const runTc = async (input: ITcRunInput): Promise<ITcRunResult> => {
     rmSync(dir, { recursive: true, force: true });
   }
 };
+
+/**
+ * ── 보면서 돌리기 ──────────────────────────────────────────────────────
+ *
+ * 사용자가 원한 것: 「**화면에 테스트케이스 기반으로 화면 테스트하는 게 보였으면 좋겠어.
+ * chrome-in-claude 처럼 마우스 움직이면서 내가 볼 수 있었거든.**」
+ *
+ * ## ⛔⛔ 여기서 명령을 만들지 않는다 — **은하가 선언한 축**만 돈다
+ *
+ * `--headed` 를 서버가 붙이지 않는다. 은하 파일의 `commands.e2eWatch` 가 있어야 돌고,
+ * 부르는 쪽은 **은하를 고르기만** 한다. 자물쇠가 둘이다(`repeat --fix` 와 같은 형태):
+ *   ① 은하가 그 축을 적어야 하고 ② 화면은 축을 못 짠다.
+ * ⛔ 이 자물쇠를 풀면 콘솔이 **화면을 여는 사람의 원격 명령 실행기**가 된다.
+ *
+ * ## ⛔ 판정을 여기서 하지 않는다 — `loop-state` 가 한다
+ *
+ * 「끝났는가」는 `observatory/loop-state.mjs` 가 안다(그 아래는 `qa/dist/run/`).
+ * 보는 축이든 아니든 **같은 자리에 리포트가 나고 같은 계약이 판정한다** —
+ * 갈리면 「보면서 본 초록불」이 「관문의 초록불」을 보증하지 못한다.
+ *
+ * ## ⚠️ 이 자리가 **못 하는 것**을 적어 둔다(§8)
+ *
+ * 브라우저 창은 **서버가 도는 기계**에 뜬다. 원격에서 콘솔만 연 사람은 **그 창을 못 본다** —
+ * 그때 이 칸은 「보면서 돌렸다」가 아니라 그냥 주행이다. 화면이 그 사실을 말한다.
+ */
+export interface IWatchResult {
+  ok: boolean;
+  /** ⚪ 못 쟀다(3) — 축이 없거나 · 리포트가 안 났거나 · 계약이 못 쟀다. */
+  unmeasured: boolean;
+  exitCode: number | null;
+  killed: boolean;
+  /** 도구가 사람에게 한 말 — ⛔ **그대로** 나른다. 요약하지 않는다. */
+  say: string;
+}
+
+/** 은하 이름의 모양만 본다. ⛔ 어떤 은하가 있는지는 `lib/galaxy-load.mjs` 가 안다. */
+export const watchInputProblem = (galaxy: unknown): string | null => {
+  if (typeof galaxy !== 'string' || galaxy.trim() === '') return '은하를 골라 주세요.';
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(galaxy)) return '은하 이름은 영소문자·숫자·하이픈만 됩니다.';
+  return null;
+};
+
+/**
+ * **보면서 돌린다.** ⛔ 시간 제한을 길게 둔다 — 느리게 도는 것이 이 축의 목적이다.
+ * ⛔ 끊긴 것(`killed`)은 「실패」가 아니라 **「못 쟀다」**다.
+ */
+export const watchRun = async (galaxy: string): Promise<IWatchResult> => {
+  const run = await runNodeTool(
+    join(HARNESS_ROOT, 'observatory/loop-state.mjs'),
+    ['--galaxy', galaxy, '--watch'],
+    { timeoutMs: 900_000 },
+  );
+  return {
+    ok: run.exitCode === 0,
+    unmeasured: run.exitCode === 3 || run.exitCode === null || run.killed,
+    exitCode: run.exitCode,
+    killed: run.killed,
+    say: `${run.stdout}${run.stderr}`.trim(),
+  };
+};

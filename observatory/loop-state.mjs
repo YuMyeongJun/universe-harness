@@ -33,7 +33,7 @@ import { findGalaxyFile, resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 import { EXIT_UNMEASURED } from '../lib/gates.mjs';
 
 const argv = process.argv.slice(2);
-rejectUnknownFlags(argv, ['--universe', '--galaxy', '--report'], 'universe loop');
+rejectUnknownFlags(argv, ['--universe', '--galaxy', '--report', '--watch'], 'universe loop');
 const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 
 const root = await requireUniverseHome(flag('--universe'));
@@ -71,13 +71,29 @@ if (!existsSync(runner)) {
 const given = flag('--report');
 let report = given ? path.resolve(given) : null;
 
+/**
+ * ⭐ `--watch` — **사람이 보는 축**으로 돌린다(브라우저 창이 뜨고 느리게 움직인다).
+ *
+ * ⛔⛔ **화면이 명령을 못 만든다.** 여기서 `--headed` 를 붙이거나 명령을 짜 주지 않는다 —
+ *    은하가 `commands.e2eWatch` 로 **선언해야** 돈다. 자물쇠가 둘이다(`repeat --fix` 와 같다):
+ *    ① 은하 파일이 그 축을 적어야 하고 ② 부르는 쪽은 축을 고르기만 한다.
+ *    이 자물쇠를 풀면 콘솔이 **화면을 여는 사람의 원격 명령 실행기**가 된다.
+ * ⛔ **판정을 갈라 놓지 않는다.** 보는 축이든 아니든 리포트는 같은 자리에 나고 아래 계약이
+ *    똑같이 판정한다 — 갈리면 「보면서 본 초록불」이 「관문의 초록불」을 보증하지 못한다.
+ */
+const watching = argv.includes('--watch');
+
 if (!report) {
-  const e2e = galaxy.commands?.e2e;
+  const e2e = watching ? galaxy.commands?.e2eWatch : galaxy.commands?.e2e;
   if (!e2e) {
+    if (watching) {
+      unmeasured(`은하 ${name} 이 \`commands.e2eWatch\` 를 선언하지 않았다 — **보면서 돌릴 축이 없다**.`,
+        `${path.basename(file)} 의 \`commands\` 에 적어라 — 예: "e2eWatch": "npx playwright test --headed --reporter=json > .universe/e2e.json"`);
+    }
     unmeasured(`은하 ${name} 이 \`commands.e2e\` 를 선언하지 않았다 — 화면 시험이 **안 돈다**.`,
       `${path.basename(file)} 의 \`commands\` 에 적어라 — 예: "e2e": "npx playwright test --reporter=json > .universe/e2e.json"`);
   }
-  console.log(`   화면 시험을 돌린다 — ${e2e}`);
+  console.log(`   화면 시험을 돌린다${watching ? ' — **보면서**(창이 뜬다)' : ''} — ${e2e}`);
   const code = await new Promise((done) => {
     const child = spawn(e2e, { cwd: galaxy.path, shell: true, stdio: ['ignore', 'inherit', 'inherit'] });
     child.on('close', (c) => done(c ?? 1));
@@ -91,7 +107,7 @@ if (!report) {
   report = path.join(galaxy.path, galaxy.e2eReport ?? '.universe/e2e.json');
   if (!existsSync(report)) {
     unmeasured(`화면 시험이 리포트를 안 남겼다: ${path.relative(galaxy.path, report)}`,
-      '은하의 `commands.e2e` 가 JSON 리포터로 그 자리에 쓰게 하라(`e2eReport` 로 자리를 바꿀 수 있다).');
+      `은하의 \`commands.${watching ? 'e2eWatch' : 'e2e'}\` 가 JSON 리포터로 그 자리에 쓰게 하라(\`e2eReport\` 로 자리를 바꿀 수 있다).`);
   }
 }
 
