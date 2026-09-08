@@ -37,15 +37,22 @@ git 위키로 옮기면서 사라진 문제다. ⇒ **되돌릴 이유가 없다
 | [guide-walkthrough.md](guide-walkthrough.md) | `guide-walkthrough` | 처음 한 바퀴 — 클릭만으로 |
 | [guide-not-yet.md](guide-not-yet.md) | `guide-not-yet` | ⚪ 아직 화면에 없는 칸 |
 
-## ⚠️ 아직 발행 경로에 물려 있지 않다 — 적어 둔다
+## 어떻게 나가는가
 
-`beacon/render.mjs` 는 **저장소 상태를 읽어 일곱 장을 조립한다.** 그 일곱은 손으로 쓴 문서가
-아니라 **생성물**이고, `beacon/wiki.mjs` 는 `beacon/out/pages/` 에 **있는 것만** 올린다.
-이 폴더의 네 장은 손으로 쓴 것이라 거기 안 들어간다.
+`beacon/render.mjs` 가 **이 폴더를 읽어** 발행본에 싣는다 — ⛔ 본문을 render 에 옮겨 적지
+않았다. 정본이 둘이 되면 **한 자리만 고쳐진다.**
 
-⇒ 발행하려면 렌더가 이 폴더를 `beacon/out/pages/` 로 **복사하는 한 걸음**이 필요하다.
-그때 **frontmatter 는 떼야 한다** — 위키에서는 그것이 본문 글자로 보인다.
+| | |
+|---|---|
+| 정본 | `docs/wiki/{슬러그}.md` |
+| 제목 | 그 파일의 frontmatter `title` — ⛔ 못 읽으면 렌더가 **죽는다**(슬러그로 안 때운다) |
+| frontmatter | **떼고 싣는다** — 위키에서는 본문 글자로 보인다 |
+| 줄 세우기 | 슬러그 사전순 — `readdir` 순서는 기계마다 다르다 |
+| `README.md` | **안 싣는다** — 이건 폴더 안내지 위키 독자의 것이 아니다 |
 
-⛔ `beacon/pages.json` 에 항목을 **더하지 않았다.** 더하면 `universe publish` 가
-「렌더 산출이 모자란다」로 죽는다(`beacon/publish.mjs` 가 슬러그마다 `out/pages/{slug}.md` 를
-찾는다). **먼저 렌더가 내고, 그다음에 이름표를 다는 순서**다 — 반대로 하면 관문이 빨개진다.
+`beacon/pages.json` 에도 네 슬러그의 이름표가 있다. ⛔ **렌더가 먼저, 이름표가 나중**이다 —
+렌더가 내지 않는 슬러그가 이름표에만 있으면 `beacon/publish.mjs` 가
+「렌더 산출이 모자란다」로 죽는다.
+
+⚠️ 그 `title` 은 frontmatter 와 **두 벌**이다(publish 가 이름표를 요구한다).
+갈렸는지는 렌더가 찍는 제목 목록과 맞대어 보면 안다 — `beacon/out/index.json` 이 들고 있다.

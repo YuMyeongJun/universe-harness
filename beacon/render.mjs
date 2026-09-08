@@ -82,7 +82,9 @@ const pages = [];
    Confluence 저장 포맷은 「강조 안의 코드」를 표현하지 못해 `**a `b`**` 를
    `**a** `b`` 로 **항상 쪼갠다.** 정규화로 흡수할 수도 있지만, 그 자리는
    **진짜 사람 수정이 가장 쉽게 숨는 곳**이라 소스에서 안 만드는 쪽이 안전하다. */
-const add = (slug, title, body) => pages.push({ slug, title, body: `${banner}\n\n${body}\n\n---\n\n_발행 ${today} · 정본_ \`universe/\`` });
+/* ⚠️ `head` 를 갈아 끼울 수 있게 열어 뒀다 — 손으로 쓴 장은 「자동 생성된다」가 **거짓**이라
+   같은 머리말을 붙일 수 없다. 아래 「손으로 쓴 가이드」 절 참고. */
+const add = (slug, title, body, head = banner) => pages.push({ slug, title, body: `${head}\n\n${body}\n\n---\n\n_발행 ${today} · 정본_ \`universe/\`` });
 
 add('index', 'Universe — 프론트엔드 하네스', `# ${config.name} — v${config.version}
 
@@ -463,6 +465,45 @@ ${(() => {
     : '';
   return `${note}${detail}`;
 })()}`);
+
+/* ── 손으로 쓴 가이드 — `docs/wiki/` 를 **읽어서** 싣는다 ──────
+ *
+ * ⛔⛔ **본문을 여기 다시 쓰지 않는다.** 위의 일곱 장은 저장소 상태에서 **조립되는** 것이라
+ * 낡을 수가 없지만, 사용 가이드는 **사람이 쓴 글**이라 조립할 수가 없다. 그렇다고 본문을
+ * 이 파일에 옮겨 적으면 정본이 둘이 되고, **한 자리만 고쳐진다** — 이 저장소가 반복해서
+ * 겪은 그 사고다. ⇒ 정본은 `docs/wiki/` 고 여기서는 **읽어서 나른다.**
+ *
+ * ⚠️ **frontmatter 는 떼고 싣는다.** 저장소의 문서 법칙이 `name`·`title`·`type`·`description`
+ *    을 요구하는데(`universe laws`), 그 블록이 위키에 그대로 나가면 **본문 글자로 보인다.**
+ *    제목은 그 frontmatter 에서 읽는다 — 여기 손으로 적으면 그것도 두 벌이 된다.
+ *
+ * ⛔ `README.md` 는 안 싣는다. 그건 **폴더 안내**(무엇이 왜 여기 있나)라 위키 독자의 것이 아니다.
+ *
+ * ⚠️ 줄 세우기는 **슬러그 사전순**이다. `readdir` 순서는 기계마다 달라서 그대로 쓰면
+ *    발행본이 기계마다 달라진다(= `verify-beacon` 이 「낡았다」로 읽는다).
+ *    슬러그로 세우면 `guide` 가 `guide-…` 앞에 와서 **첫 장이 먼저** 오기도 한다.
+ */
+const guideDir = path.join(root, 'docs/wiki');
+const guideFiles = (await fs.readdir(guideDir).catch(() => []))
+  .filter((f) => f.endsWith('.md') && f !== 'README.md')
+  .map((f) => ({ file: f, slug: f.replace(/\.md$/, '') }))
+  .sort((a, b) => (a.slug < b.slug ? -1 : 1));
+
+/* ⛔ 「자동 생성된다」고 적을 수 없다 — 이 장들은 사람이 쓴 것이다. 그래도 **방향은 같다**:
+   위키는 뷰고 정본은 저장소다. 그 한 줄이 없으면 다음 사람이 위키에서 고친다. */
+const guideBanner = '> 이 페이지의 정본은 저장소의 `docs/wiki/` 다 — **위키를 고치지 말고 저장소를 고쳐라.** 위키에는 diff·리뷰·롤백이 없고, 무엇보다 관문으로 집행할 수 없다.';
+
+for (const { file, slug } of guideFiles) {
+  const raw = await fs.readFile(path.join(guideDir, file), 'utf8');
+  const title = field(raw, 'title');
+  /* ⛔ 제목을 못 읽었으면 **슬러그로 때우지 않는다** — 그러면 위키에 `guide-not-yet` 이라는
+     제목이 조용히 걸린다. 못 읽은 것은 못 읽었다고 말하고 죽는다. */
+  if (!title) {
+    console.error(`⛔ docs/wiki/${file} — frontmatter 에 title 이 없다. 위키 제목을 지어내지 않는다.`);
+    process.exit(1);
+  }
+  add(slug, title, raw.replace(/^---\n[\s\S]*?\n---\n*/, '').trim(), guideBanner);
+}
 
 await fs.rm(path.join(root, 'beacon/out'), { recursive: true, force: true });
 await fs.mkdir(outDir, { recursive: true });
