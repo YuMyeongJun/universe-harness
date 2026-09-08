@@ -298,6 +298,37 @@ const CASES = [
     cmd: ['node', ['observatory/learn-cards.mjs', '--self-test']],
   },
   {
+    check: '레포를 고르는가(repos)',
+    bite: '토큰처럼 생긴 문자열이 화면에 남는다',
+    expect: '토큰처럼 생긴 문자열이 화면에 남았다',
+    file: 'bin/repos.mjs',
+    /**
+     * ⛔⛔ **이 저장소는 공개 MIT 다.** `gh` 의 말을 그대로 나르다 토큰이 화면에 박히면
+     * 스크롤백·로그·이슈 첨부로 **샌다.** 1차 방어는 「`gh auth token` 을 아예 안 부른다」이고
+     * 이 마스킹은 **2차**다 — 둘 다 있어야 한다.
+     * ⚠️ 겨냥은 **조건**이다: 토큰 모양 하나를 못 지우게 만들어 **화면에 남게** 한다.
+     *   ⛔ 「지우는 함수를 지운다」로는 안 됐다 — 체인이 살아 있어 조건이 안 만들어졌다(실측).
+     */
+    mutate: (t) => t.replace(
+      ".replace(/gh[pousr]_[A-Za-z0-9_]{4,}/g, '***')",
+      ".replace(/절대안맞는패턴XYZ/g, '***')"),
+    cmd: ['bash', ['observatory/probe-repos.sh']],
+  },
+  {
+    check: '구조 설명이 있는가(blueprint)',
+    bite: '`--write` 없이도 모델을 부른다',
+    expect: '모델',
+    file: 'observatory/blueprint.mjs',
+    /**
+     * ⛔⛔ **이 저장소가 가장 싫어하는 사건은 「공짜인 줄 알고 돌렸다」다**(R145).
+     * 이 도구는 자리 하나에 모델을 한 번 부른다 — 기본이 안전하지 않으면 **사람이 모르고 태운다.**
+     * ⇒ `--write` 갈림을 없애면(늘 켜지면) 탐침이 「모델 0회」를 못 보고 문다.
+     * ⚠️ 겨냥은 **조건**이다: 기본 주행이 부르는 상태를 만든다.
+     */
+    mutate: (t) => t.replace("argv.includes('--write')", 'true'),
+    cmd: ['bash', ['observatory/probe-blueprint.sh']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',

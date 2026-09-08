@@ -215,6 +215,7 @@ universe/
 │   ├── docs/  ← 사람이 읽는 문서
 │   ├── e2e/
 │   ├── src/
+│   ├── templates/
 │   └── tests/
 ├── redshift/
 └── seed/  ← 배달용으로 따로 쓴 판
