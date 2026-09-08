@@ -372,6 +372,20 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-tc.sh']],
   },
   {
+    check: '구조 카드의 예산(parts)',
+    bite: '잘라 놓고 **몇 개를 안 봤는지** 안 말한다',
+    expect: '**안 본 수**가 틀리다',
+    file: 'lib/blueprint.mjs',
+    /**
+     * ⛔⛔ 이 도구는 **모델을 부르는 자리**라 파일을 잘라서 보낸다. 그때 **몇 개를 안 봤는지**를
+     * 안 말하면, 사람은 **전부 본 설명**이라고 믿는다 — 그게 §8 이 말하는 그 사고다.
+     * ⚠️ 겨냥은 **조건**이다: 자르되 **뺀 수를 0으로** 말하게 만든다(이름을 바꾸는 겨냥은
+     *    「이름이 있나」만 재는 것이라 약하다 — 행동을 바꾼다).
+     */
+    mutate: (t) => t.replace('skipped: Math.max(0, list.length - limit)', 'skipped: 0'),
+    cmd: ['node', ['lib/selftest.mjs']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',
