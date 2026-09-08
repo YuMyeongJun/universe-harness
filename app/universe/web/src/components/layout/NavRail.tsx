@@ -110,6 +110,18 @@ const STOPS: IRailStop[] = [
     hint: '주행 결과 — 판단하지 않은 fail 부터',
   },
   {
+    to: '/tc',
+    /* TC — 표를 주고 표를 받는다. */
+    icon: svg(
+      <>
+        <path d="M4 5h16v14H4z" />
+        <path d="M4 10h16M10 5v14" />
+      </>,
+    ),
+    label: 'TC',
+    hint: '양식 내려받기 · 채운 것 올려서 돌리기',
+  },
+  {
     to: '/domains',
     /* 도메인 — 적어 둔 것. */
     icon: svg(

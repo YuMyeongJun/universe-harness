@@ -5,6 +5,7 @@ import { GalaxySelect } from '@routes/GalaxySelect';
 import { Intake } from '@routes/Intake';
 import { RunReport } from '@routes/RunReport';
 import { Survey } from '@routes/Survey';
+import { Tc } from '@routes/Tc';
 import { Violations } from '@routes/Violations';
 
 export function App() {
@@ -35,6 +36,13 @@ export function App() {
          * ⛔ 이 화면의 종료 조건은 「fail 0」이 아니라 **「판단하지 않은 fail 0」**이다.
          */}
         <Route path="/runs" element={<RunReport />} />
+        {/**
+         * **TC 칸** — 양식을 내려받고, 채운 것을 올려서 돌린다.
+         * ⛔⛔ TC 도구는 **있었는데 서버에 자리가 아예 없었다**(라우트 22개 중 0개).
+         * 사용자가 요구한 두 칸(「양식 다운로드」·「업로드해서 자동수행」)이 통째로
+         * **터미널 전용**이었다 — 이 제품의 전제와 정면으로 어긋난다.
+         */}
+        <Route path="/tc" element={<Tc />} />
       </Routes>
     </BrowserRouter>
   );

@@ -684,3 +684,37 @@ export interface IRepoListResult {
   say: string;
   exitCode: number | null;
 }
+
+/** TC 양식 파일 하나 — ⛔ 이름도 도구가 지은 것이다. 화면이 짓지 않는다. */
+export interface ITcTemplateFile {
+  name: string;
+  text: string;
+}
+
+export interface ITcTemplateResult {
+  ok: boolean;
+  format: 'tsv' | 'csv';
+  /** ⛔ **둘 다** 온다. 전제 양식을 빼고 채우면 「전제 0개」가 되고, 그건 통과가 아니라 못 쟀다(3)다. */
+  files: ITcTemplateFile[];
+  say: string;
+  exitCode: number | null;
+}
+
+/**
+ * **채워 올린 TC 를 돌린 결과.**
+ *
+ * ⛔⛔ `ok:false` 를 전부 ❌ 로 그리면 안 된다. 이 도구의 계약은 세 갈래다:
+ *   `exitCode 0` — 끝났다(**「fail 0」이 아니라 「판단하지 않은 fail 0」**)
+ *   `exitCode 1` — 판단하지 않은 fail 이 있다 ❌
+ *   `exitCode 3` — **못 쟀다** ⚪ (전제가 안 섰다 · 검증 분모가 0이다 · 양식을 못 읽었다)
+ * ⇒ `unmeasured` 가 그 셋째 갈래다. 이걸 ❌ 로 그리면 사람은 **없는 실패**를 고치러 간다.
+ */
+export interface ITcRunResult {
+  ok: boolean;
+  unmeasured: boolean;
+  exitCode: number | null;
+  killed: boolean;
+  /** 도구가 `--json` 으로 낸 것 그대로. ⛔ 화면이 모양을 바꾸지 않는다. */
+  report: unknown;
+  say: string;
+}

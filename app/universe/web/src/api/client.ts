@@ -13,6 +13,8 @@ import type {
   IRunListItem,
   IRunReceipt,
   ISurvey,
+  ITcRunResult,
+  ITcTemplateResult,
 } from './types';
 
 /** 서버가 준 오류 메시지를 **그대로** 던진다 — 화면에서 삼키지 않는다. */
@@ -273,3 +275,27 @@ export const getRepos = (limit?: number): Promise<IRepoListResult> =>
 
 export const postAdopt = (draft: string): Promise<IAdoptResult> =>
   req<IAdoptResult>('/api/adopt', { method: 'POST', body: JSON.stringify({ draft }) });
+
+/**
+ * ── TC ① ── **양식을 내려받는다.** `GET /api/tc/template`. 모델 **0회**.
+ *
+ * ⛔ 화면이 양식을 짜지 않는다 — 칸 이름은 계약에서 오고, 서버는 도구를 돌려서 읽는다.
+ *    화면이 짜면 계약이 바뀐 날 옛 칸을 나눠 주고, 채워 온 사람이 거부당하며
+ *    **자기가 틀린 줄 안다.**
+ */
+export const getTcTemplate = (format: 'tsv' | 'csv'): Promise<ITcTemplateResult> =>
+  req<ITcTemplateResult>(`/api/tc/template?format=${format}`);
+
+/**
+ * ── TC ② ── **채운 양식을 올려서 돌린다.** `POST /api/tc/runs`.
+ *
+ * ⛔ **경로가 아니라 내용을 보낸다** — 서버가 경로를 받으면 우주 밖 파일을 읽는 자리가 된다.
+ * ⛔ **돌릴 명령을 화면이 안 보낸다** — 그 칸을 열면 콘솔이 원격 명령 실행기가 된다.
+ */
+export const postTcRun = (input: {
+  cases: string;
+  casesName?: string;
+  preconditions?: string;
+  preconditionsName?: string;
+}): Promise<ITcRunResult> =>
+  req<ITcRunResult>('/api/tc/runs', { method: 'POST', body: JSON.stringify(input) });

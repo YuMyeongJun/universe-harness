@@ -292,6 +292,57 @@ if (reposRes === null || reposRes.status !== 400) {
 }
 
 /**
+ * ⛔⛔ **TC 자리가 화면에도 있는가 — 그리고 ⚪ 를 ✅ 로 접지 않는가.**
+ *
+ * 사용자가 요구한 두 칸이다: 「TC 양식은 **다운로드**받게 하고 · TC 만 있다면 **업로드해서 자동수행**」.
+ * ⚠️ 실측으로 겪었다: TC 도구는 **있었는데 서버에 자리가 0개**였다 — 그 두 칸이 통째로
+ *   터미널 전용이었고, 그동안 「TC 는 된다」고 말할 뻔했다. `/api/clones` 때와 같은 사고다.
+ *
+ * ⭐ 여기서 재는 것은 **세 갈래가 안 접히는가**다. 그게 이 칸의 존재 이유다:
+ *   빈 양식(머리 줄만)을 그대로 올리면 도구는 **⚪ 3(못 쟀다)** 으로 끝나야 한다.
+ *   ⛔ 그게 `ok:true` 로 오면 **아무것도 검증하지 않은 TC 가 초록불로 보인다**(§8).
+ *   ⛔ `unmeasured` 칸이 없으면 화면은 그걸 ❌ 로 그릴 수밖에 없고, 사람은 **없는 실패**를 고치러 간다.
+ */
+const tplRes = await fetch(`http://127.0.0.1:${PORT}/api/tc/template?format=nope`).catch(() => null);
+if (tplRes === null || tplRes.status !== 400) {
+  console.error(`  ⛔ 양식 자리가 **모르는 형식을 거절하지 않는다**(${tplRes?.status ?? '답 없음'})`);
+  failed = true;
+} else {
+  const tpl = await fetch(`http://127.0.0.1:${PORT}/api/tc/template`).then((r) => r.json()).catch(() => null);
+  /* ⛔ **둘 다** 와야 한다. 전제 양식을 안 주면 채운 사람이 「전제 0개」로 ⚪ 에 빠진다. */
+  const names = Array.isArray(tpl?.files) ? tpl.files.map((one) => one.name) : [];
+  if (tpl?.ok !== true || names.length < 2) {
+    console.error(`  ⛔ 양식이 **다 안 온다** — 받은 파일 ${names.length}개(${names.join(' · ') || '없음'})`);
+    failed = true;
+  } else if (tpl.files.some((one) => typeof one.text !== 'string' || one.text.trim() === '')) {
+    /* ⛔ **빈 양식을 성공으로 내주지 않는다.** 빈 것을 받은 사람은 채워서 올리고 거부당하며
+       자기가 틀린 줄 안다. */
+    console.error('  ⛔ 양식 파일이 **비어 있는데 ok:true** 다 — 빈 양식은 성공이 아니다');
+    failed = true;
+  } else {
+    /* ⭐ 머리 줄만 있는 양식을 그대로 올린다 — **⚪ 3 이 나와야** 옳다. */
+    const head = tpl.files.find((one) => one.name.includes('cases'))?.text ?? '';
+    const ran = await fetch(`http://127.0.0.1:${PORT}/api/tc/runs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cases: head }),
+    }).then((r) => r.json()).catch(() => null);
+    if (ran === null || typeof ran.unmeasured !== 'boolean') {
+      console.error('  ⛔ TC 자리에 **「못 쟀다」를 말할 칸이 없다** — 그러면 화면은 3 을 ❌ 로 그린다');
+      failed = true;
+    } else if (ran.ok === true || ran.unmeasured !== true) {
+      console.error(
+        `  ⛔ **빈 양식이 못 쟀다로 안 끝난다**(ok=${String(ran.ok)} · unmeasured=${String(ran.unmeasured)} · exit=${String(ran.exitCode)})`,
+      );
+      console.error('     ⛔ 아무것도 검증하지 않은 TC 가 초록불로 보인다 — 0 은 무죄가 아니다(§8)');
+      failed = true;
+    } else {
+      console.log(`  ✅ TC 양식 ${names.length}장이 나오고, **빈 양식은 ⚪ 못 쟀다로 끝난다**(exit=${String(ran.exitCode)})`);
+    }
+  }
+}
+
+/**
  * ⛔⛔ **서버가 내는데 화면이 안 부르는 자리를 센다** — 「터미널 없이 다 된다」의 유일한 척도다.
  *
  * 이 제품의 전제는 **사용자가 터미널에 접근하지 않는다**는 것이다(`docs/09-console-first.md`).

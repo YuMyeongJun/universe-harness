@@ -506,6 +506,41 @@ const CASES = [
     cmd: ['node', ['observatory/probe-console.mjs']],
   },
   {
+    check: '콘솔이 서는가(console)',
+    bite: 'TC 가 **아무것도 검증 안 했는데** 통과라고 답함',
+    expect: '빈 양식이 못 쟀다로 안 끝난다',
+    file: 'app/universe/server/src/tc.ts',
+    /**
+     * ⛔⛔ **세 갈래를 두 갈래로 접으면 그것이 사고다.** TC 도구의 계약은
+     * `0 끝났다 · 1 판단하지 않은 fail · 3 **못 쟀다**` 다. 3 을 `ok` 로 접으면
+     * **아무것도 검증하지 않은 TC 가 초록불로 보인다** — §8 의 그 자리다.
+     *
+     * ⚠️ 실측으로 이 변이가 **정확히 그 사유로** 물렸다:
+     *    「⛔ 빈 양식이 못 쟀다로 안 끝난다(ok=true · unmeasured=false · exit=3)」.
+     */
+    mutate: (t) => t.replace(
+      'ok: run.exitCode === 0,\n      unmeasured: run.exitCode === 3 || run.exitCode === null || run.killed,',
+      'ok: run.exitCode === 0 || run.exitCode === 3,\n      unmeasured: false,'),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
+    check: '콘솔이 서는가(console)',
+    bite: '양식을 **못 읽었는데** 빈 양식을 성공으로 내줌',
+    expect: '다 안 온다',
+    file: 'app/universe/server/src/tc.ts',
+    /**
+     * ⛔ 빈 양식을 받은 사람은 그걸 **채워서 올리고**, 그때 거부당하며 **자기가 틀린 줄 안다.**
+     *
+     * ⚠️⚠️ **겨냥을 한 번 틀렸다 — 그 실패를 적어 둔다.** 처음엔 `if (files.length === 0)`
+     *    가드를 `if (false)` 로 지웠는데 **안 물렸다.** 당연하다: 정상 기계에서는 파일이
+     *    안 비므로 **가드가 막으려는 조건이 안 만들어진다.**
+     *    ⇒ 겨냥은 「가드를 지운다」가 아니라 **「가드가 막으려는 조건을 만든다」**다.
+     *    파일 이름을 읽는 정규식을 못 맞게 바꿔 **실제로 0개를 만든 뒤에야** 물렸다.
+     */
+    mutate: (t) => t.replace(String.raw`matchAll(/^\s*·\s*(\S+)$/gm)`, 'matchAll(/^ZZZNOMATCH(\\S+)$/gm)'),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
     check: '자리마다 분모(observe)',
     bite: '훑는다고 적어 놓고 비어 있는 자리를 그냥 지나감',
     expect: '훑는다고 적어 놓고 0개인 자리',

@@ -21,6 +21,7 @@ import {
   readGalaxyDraft,
 } from './galaxy-draft.js';
 import { adoptDraft, adoptInputProblem, cloneInputProblem, cloneRepo, listRepos } from './clone.js';
+import { emitTemplate, runTc, tcInputProblem, type TcFormat } from './tc.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import {
   fromParamProblem,
@@ -409,6 +410,42 @@ export const createApp = (): express.Express => {
     void listRepos(limit).then(
       (result) => res.json(result),
       (e: unknown) => fail(res, 500, `레포 목록 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **TC 양식을 내준다.** `?format=tsv|csv`. 모델 **0회**.
+   *
+   * ⛔ 서버가 양식을 손으로 짜지 않는다 — 도구를 돌려 나온 파일을 읽는다(`tc.ts` 머리말).
+   * ⛔ 도구를 못 돌린 것을 **빈 양식으로 접지 않는다** — 빈 양식을 받은 사람은
+   *    그걸 채워서 올리고, 그때 거부당하며 **자기가 틀린 줄 안다.**
+   */
+  app.get('/api/tc/template', (req: Request, res: Response) => {
+    const raw = req.query['format'];
+    const format: TcFormat = raw === 'csv' ? 'csv' : 'tsv';
+    if (raw !== undefined && raw !== 'csv' && raw !== 'tsv') {
+      return fail(res, 400, 'format 은 tsv 나 csv 라야 합니다.');
+    }
+    void emitTemplate(format).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `양식 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **채워 온 TC 를 돌린다.** `{ cases, preconditions?, casesName?, preconditionsName? }`.
+   *
+   * ⛔ **경로가 아니라 내용을 받는다** — 경로를 받으면 우주 밖 아무 파일이나 읽는 자리가 된다.
+   * ⛔ **`--run` 을 안 만든다** — 그 칸을 열면 이 콘솔이 원격 명령 실행기가 된다.
+   * ⛔ **종료코드 3(못 쟀다)을 4xx 로 만들지 않는다.** 「전제가 안 섰다」·「검증 분모가 0이다」는
+   *    **결과**다(200 + `unmeasured:true`). 400 은 요청의 모양이 틀렸을 때뿐이다.
+   */
+  app.post('/api/tc/runs', (req: Request, res: Response) => {
+    const problem = tcInputProblem(req.body);
+    if (problem !== null) return fail(res, 400, problem);
+    void runTc(req.body as Parameters<typeof runTc>[0]).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `TC 도구를 부르지 못했습니다: ${(e as Error).message}`),
     );
   });
 
