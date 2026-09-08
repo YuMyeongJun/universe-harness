@@ -1,5 +1,7 @@
 import type {
+  IAdoptResult,
   ICaseVerdict,
+  ICloneResult,
   IDomainSummary,
   IEmitFile,
   IGalaxyDraftResult,
@@ -229,3 +231,32 @@ export const postVerdict = (
     method: 'POST',
     body: JSON.stringify({ caseId, verdict }),
   });
+
+/**
+ * ── 첫 칸 ① ── **깃 주소를 받아 저장소를 받아 온다.** `POST /api/clones`.
+ *
+ * ⛔⛔ **토큰 칸을 만들지 마라.** 이 함수에 자격을 넣을 인자가 **없는 것이 설계다** —
+ * 인증은 그 기계의 git 이 한다. 자격이 박힌 주소는 서버가 400 으로 거절하는데,
+ * 그 이유가 「보안 일반론」이 아니라 구체적이다: 주소에 토큰이 있으면 그 값이
+ * **인자**가 되어 셸 히스토리 · 프로세스 목록 · 서버 로그에 남는다.
+ * ⇒ 화면은 그 거절 문장을 **그대로** 보여 준다(고쳐 적지 않는다).
+ *
+ * ⚠️ **`ok:false` 를 예외로 만들지 않는다.** 「그런 저장소가 없다」는 200 으로 온다 —
+ * 이 함수는 그때 **던지지 않고 결과를 돌려준다.** 던지는 것은 요청의 모양이 틀렸을 때(400)와
+ * 서버가 도구를 못 불렀을 때(500)뿐이다.
+ */
+export const postClone = (url: string, name?: string): Promise<ICloneResult> =>
+  req<ICloneResult>('/api/clones', {
+    method: 'POST',
+    body: JSON.stringify(name === undefined ? { url } : { url, name }),
+  });
+
+/**
+ * ── 첫 칸 ③ ── **채운 초안을 은하로 들인다.** `POST /api/adopt`.
+ *
+ * ⛔ **초안 파일 경로만 준다.** 은하 이름은 도구가 초안에서 읽는다 — 화면이 정하지 않는다.
+ * ⛔ 서버는 **받아 온 자리 안의 초안만** 받는다(우주 밖 파일을 읽는 자리가 되지 않게).
+ * ⚠️ 여기서도 `ok:false` 는 **결과**다 — 「`TODO:` 가 남았다」가 그것이고, 그건 사람이 채울 일이다.
+ */
+export const postAdopt = (draft: string): Promise<IAdoptResult> =>
+  req<IAdoptResult>('/api/adopt', { method: 'POST', body: JSON.stringify({ draft }) });
