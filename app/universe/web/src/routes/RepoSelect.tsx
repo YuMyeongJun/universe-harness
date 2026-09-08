@@ -1,30 +1,29 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
-import { getDomains, getHealth, makeGalaxyDraft, writeGalaxyCoordinates, type IHealth } from '@api/client';
-import { FILL_LABEL, type IDomainSummary, type IGalaxyDraftResult } from '@api/types';
+import { makeGalaxyDraft, writeGalaxyCoordinates } from '@api/client';
+import type { IGalaxyDraftResult } from '@api/types';
 import { BlankCounter } from '@components/data-display/BlankCounter';
 import { CandidateNote } from '@components/data-display/CandidateNote';
 import { CommandList } from '@components/data-display/CommandList';
 import { ToolEcho } from '@components/data-display/ToolEcho';
 import { ActionButton } from '@components/form-controls/ActionButton';
+import { FolderPicker } from '@components/form-controls/FolderPicker';
 import { TextField } from '@components/form-controls/TextField';
 import { ConsoleShell } from '@components/layout/ConsoleShell';
-import { SidebarNav, type ISidebarGroup } from '@components/layout/SidebarNav';
-import { Banner, CARD, CARD_NEXT, CODE, ContentPane, Empty, HELP_TEXT, PageHead, Pill, SECTION, SUB } from '@components/ui';
-
-const kb = (n: number): string => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
-
-/** 목록 한 줄 — 본문(1fr)과 배지(auto). 줄 전체가 링크라 `<a>` 에 직접 그린다. */
-const DOMAIN_ROW = [
-  'grid grid-cols-entry items-center gap-3.5',
-  'w-full rounded-card border border-ui-line bg-ui-surface px-4 py-3.5',
-  'text-left text-inherit no-underline hover:border-ui-accent',
-].join(' ');
+import { Banner, CARD, CARD_NEXT, CODE, ContentPane, HELP_TEXT, PageHead, SECTION } from '@components/ui';
 
 
 /**
  * S1 · **잴 저장소 고르기** — 무엇을 잴 것인지 여기서 정한다.
+ *
+ * ── ⭐ 이 파일은 `DomainSelect.tsx` 였다 ──────────────────
+ * 한 파일 안에 **두 개가 섞여** 있었다: 우주 자신의 「잴 저장소 고르기」와,
+ * **형제 폴더의 남의 저장소**(`qa-workflow-v2-main`)에서 읽어 온 「도메인」 목록.
+ * 화면 제목은 전부터 「잴 저장소 고르기」였는데 **왼쪽 사이드바와 아래 절반이 남의 것**이었고,
+ * 그 사실을 배너 하나가 겨우 붙들고 있었다(⚠️ 여기 「도메인」은 우주의 은하가 아니다).
+ * ⇒ 남의 것을 걷어내고 이름을 실제 하는 일에 맞췄다. **사이드바가 사라진 것**도 그래서다 —
+ *   거기 있던 것이 전부 도메인 목록이었고, ⛔ **빈 사이드바를 그리지 않는다**
+ *   (`ConsoleShell` 의 규율: 빈 칸은 「여기 뭔가 있어야 하는데 없다」로 읽힌다).
  *
  * 로컬 폴더를 받아 서버가 `bin/galaxy.mjs` 를 돌리고, 화면은 그 **좌표 초안**을 보여 준다.
  *
@@ -37,13 +36,7 @@ const DOMAIN_ROW = [
  * ⚠️ git 저장소 주소 · gh 로그인 · AI Key 는 **이번 조각이 아니다**(로컬 폴더까지다).
  * 만들지 않았다 — 만들면 재지 않은 것이 늘어난다.
  */
-export function DomainSelect() {
-  const [domains, setDomains] = useState<IDomainSummary[] | null>(null);
-  const [health, setHealth] = useState<IHealth | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  /** ② 에서 고른 도메인. ⛔ 고르기 전에는 목록을 본문에 다시 늘어놓지 않는다. */
-  const [pickedDomain, setPickedDomain] = useState<string | null>(null);
-
+export function RepoSelect() {
   const [repoDir, setRepoDir] = useState('');
   const [galaxyName, setGalaxyName] = useState('');
   const [drafted, setDrafted] = useState<IGalaxyDraftResult | null>(null);
@@ -51,14 +44,6 @@ export function DomainSelect() {
   const [filled, setFilled] = useState<Record<string, string>>({});
   const [writeNote, setWriteNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    void getHealth().then(setHealth, () => undefined);
-    void getDomains().then(
-      (loaded) => setDomains(loaded.domains),
-      (failed: Error) => setError(failed.message),
-    );
-  }, []);
 
   const blanks = drafted?.todos.at ?? [];
   const typed = blanks.filter((where) => (filled[where] ?? '').trim() !== '').length;
@@ -99,32 +84,8 @@ export function DomainSelect() {
     );
   };
 
-  const sidebarGroups: ISidebarGroup[] = [
-    {
-      title: '도메인 — 형제 저장소에서 읽어 온 것',
-      /* ⛔ 못 읽었으면 **빈 목록으로 그리지 않는다** — 빈 목록은 「도메인이 없다」로 읽힌다. */
-      unmeasured: error ?? (domains === null ? '아직 못 받았다 — 불러오는 중이다.' : null),
-      items: (domains ?? []).map((one) => ({
-        id: one.domain,
-        /* ⚠️ 문서 수는 **잰 수다** — 서버가 파일을 세어 준다. 그래서 여기는 ⚪ 가 아니다.
-           ⛔ 다만 이 수는 「지식이 충분한가」가 아니다. 그건 옆의 배지가 말한다. */
-        label: one.title,
-        count: one.docs,
-      })),
-    },
-  ];
-
-  const sidebar = (
-    <SidebarNav
-      label="도메인"
-      groups={sidebarGroups}
-      selected={pickedDomain}
-      onSelect={setPickedDomain}
-    />
-  );
-
   return (
-    <ConsoleShell sidebar={sidebar}>
+    <ConsoleShell>
       <ContentPane>
       <PageHead
         eyebrow="우주 콘솔"
@@ -133,37 +94,15 @@ export function DomainSelect() {
       />
 
       {/**
-       * ⛔⛔ **이 화면의 「도메인」은 은하가 아니다.** 없으면 다음 사람이 그걸 은하로 안다.
-       *
-       * 아래 「이미 실측 중인 도메인」 목록은 `/api/domains` 가 **형제 폴더의 남의 저장소**
-       * (`qa-workflow-v2-main`)에서 읽어 온 것이고, 우주의 은하 명부
-       * (`universe.config.json` · `galaxies/` · `galaxies.local/`)와는 **아무 관계가 없다.**
-       * 실제로 이 화면이 첫 화면이던 동안 **우주가 아는 은하 5개가 화면에 아예 안 떴다.**
-       */}
-      <Banner tone="warn">
-        <strong>⚠️ 여기 「도메인」은 우주의 은하가 아니다.</strong>
-        <div className="mt-1.5">
-          아래 목록은 <strong>형제 폴더의 남의 저장소</strong>(<code>qa-workflow-v2-main</code>)에서
-          읽어 온 도메인 지식 문서다 — <code>universe.config.json</code> 과 <code>galaxies/</code> 가
-          아는 <strong>은하와는 아무 관계가 없다.</strong> 우주가 아는 은하는 왼쪽 레일의 <strong>「은하」</strong>에 있다.
-        </div>
-        <div className="mt-1.5">
-          ⛔ 이 화면을 <strong>없애지 않았다</strong> — 도메인 지식 수집이 여기로 들어간다. 다만
-          이 줄이 없으면 다음 사람이 <strong>이것을 은하로 읽는다.</strong>
-        </div>
-      </Banner>
-
+        * ⚠️⚠️ **전에는 여기가 경로를 손으로 치는 칸이었다.**
+        * 「/Users/나/Documents/GitHub/내-앱」을 예시로 띄워 놓고 사람이 받아쓰게 했는데,
+        * 그건 **터미널에서 `pwd` 를 칠 줄 아는 사람만** 밟을 수 있는 칸이다 —
+        * 이 콘솔의 전제(「화면이 정본이다」)와 정면으로 어긋난다.
+        * ⇒ 서버가 훑고 사람이 **고른다.** 브라우저 폴더 선택기를 못 쓰는 이유는
+        *   `FolderPicker` 머리말에 있다(절대 경로를 안 준다 — 규격이다).
+        */}
       <div className={CARD}>
-        <TextField
-          id="repo-dir"
-          label="로컬 폴더 경로"
-          sub="필수"
-          mono
-          value={repoDir}
-          placeholder="/Users/나/Documents/GitHub/내-앱"
-          help="이 폴더의 package.json 을 서버가 읽습니다. ⚠️ git 저장소 주소 · gh 로그인 · AI Key 는 이 자리가 아닙니다 — 아직 로컬 폴더까지입니다."
-          onChange={setRepoDir}
-        />
+        <FolderPicker value={repoDir} onPick={setRepoDir} />
         <TextField
           id="galaxy-name"
           label="은하 이름"
@@ -276,53 +215,6 @@ export function DomainSelect() {
         </div>
       )}
 
-      <div className="mt-8.5">
-        <h2 className={SECTION}>이미 실측 중인 도메인 — 형제 저장소에서 읽어 온 것</h2>
-
-        {error && (
-          <Banner tone="bad">
-            <strong>지식 저장소를 찾지 못했습니다.</strong>
-            <div className="mt-1.5 whitespace-pre-wrap">{error}</div>
-          </Banner>
-        )}
-
-        {health && health.ok && (
-          <p className={`mt-1 text-meta ${SUB}`}>
-            지식 저장소: <code className={CODE}>{health.workflowRoot}</code>
-          </p>
-        )}
-
-        {domains === null && !error && <Empty>불러오는 중…</Empty>}
-
-        {/**
-          * ⛔ 목록 **전부**를 여기 다시 늘어놓지 않는다 — 그건 왼쪽(②)의 일이다.
-          * 여기 뜨는 것은 **고른 하나**이고, 고르기 전에는 고르라고 적는다.
-          */}
-        {pickedDomain === null && domains !== null && domains.length > 0 && (
-          <Empty>
-            <strong>왼쪽에서 도메인을 고르세요.</strong>
-            <div className="mt-1.5">도메인 {domains.length}개가 목록에 있습니다.</div>
-          </Empty>
-        )}
-
-        <div className="grid gap-2.5">
-          {(domains ?? []).filter((one) => one.domain === pickedDomain).map((summary) => (
-            <Link key={summary.domain} to={`/d/${summary.domain}`} className={DOMAIN_ROW}>
-              <span>
-                <span className="block font-semibold">
-                  {summary.title}{' '}
-                  <span className="font-normal text-ui-ink-faint">{summary.domain}</span>
-                </span>
-                <span className="mt-0.5 block text-meta text-ui-ink-dim">
-                  문서 {summary.docs}개 · {kb(summary.bytes)} · LNB 폴더 {summary.lnbFolders}개
-                  {summary.tbdDocs > 0 && ` · 미작성 표시 ${summary.tbdDocs}건`}
-                </span>
-              </span>
-              <Pill tone={summary.fill}>{FILL_LABEL[summary.fill]}</Pill>
-            </Link>
-          ))}
-        </div>
-      </div>
       </ContentPane>
     </ConsoleShell>
   );

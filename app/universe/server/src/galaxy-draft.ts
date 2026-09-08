@@ -19,7 +19,7 @@
  * ⚠️ 이번 조각은 **로컬 폴더까지**다. 원격 git 주소 · gh 로그인 · AI 키는 **안 만들었다**.
  */
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { HARNESS_ROOT, dataDir } from './paths.js';
@@ -309,4 +309,94 @@ export const readGalaxyDraft = (id: string): IGalaxyDraftResult | null => {
     stderr: '',
     out: file,
   });
+};
+
+
+/**
+ * ── 사람이 채운 값을 **초안에 적는다** ────────────────────────────
+ *
+ * ⛔⛔ **이 자리는 없었다.** 화면(`RepoSelect`)은 `PUT /api/galaxy-drafts/:id/coordinates` 를
+ * 부르고 있었는데 **서버에 그 라우트가 없었다** — 눌러 보면 ⚪ 로 물러나고, 사람은 결국
+ * 파일을 손으로 열어야 했다. 「화면이 정본이다」의 **마지막 한 걸음이 비어 있었다.**
+ *
+ * ## ⛔ 이 함수가 하지 않는 것
+ *
+ *  1. **커밋되는 `galaxies/` 에 안 쓴다.** 초안은 끝까지 `.data/`(gitignore)에 산다.
+ *  2. **없는 자리를 만들지 않는다.** 초안에 실재하지 않는 경로는 **거절**한다 —
+ *     지어내면 아무도 안 읽는 칸이 하나 는다.
+ *  3. **`TODO:` 가 아닌 칸을 덮지 않는다.** 도구가 읽어낸 값을 화면이 조용히 갈아치우면
+ *     「도구가 읽은 것」과 「사람이 적은 것」이 구별되지 않는다.
+ *  4. **빈 값을 받지 않는다.** 빈 문자열로 채우면 `TODO:` 만 사라지고 좌표는 여전히 비어 있다 —
+ *     그게 제일 나쁘다: 관문이 **완성됐다고 믿고** 엉뚱한 것을 잰다.
+ */
+export interface IWriteResult {
+  written: string;
+  /** 실제로 적힌 자리. ⛔ 요청한 것 전부가 아니라 **적힌 것**만 온다. */
+  filled: string[];
+  /** 아직 남은 `TODO:` 자리. 0 이면 초안이 다 찬 것이다. */
+  remaining: string[];
+}
+
+/** 점 경로(`solarSystems[0].srcDir`)로 값을 찾는다. ⛔ 없으면 `undefined` — 만들지 않는다. */
+const valueAt = (root: unknown, path: string): unknown => {
+  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  let here: unknown = root;
+  for (const part of parts) {
+    if (Array.isArray(here)) here = here[Number(part)];
+    else if (isRecord(here)) here = here[part];
+    else return undefined;
+  }
+  return here;
+};
+
+/** 점 경로에 값을 넣는다. ⛔ 중간 자리가 없으면 **만들지 않고** false 를 돌려준다. */
+const putAt = (root: unknown, path: string, value: string): boolean => {
+  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  const last = parts.pop();
+  if (last === undefined) return false;
+  let here: unknown = root;
+  for (const part of parts) {
+    if (Array.isArray(here)) here = here[Number(part)];
+    else if (isRecord(here)) here = here[part];
+    else return false;
+  }
+  if (Array.isArray(here)) { (here as unknown[])[Number(last)] = value; return true; }
+  if (isRecord(here)) { here[last] = value; return true; }
+  return false;
+};
+
+export const writeInputProblem = (filled: unknown): string | null => {
+  if (!isRecord(filled)) return '채운 값을 `filled` 객체로 주세요.';
+  const keys = Object.keys(filled);
+  if (keys.length === 0) return '채운 값이 하나도 없습니다.';
+  for (const key of keys) {
+    const value = filled[key];
+    if (typeof value !== 'string' || value.trim() === '') {
+      return `빈 값으로는 못 채웁니다: ${key}`;
+    }
+  }
+  return null;
+};
+
+export const writeGalaxyCoordinates = (id: string, filled: Record<string, string>): IWriteResult => {
+  const file = join(draftsDir(), `${id}.json`);
+  if (!existsSync(file)) throw new Error(`그런 초안이 없습니다: ${id}`);
+  const draft: unknown = JSON.parse(readFileSync(file, 'utf8'));
+  if (!isRecord(draft)) throw new Error('초안이 객체가 아닙니다.');
+
+  const done: string[] = [];
+  for (const [path, value] of Object.entries(filled)) {
+    const before = valueAt(draft, path);
+    if (before === undefined) throw new Error(`초안에 없는 자리입니다: ${path}`);
+    if (typeof before !== 'string' || !before.startsWith('TODO:')) {
+      throw new Error(`\`TODO:\` 가 아닌 자리는 덮지 않습니다: ${path}`);
+    }
+    if (!putAt(draft, path, value.trim())) throw new Error(`적지 못했습니다: ${path}`);
+    done.push(path);
+  }
+
+  writeFileSync(file, `${JSON.stringify(draft, null, 2)}\n`);
+  /* ⭐ **다시 읽어서** 남은 자리를 센다 — 방금 적은 것을 믿지 않고 파일을 다시 본다. */
+  const after: unknown = JSON.parse(readFileSync(file, 'utf8'));
+  return { written: file, filled: done, remaining: todoPaths(after) };
 };

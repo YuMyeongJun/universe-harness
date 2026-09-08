@@ -1,5 +1,12 @@
 <!doctype html>
-<html lang="ko">
+<!--
+  ⭐ `data-theme="light"` 한 글자가 이 콘솔의 테마다. **지우면 다크로 돌아간다** —
+  다크는 `:root` 에 그대로 살아 있고(`web/src/styles/tokens/_palette.css`),
+  라이트가 `web/src/styles/tokens/_themes.css` 의 블록으로 얹힌다.
+  ⛔ 화면 안에 테마 손잡이를 안 만들었다: 아무도 돌리지 않는 손잡이는 손잡이가 아니다
+     (`_metrics.css` 가 여백을 변수로 안 뺀 것과 같은 기준).
+-->
+<html lang="ko" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

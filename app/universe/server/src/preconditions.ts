@@ -20,7 +20,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { reloadSession } from './collect.js';
 import { HARNESS_ROOT } from './paths.js';
 
 /** 이 콘솔이 재기 전에 확인하는 전제. **여기 없는 것은 확인하지 않는다** — 열거가 곧 선언이다. */
@@ -134,26 +133,20 @@ export const browserBinary = async (): Promise<IPrecondition> => {
 };
 
 /* ── ② session-alive ──────────────────────────────────────────────
- * ⚠️⚠️ **SPA 는 세션이 갈려도 새로고침 전까지 옛 계정이 화면에 남는다.**
- *      새로고침 없이 재면 **거짓 초록**이 나온다 — 그래서 `reloadSession` 이
- *      **반드시 새로고침한 뒤** URL 을 준다.
- * ⚠️ 세션에는 TTL 이 있다고 전해 들었다(다른 팀 전달값 「1시간」 — ⛔ 원문 대조 전이라
- *    **임계값으로 쓰지 않는다**). 그래서 시계로 판정하지 않고 **주행 직전에 다시 새로고침해서
- *    잰다.** 오래 도는 루프 중간에 세션이 죽으면 그 뒤 결과는 ⚪ 여야 하지 ❌ 가 아니다. */
-
-/** 로그인 URL 과 같은 화면인가 — **경로만** 본다(쿼리의 `?redirect=` 는 매번 다르다). */
-const samePlace = (a: string, b: string): boolean => {
-  try {
-    const x = new URL(a);
-    const y = new URL(b);
-    const norm = (p: string): string => (p.length > 1 ? p.replace(/\/+$/, '') : p);
-    return x.host.toLowerCase() === y.host.toLowerCase() && norm(x.pathname) === norm(y.pathname);
-  } catch {
-    return false;
-  }
-};
-
-const minutes = (ms: number): string => `${Math.floor(ms / 60_000)}분`;
+ *
+ * ⚠️⚠️ **이 축은 지금 잴 수가 없다** — 세션을 여는 자리(수집 화면 · `collect.ts`)가
+ *      형제 저장소를 끊으면서 함께 지워졌다. 선언한 은하에서는 ⚪ 를 내고 이유를 적는다.
+ *
+ * ⛔ **함께 지운 것과 왜 지웠는지**(다음에 세션을 다시 놓는 사람에게):
+ *    · `samePlace(a, b)` — 「지금 URL 이 로그인 화면인가」를 **경로만** 보고 갈랐다.
+ *      쿼리의 `?redirect=` 가 매번 달라서 문자열 비교로는 못 갈린다.
+ *    · `minutes(ms)` — 「연 지 몇 분」. 세션 TTL 을 **임계값으로 쓰지 않고** 사람에게 보여만 줬다
+ *      (다른 팀 전달값 「1시간」은 ⛔ 원문 대조 전이라 판정에 안 썼다).
+ *    · **새로고침을 반드시 먼저 한다** — SPA 는 세션이 갈려도 새로고침 전까지 옛 계정이
+ *      화면에 남아서, 안 하고 재면 **거짓 초록**이 나온다. 이게 제일 중요한 규율이었다.
+ *    ⇒ 코드는 지웠지만 **왜 그렇게 쟀는지는 남긴다.** 다음 사람이 새로고침을 빠뜨리면
+ *      같은 거짓 초록을 다시 만든다.
+ */
 
 /**
  * 이 은하/주행이 **세션 축을 쓰는가.** ⛔ 우주가 짐작하지 않는다 — **은하가 선언한다**(§9).
@@ -190,10 +183,6 @@ export const sessionUse = (coord: Coordinate, declaredByRun?: boolean): SessionU
 
 export const sessionAlive = async (opts: {
   use: SessionUse;
-  domain: string | null;
-  loginUrl: string;
-  /** chromium 이 서는가. 안 서면 세션은 **잴 수가 없다**(선언했을 때만 의미가 있다). */
-  binaryOk?: boolean;
   /** 말에 쓸 좌표 이름 */
   galaxy?: string;
 }): Promise<IPrecondition> => {
@@ -218,52 +207,26 @@ export const sessionAlive = async (opts: {
     };
   }
 
-  /* ── 둘째 칸: **선언했다.** 여기서부터 못 재면 전부 `null` 이다. ── */
-  if (opts.binaryOk === false) {
-    return { id, ok: null, detail: 'chromium 이 없어 브라우저를 띄울 수조차 없다 — 세션은 **안 잰다.**' };
-  }
-  if (opts.domain === null || opts.domain === '') {
-    return {
-      id,
-      ok: null,
-      detail: '세션을 쓴다고 선언했는데 어느 도메인의 세션인지 안 정해졌다 — **안 잰다.**',
-    };
-  }
-  const probe = await reloadSession(opts.domain);
-  if (probe.kind === 'none') {
-    return { id, ok: null, detail: '브라우저가 열려 있지 않다. 잴 대상이 없어 **안 잰다.**' };
-  }
-  if (probe.kind === 'other') {
-    return {
-      id,
-      ok: null,
-      detail: `열려 있는 세션은 다른 도메인(${probe.domain})의 것이다 — ${opts.domain} 의 세션은 **안 잰다.**`,
-    };
-  }
-  if (probe.kind === 'error') {
-    /* ⛔ 여기서 「세션이 죽었다」고 단정하지 않는다. 새로고침이 못 끝난 것과
-     *    세션이 갈린 것을 구별할 수가 없다 — 구별 못 하면 **안 잰다**고 말한다. */
-    return { id, ok: null, detail: `새로고침이 끝나지 않아 세션을 **못 쟀다**: ${probe.message}` };
-  }
-  const age = minutes(probe.ageMs);
-  if (opts.loginUrl.trim() === '') {
-    return {
-      id,
-      ok: null,
-      detail: `새로고침은 했고 지금 ${probe.url} 에 있다. 그런데 로그인 URL 이 없어 「로그인 화면으로 튕겼는지」를 가릴 기준이 없다 — **안 잰다.** (연 지 ${age})`,
-    };
-  }
-  if (samePlace(probe.url, opts.loginUrl)) {
-    return {
-      id,
-      ok: false,
-      detail: `새로고침하니 로그인 화면으로 돌아왔다 (${probe.url}). 세션이 죽었다 — 사람이 다시 로그인해야 한다. 연 지 ${age}. ⚪ 이 주행의 결과는 못 잰 것이지 ❌ 가 아니다.`,
-    };
-  }
+  /* ── 둘째 칸: **선언했다.** ───────────────────────────────────
+   *
+   * ⛔⛔ **이 콘솔은 더 이상 로그인 세션을 열지 않는다.** 전에는 수집(`collect.ts`)이
+   *    Chromium 을 띄우고 사람이 로그인했고, 여기서 그 세션을 **새로고침해서** 살아 있는지
+   *    쟀다. 그 길은 **형제 폴더의 남의 저장소**(`qa-workflow-v2-main`)의 도메인 설문에서
+   *    로그인 URL·계정을 받아 왔다 — 그 저장소를 끊으면서 **세션을 열 방법 자체가 없어졌다.**
+   *
+   * ⚠️ 그래서 여기서 `ok: true` 를 **주지 않는다.** 「열 수 없으니 잴 것도 없다」를 초록으로
+   *    적으면, 로그인이 필요한 은하가 **조용히 통과**한다 — 이 저장소가 제일 싫어하는 모양이다.
+   *    ⇒ 선언했으면 **⚪(못 쟀다)** 이고, 왜 못 쟀는지를 그대로 적는다.
+   *
+   * ⭐ **배경 소음이 되지 않는다.** 이 칸이 말하는 것은 `requiresSession: true` 를
+   *    **선언한 은하에서뿐**이고, 지금 그것을 선언한 은하는 **0개**다(실측:
+   *    `grep -l requiresSession galaxies/*.json galaxies.local/*.json` → 없음).
+   *    선언하는 날 이 ⚪ 가 **첫 화면에서 바로 보인다** — 그게 이 칸을 남겨 둔 이유다.
+   */
   return {
     id,
-    ok: true,
-    detail: `새로고침 뒤에도 ${probe.url} 에 남아 있다 (기준: 선언된 로그인 URL 경로 ${opts.loginUrl} 와 비교). 연 지 ${age}.`,
+    ok: null,
+    detail: `좌표 ${where} 가 ${SESSION_FIELD} 를 선언했는데, 이 콘솔에는 **세션을 여는 자리가 없다** — 로그인 세션을 띄우던 수집 화면은 형제 저장소(qa-workflow-v2-main)를 끊으면서 함께 지워졌다. ⇒ **안 잰다**(⚪). 이 은하의 주행 결과는 ❌ 가 아니라 ⚪ 로 읽어야 한다. 세션을 다시 재려면 **은하 좌표가** 로그인 자리를 선언하고 그것을 여는 길을 새로 놓아야 한다.`,
   };
 };
 
@@ -378,10 +341,6 @@ export const requiredEnv = async (
 /* ── 셋을 한 번에 ────────────────────────────────────────────────── */
 
 export interface IPreconditionInput {
-  /** 세션을 잴 도메인. 선언된 은하에서 이게 없으면 `session-alive` 는 `null`(안 잰다)이다. */
-  domain?: string | null;
-  /** 로그인 URL. 없으면 「튕겼는지」를 가릴 기준이 없다 → `null`. ⛔ 좌표가 아니라 기계 안 초안에서 온다. */
-  loginUrl?: string;
   galaxy?: string;
   /**
    * **이 주행 자신이** 살아 있는 세션을 요구하는가.
@@ -392,9 +351,10 @@ export interface IPreconditionInput {
 }
 
 /**
- * ⛔ 순서를 지킨다: **싼 것부터, 그리고 화면을 건드리는 것은 맨 뒤로.**
- *    `session-alive` 는 (선언됐을 때) 실제로 **새로고침**을 하므로 부작용이 있다 —
- *    선언 안 한 은하·chromium 이 없는 경우가 먼저 걸러지면 헛도는 새로고침을 안 한다.
+ * ⚠️ 전에는 여기에 「싼 것부터, 화면을 건드리는 것은 맨 뒤로」라는 순서 규율이 있었다 —
+ *    `session-alive` 가 실제로 **새로고침**을 했기 때문이다. 그 부작용이 사라졌으므로
+ *    (세션을 여는 자리가 없다) 순서는 이제 **읽는 사람을 위한 것**뿐이다:
+ *    선언한 순서대로 실어서 늘 같은 자리에서 찾게 한다.
  */
 export const measurePreconditions = async (
   input: IPreconditionInput = {},
@@ -406,9 +366,6 @@ export const measurePreconditions = async (
   const env = await requiredEnv(name, coord);
   const session = await sessionAlive({
     use: sessionUse(coord, input.requiresSession),
-    domain: input.domain ?? null,
-    loginUrl: input.loginUrl ?? '',
-    binaryOk: binary.ok === true,
     galaxy: name,
   });
   /* 선언한 순서대로 싣는다 — 읽는 사람이 늘 같은 자리에서 찾게. */

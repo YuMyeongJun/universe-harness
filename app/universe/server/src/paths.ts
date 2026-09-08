@@ -4,63 +4,45 @@
  * 이 저장소 규율이다(`tests/coordinates.test.ts` 가 구조로 막는다): 홈 아래 절대 경로가
  * 추적 파일에 들어가면 관문이 문다. 팀원마다 홈이 다르고 윈도우가 섞이기 때문이다.
  *
- * 지식 저장소는 **형제 폴더 상대경로**로 찾는다 — `tc-lint` 를 소비 쪽이 부르는 규약과 같다.
- * 다른 곳에 두었으면 `QA_WORKFLOW_DIR` 환경변수로 덮는다 (그 값은 커밋되지 않는다).
+ * ⚠️⚠️ 전에는 이 파일이 **형제 폴더의 남의 저장소**(`qa-workflow-v2-main`)를 찾는
+ * `SIBLING`·`workflowRoot`·`domainsDir`·`locate` 를 들고 있었다. 그 길과 그것을 쓰던
+ * 라우트 13개를 **전부 끊었다** — 이 콘솔이 읽는 정본은 우주 자신뿐이다.
+ * ⛔ `QA_WORKFLOW_DIR` 환경변수도 이제 **아무 데도 안 읽는다.** 어딘가에 남아 있어도
+ *    조용히 무시되는 것이 아니라, **읽는 코드가 없다.**
  */
-import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** dist/paths.js → app/universe → app → 저장소 루트 */
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const HARNESS_ROOT = resolve(HERE, '../../..');
 
 /**
- * 형제 폴더 이름. 클론하면 저장소 이름이 그대로 폴더명이 된다.
+ * 이 콘솔이 붙은 우주의 뿌리.
  *
- * ⛔⛔ **이것은 「우주의 것」이 아니다.** 아래 `workflowRoot`·`domainsDir`·`locate` 와 그것을
- *    쓰는 라우트(`/api/health` · `/api/domains/**`)는 전부 **남의 저장소**(qa-workflow-v2-main)를
- *    지식 출처로 삼는, 이 콘솔이 `qa-harness` 에서 흡수돼 올 때 딸려 온 길이다.
- *    우주의 은하와는 **아무 관계가 없다** — 은하는 `universe.config.json` 과 `galaxies/`·`galaxies.local/` 이고
- *    그것을 나르는 자리는 `galaxies.ts` 다(`/api/galaxies`).
- *
- * ⚠️ 그래도 **지우지 않았다.** 그 화면(도메인 선택 · 설문 · 수집 · 지식 생성)이 아직 살아 있어서
- *    지우면 동시에 두 개가 깨진다. 새 길을 **더한** 것이고, 이 주석은 다음 사람이
- *    「콘솔의 첫 화면이 왜 남의 저장소 도메인을 보나」에서 헤매지 않게 하려고 박아 둔다.
+ * ⚠️ 기본은 **자기 위치에서 거슬러 올라간 자리**다 — 콘솔은 우주 **안에** 산다.
+ * ⛔ 그런데 그 계산은 「우주가 실재하는가」를 **한 번도 안 묻는다.** 뿌리가 무엇이든
+ *    `resolve` 는 언제나 문자열 하나를 돌려주므로, 없는 자리를 가리켜도 조용히 성공한다.
+ *    ⇒ `/api/health` 가 `universe.config.json` 의 **실재를 재서** 답하고,
+ *      `UNIVERSE_ROOT` 는 그 갈래를 **실제로 밟아 볼 수 있게** 하는 손잡이다
+ *      (`observatory/probe-console.mjs` 가 없는 뿌리를 가리키고 관문에서 확인한다).
+ * ⭐ 손잡이가 시험용만은 아니다: 다른 우주 체크아웃에 콘솔을 붙일 때 쓰는 자리이기도 하다.
  */
-const SIBLING = 'qa-workflow-v2-main';
+export const HARNESS_ROOT = process.env['UNIVERSE_ROOT']
+  ? resolve(process.env['UNIVERSE_ROOT'])
+  : resolve(HERE, '../../..');
 
-export const workflowRoot = (): string =>
-  process.env['QA_WORKFLOW_DIR']
-    ? resolve(process.env['QA_WORKFLOW_DIR'])
-    : resolve(HARNESS_ROOT, '..', SIBLING);
-
-export const domainsDir = (): string => join(workflowRoot(), 'domains');
 
 /**
- * 실측 초안은 **이 저장소 안**에 둔다 — 지식 저장소를 더럽히지 않는다.
+ * 화면이 만든 것이 떨어지는 자리 — 좌표 초안 · 주행 결과 · 사람이 붙인 판정.
  *
- * ⛔⛔ **여기에 계정 비밀번호가 들어간다**(`survey.entry.accountPw`). 그래서 이 자리는
- *    반드시 **gitignore 되는 자리**여야 한다. 실측으로 확인한다:
+ * ⛔ **반드시 gitignore 되는 자리여야 한다.** 실측으로 확인한다:
  *      `git check-ignore -v app/universe/.data/x.json` → `app/universe/.gitignore:4:.data/` (막힌다)
  *    ⚠️ 콘솔이 `qa-harness` 에서 흡수돼 오면서 이 경로만 옛 이름(`app/knowledge`)에 남아 있었다.
- *      그 자리는 **어느 .gitignore 도 안 덮는다**(`git check-ignore` 가 exit 1 로 답한다) —
- *      즉 첫 수집을 하는 순간 계정 정보가 **커밋 대상으로 올라온다.** 이름만 바뀐 것이 아니라
- *      **가려지는 자리에서 안 가려지는 자리로 옮겨진 것**이었다.
+ *      그 자리는 **어느 .gitignore 도 안 덮는다**(`git check-ignore` 가 exit 1 로 답한다).
+ *
+ * ⚠️ 전에는 이 주석이 「여기에 **계정 비밀번호**가 들어간다(`survey.entry.accountPw`)」였다.
+ *    설문·수집을 지우면서 그 값은 **더 이상 여기 안 떨어진다.** 그래도 gitignore 규율은
+ *    그대로 둔다 — 좌표 초안에는 남의 저장소의 로컬 경로가 들어가고, 그건
+ *    「팀원마다 홈이 다르다」는 이 파일 머리말의 그 이유에 그대로 걸린다.
  */
 export const dataDir = (): string => resolve(HARNESS_ROOT, 'app/universe/.data');
-
-/**
- * 지식 저장소를 찾았는가. **못 찾았으면 조용히 빈 목록을 주지 않는다** —
- * 그건 "도메인 0개"로 보이고, 이 저장소가 가장 싫어하는 "안 잰 것이 통과로 세어지는" 자리다.
- */
-export const locate = (): { ok: true; dir: string } | { ok: false; tried: string; hint: string } => {
-  const dir = domainsDir();
-  if (existsSync(dir)) return { ok: true, dir };
-  return {
-    ok: false,
-    // 형제 경로 규약이 깨진 것이지 도메인이 없는 게 아니다 — 화면에 그대로 띄운다.
-    tried: dir,
-    hint: `두 저장소를 같은 부모 폴더 아래 두거나, QA_WORKFLOW_DIR 로 지식 저장소 경로를 지정하세요.`,
-  };
-};

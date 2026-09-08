@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { getObservation } from '@api/client';
+import { getGalaxies, getObservation } from '@api/client';
 import type { ILawObservation, IObservation, IRuleObservation } from '@api/types';
 
 import { CountBadge } from '@components/data-display/CountBadge';
@@ -17,7 +17,7 @@ import { ListPane } from '@components/layout/ListPane';
 import { SidebarNav, type ISidebarGroup } from '@components/layout/SidebarNav';
 import { judgeRule } from '@lib/verdict';
 
-import { Banner, CARD, CARD_NEXT, CODE, ContentPane, HELP_TEXT, Pill, SECTION } from '@components/ui';
+import { Banner, CARD, CARD_NEXT, CODE, ContentPane, Field, HELP_TEXT, Pill, SECTION } from '@components/ui';
 
 /**
  * **위반 목록과 처방** — 지금까지 터미널 출력에만 있던 것을 사람이 보는 자리.
@@ -102,7 +102,25 @@ export function Violations() {
    * 사람이 누른다** — 이 화면의 첫 상태는 언제나 ⚪ 「아직 재지 않았다」다.
    */
   const [params] = useSearchParams();
-  const [galaxy, setGalaxy] = useState(params.get('galaxy') ?? GALAXY_DEFAULT);
+  /**
+   * ⚠️ 기본값을 **안 넣는다**(전에는 `'console'` 이었다). 등재된 은하가 없을 수도 있고,
+   * 그때 기본값이 들어 있으면 화면이 **없는 은하를 고른 것처럼** 보인다.
+   * 주소로 들어온 `?galaxy=` 만 존중한다.
+   */
+  const [galaxy, setGalaxy] = useState(params.get('galaxy') ?? '');
+  /**
+   * 우주가 아는 은하 목록. ⛔ **못 읽었을 때 빈 목록으로 그리지 않는다** —
+   * `null` 은 「아직 못 받았다」이고 `[]` 는 「정말 하나도 없다」다. 화면이 그 둘을 가른다.
+   */
+  const [list, setList] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    void getGalaxies().then(
+      /* ⛔ `unmeasured` 가 있으면 **목록을 못 만든 것**이다 — 빈 목록으로 접지 않는다(§8). */
+      (came) => setList(came.unmeasured === null ? came.galaxies.map((one) => one.name) : null),
+      () => setList(null),
+    );
+  }, []);
   const [sample, setSample] = useState(SAMPLE_DEFAULT);
   const [observed, setObserved] = useState<IObservation | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -113,7 +131,16 @@ export function Violations() {
   const [tab, setTab] = useState<RuleTab>('all');
   const [query, setQuery] = useState('');
 
-  const canObserve = galaxy.trim() !== '' && !busy;
+  /**
+   * ⛔ **고른 은하가 목록에 있어야 누를 수 있다.**
+   * 전에는 `galaxy.trim() !== ''` 만 봤는데, 기본값(`console`)이 문자열로 들어 있어서
+   * **등재된 은하가 하나도 없어도 버튼이 눌렸다.** 누르면 ⚪ 「그런 좌표가 없다」가 나오고,
+   * 사람은 자기가 뭘 잘못했는지 찾는다 — ⛔ **못 누르게 하는 것이 답이다.**
+   * ⚠️ 목록을 아직 못 받았을 때(`null`)는 막지 않는다 — 「못 받았다」와 「없다」는 다르고,
+   *    못 받았다고 사람의 손을 묶으면 주소로 들어온 `?galaxy=` 를 못 쓴다.
+   */
+  const inList = list === null || list.includes(galaxy.trim());
+  const canObserve = galaxy.trim() !== '' && inList && !busy;
 
   const askToObserve = (): void => {
     setBusy(true);
@@ -141,16 +168,38 @@ export function Violations() {
   const intake = (
     <div className={CARD}>
       <h2 className={SECTION}>은하를 골라 다시 잰다 — 판정은 관측소가 낸다</h2>
-      <TextField
-        id="observe-galaxy"
-        label="은하 이름"
-        sub="필수"
-        mono
-        value={galaxy}
-        placeholder="console"
-        help="galaxies/<이름>.json 의 이름입니다. 이 기계에 그 좌표가 없으면 화면은 ⚪ 「못 쟀다」로 적습니다 — 「위반이 없다」로 적지 않습니다."
-        onChange={setGalaxy}
-      />
+      {/**
+        * ⚠️⚠️ **전에는 여기가 이름을 손으로 치는 칸이었다.**
+        * 「`galaxies/<이름>.json` 의 이름입니다」라고 적어 놓고 **철자를 외우게** 했다 —
+        * 이 콘솔의 전제(화면이 정본이다)와 어긋나고, 오타 하나면 **⚪ 「그런 좌표가 없다」**가
+        * 뜨는데 사람은 자기가 틀린 건지 은하가 없는 건지 모른다.
+        * ⇒ **우주가 아는 것만 고른다.** 목록은 `/api/galaxies` 가 준다.
+        * ⛔ 등재된 은하가 **하나도 없으면 빈 칸을 그리지 않는다** — 「없다」를 그대로 말한다(§8).
+        */}
+      {list === null && <span className={HELP_TEXT}>은하 목록을 부르는 중…</span>}
+      {list !== null && list.length === 0 && (
+        <Banner tone="unknown">
+          <strong>⚪ 고를 은하가 없다 — 「위반이 없다」가 아니다.</strong>
+          <div className="mt-1.5">
+            이 우주에 등재된 은하가 <strong>하나도 없습니다.</strong> 먼저 레일의{' '}
+            <strong>「받아 오기」</strong> 나 <strong>「잴 저장소」</strong> 로 은하를 들이세요.
+          </div>
+        </Banner>
+      )}
+      {list !== null && list.length > 0 && (
+        <Field
+          label="은하"
+          sub="등재된 것만"
+          help="⛔ 이름을 치지 않습니다 — 우주가 아는 것만 고릅니다. 좌표가 있어야 목록에 뜹니다."
+        >
+          <select id="observe-galaxy" value={galaxy} onChange={(e) => setGalaxy(e.target.value)}>
+            <option value="">고르세요</option>
+            {list.map((one) => (
+              <option key={one} value={one}>{one}</option>
+            ))}
+          </select>
+        </Field>
+      )}
       <TextField
         id="observe-sample"
         label="표본 수"

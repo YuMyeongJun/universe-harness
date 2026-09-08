@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { getGalaxies, getRepos, postAdopt, postClone } from '@api/client';
-import type { IAdoptResult, ICloneResult, IRepoListResult } from '@api/types';
+import { getBranches, getGalaxies, getGhOrgs, getRepos, postAdopt, postClone } from '@api/client';
+import type { IAdoptResult, IBranchList, ICloneResult, IGhOrgs, IRepoListResult } from '@api/types';
 
+import { GhAuthPanel } from '@components/data-display/GhAuthPanel';
 import { ActionButton } from '@components/form-controls/ActionButton';
 import { TextField } from '@components/form-controls/TextField';
 import { ConsoleShell } from '@components/layout/ConsoleShell';
@@ -69,6 +70,18 @@ const SAY = 'mt-1.5 max-h-code overflow-auto whitespace-pre-wrap rounded-control
 
 export function Intake() {
   const [url, setUrl] = useState('');
+  /**
+   * ── 가지 ── ⚠️⚠️ **없어서 다른 코드를 잴 뻔한 칸이다.**
+   * 안 주면 git 이 **원격의 기본 가지**를 받는다. 그런데 잴 대상이 `main` 이 아닌 경우가
+   * 흔하다 — 이 우주의 실측 은하들부터가 작업 가지에 있다.
+   * ⛔ 기본 가지를 받아 놓고 「이 저장소를 쟀다」고 말하면 **다른 코드를 잰 것**이다.
+   * ⛔ 화면이 가지를 **짐작해서 고르지 않는다** — 안 고르면 안 고른 대로 두고,
+   *    받은 뒤 도구가 **실제로 어느 가지인지 찍는다**(짐작 대신 실측).
+   */
+  const [branch, setBranch] = useState('');
+  const [branches, setBranches] = useState<IBranchList | null>(null);
+  const [askingBranches, setAskingBranches] = useState(false);
+
   /** 비워 두면 도구가 주소에서 이름을 딴다 — ⛔ 화면이 지어내지 않는다. */
   const [name, setName] = useState('');
 
@@ -85,6 +98,17 @@ export function Intake() {
   /** 이 기계의 git 이 아는 레포. ⛔ `null` 은 「없다」가 아니라 **「아직 안 물어봤다」**다. */
   const [repos, setRepos] = useState<IRepoListResult | null>(null);
   const [asking, setAsking] = useState(false);
+  /**
+   * ── 소유자 ── ⚠️⚠️ **없어서 데인 칸이다.**
+   * `gh` 의 레포 목록은 소유자를 안 주면 **활성 계정 자신**을 본다. 그런데 계정이
+   * **조직에만** 속해 있으면 자기 소유 레포는 0개다 — 실측으로 그렇게 나왔고,
+   * 화면에는 그것이 「저장소가 없다」 또는 「비공개라 안 보이나」로 보였다.
+   * ⛔ 셋(진짜 없다 · 스코프가 없다 · 소유자가 다르다)이 **똑같이 0으로 보이는** 그 사고(§8).
+   * ⇒ 소유자를 바꿀 수 있게 하고, 조직 후보는 **`gh` 가 아는 것**을 눌러 넣는다.
+   */
+  const [owner, setOwner] = useState('');
+  const [orgs, setOrgs] = useState<IGhOrgs | null>(null);
+
 
   /**
    * ⭐ **주소를 외우게 하지 않는다** — 이 기계의 git 이 이미 아는 것을 보여 주고 고르게 한다.
@@ -93,12 +117,17 @@ export function Intake() {
    *    화면은 그 말을 옮기며 「그건 당신 터미널에서 한 번 하는 일」이라고 알려 준다.
    *    ⛔ 화면에 자격을 받는 칸을 만들면 그 값이 네트워크를 탄다 — 그래서 안 만든다.
    */
+  useEffect(() => {
+    /* ⛔ 실패해도 화면을 막지 않는다 — 조직은 **후보**이지 필수가 아니다. 손으로도 칠 수 있다. */
+    void getGhOrgs().then(setOrgs, () => undefined);
+  }, []);
+
   const askRepos = (): void => {
     setAsking(true);
     setRefused(null);
     /* ⛔ 묻는 순간 앞의 목록을 지운다 — 남겨 두면 그것이 지금 목록으로 읽힌다. */
     setRepos(null);
-    void getRepos().then(
+    void getRepos(undefined, owner.trim()).then(
       (came) => {
         setAsking(false);
         setRepos(came);
@@ -110,6 +139,19 @@ export function Intake() {
     );
   };
 
+  const askBranches = (): void => {
+    setAskingBranches(true);
+    /* ⛔ 묻는 순간 앞의 목록을 지운다 — 남겨 두면 그것이 이 주소의 가지로 읽힌다. */
+    setBranches(null);
+    void getBranches(url.trim()).then(
+      (came) => { setBranches(came); setAskingBranches(false); },
+      (failed: Error) => {
+        setBranches({ ok: false, branches: [], say: failed.message, exitCode: null });
+        setAskingBranches(false);
+      },
+    );
+  };
+
   const fetchRepo = (): void => {
     setBusy(true);
     setRefused(null);
@@ -117,7 +159,7 @@ export function Intake() {
     setListed(null);
     /* ⛔ 묻는 순간 앞의 결과를 지운다 — 남겨 두면 그것이 지금 상태로 읽힌다. */
     setCloned(null);
-    void postClone(url.trim(), name.trim() === '' ? undefined : name.trim()).then(
+    void postClone(url.trim(), name.trim() === '' ? undefined : name.trim(), branch.trim() === '' ? undefined : branch.trim()).then(
       (came) => {
         setBusy(false);
         setCloned(came);
@@ -205,6 +247,15 @@ export function Intake() {
           sub="깃 주소를 주면 이 기계로 받아 와 좌표 초안을 만듭니다. ⛔ 토큰을 넣는 칸은 없습니다 — 인증은 이 기계의 git 이 합니다. 초안의 「TODO:」는 사람이 채웁니다."
         />
 
+        {/**
+          * ⭐ **깃 로그인이 이 화면의 첫 칸이다.** 받아 오기·레포 목록이 전부 이 기계의
+          * `gh` 계정으로 도는데, 전에는 그 상태가 **화면 어디에도 안 보였다** —
+          * 로그인이 안 돼 있으면 「받아 오지 못했다」만 뜨고 이유는 사람이 추측했다.
+          * ⚠️ 그리고 계정이 둘이 되는 날(개인 · 회사 조직)에는 **어느 쪽으로 붙었는지**가
+          *    받아 오는 결과를 바꾼다. 그래서 맨 위에 둔다.
+          */}
+        <GhAuthPanel />
+
         {/* ⛔ 요청의 모양이 틀린 것만 여기 온다 — 「받아 오지 못했다」는 결과라서 아래로 간다. */}
         {refused !== null && (
           <Banner tone="bad">
@@ -234,13 +285,55 @@ export function Intake() {
 
             {/* ⭐ 주소를 외우게 하지 않는다 — 이 기계의 git 이 아는 것을 고르게 한다. */}
             <div className="mb-3">
+              <TextField
+                id="repo-owner"
+                label="소유자"
+                sub="계정 또는 조직 — 비우면 지금 계정 자신"
+                value={owner}
+                placeholder="lunasoft-org 같은 조직 이름"
+                help="⚠️ 비워 두면 활성 계정이 **자기 소유로** 가진 것만 봅니다. 레포가 조직 아래 있으면 그 목록은 0개입니다 — ⛔ 그건 「없다」가 아니라 **못 본 것**입니다."
+                onChange={setOwner}
+              />
+
+              {/* ⭐ 조직 이름을 외우게 하지 않는다 — `gh` 가 아는 것을 눌러서 넣는다. */}
+              {orgs !== null && orgs.ok && orgs.orgs.length > 0 && (
+                <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                  <span className={HELP_TEXT}>이 계정이 속한 조직:</span>
+                  {orgs.orgs.map((name) => (
+                    <ActionButton key={name} disabled={asking || busy} onClick={() => setOwner(name)}>
+                      {name}
+                    </ActionButton>
+                  ))}
+                  <ActionButton disabled={asking || busy} onClick={() => setOwner('')}>
+                    나 자신({orgs.account ?? '?'})
+                  </ActionButton>
+                </div>
+              )}
+              {orgs !== null && !orgs.ok && (
+                <p className={HELP_TEXT}>
+                  ⚪ 조직 후보를 못 읽었습니다 — <strong>조직이 없다는 뜻이 아닙니다.</strong>{' '}
+                  이름을 직접 쳐도 됩니다.
+                </p>
+              )}
+
               <ActionButton disabled={asking || busy} onClick={askRepos}>
-                {asking ? '물어보는 중…' : '내 저장소 목록에서 고르기'}
+                {asking ? '물어보는 중…' : owner.trim() === '' ? '내 저장소 목록에서 고르기' : `${owner.trim()} 의 저장소 목록`}
               </ActionButton>
+              {/**
+                * ⚠️⚠️ **이 문단은 바뀌었다 — 화면이 스스로와 모순하고 있었다.**
+                * 전에는 여기에 「⛔ 여기서 로그인하지 않습니다 … 그래서 **칸을 안 만들었습니다**」가
+                * 적혀 있었다. 위에 로그인 칸(`GhAuthPanel`)이 생긴 뒤로 그 문장은 **거짓말**이다.
+                * ⛔ 남겨 두면 사람은 두 문장 중 어느 쪽을 믿을지 매번 판단해야 한다.
+                *
+                * ⭐ 다만 그 문장이 지키려던 것은 **그대로 지킨다**: 로그인 자격(토큰)을
+                *   **화면이 받지 않는다.** 위 칸도 토큰 입력란이 없다 — `gh` 가 브라우저에서
+                *   받고, 이 콘솔은 **누구로 됐는지만 읽는다.**
+                */}
               <p className={HELP_TEXT}>
-                ⛔ <strong>여기서 로그인하지 않습니다</strong> — 이 콘솔은 이 기계의 git 이{' '}
-                <strong>이미</strong> 아는 것을 읽기만 합니다. 로그인을 화면에서 받으면 그 자격이
-                네트워크와 서버 로그를 타고 흐릅니다. 그래서 <strong>칸을 안 만들었습니다.</strong>
+                목록은 이 기계의 <code className={CODE}>gh</code> 가 <strong>이미</strong> 아는 계정으로
+                옵니다 — 위 「깃 로그인」 칸이 그 계정을 말합니다. ⛔{' '}
+                <strong>토큰을 넣는 칸은 어디에도 없습니다</strong> — 자격을 화면에서 받으면 그 값이
+                네트워크와 서버 로그를 타고 흐릅니다.
               </p>
             </div>
 
@@ -264,9 +357,22 @@ export function Intake() {
             {repos !== null && repos.ok && repos.data !== null && (
               <div className="mb-3">
                 <Banner tone={repos.data.truncated ? 'unknown' : 'ok'}>
+                  {/**
+                    * ⛔⛔ **전에는 여기가 `account` 를 찍었다 — 잰 것과 적은 것이 달랐다.**
+                    * 소유자 칸이 생기기 전에는 소유자가 늘 활성 계정 자신이라 두 값이 같았고,
+                    * 그래서 틀린 것이 **안 보였다.** 조직을 물어본 순간 화면은
+                    * 「mjyu-louis — 30개」라고 적으면서 `lunasoft-org` 의 목록을 그렸다.
+                    * ⇒ **누구의 목록인가**(owner)와 **누구의 눈으로 봤나**(account)를 **둘 다** 적는다.
+                    *   ⚠️ 계정을 지우면 안 된다 — 같은 조직도 계정에 따라 보이는 것이 다르다.
+                    */}
                   <strong>
-                    {repos.data.account ?? '(계정을 못 읽었다)'} — {repos.data.repos.length}개를 보여줍니다.
+                    {repos.data.owner ?? repos.data.account ?? '(소유자를 못 읽었다)'} 의 저장소{' '}
+                    {repos.data.repos.length}개
                   </strong>
+                  <div className="mt-1.5">
+                    계정 <strong>{repos.data.account ?? '(못 읽었다)'}</strong> 의 눈으로 본 것입니다 —
+                    스코프 <code className={CODE}>{repos.data.scopes ?? '못 읽음'}</code>.
+                  </div>
                   {repos.data.truncated ? (
                     <div className="mt-1.5">
                       ⚠️ <strong>이게 전부가 아닙니다.</strong> 도구가 위에서{' '}
@@ -298,6 +404,9 @@ export function Intake() {
                           /* ⛔ 고르는 것은 **주소를 칸에 넣는 것까지**다. 바로 받아 오지 않는다 —
                              한 번의 실수 클릭이 5분짜리 내려받기가 되면 안 된다. */
                           setUrl(one.url);
+                          /* ⛔ 저장소가 바뀌면 앞 저장소의 가지를 들고 있지 않는다. */
+                          setBranch('');
+                          setBranches(null);
                         }}
                       >
                         <span className="font-mono text-xs">{one.nameWithOwner}</span>
@@ -328,6 +437,55 @@ export function Intake() {
               help="⛔ 토큰이 박힌 주소는 서버가 거절합니다 — 그 값이 인자가 되어 셸 히스토리·프로세스 목록·서버 로그에 남기 때문입니다. 인증은 이 기계의 git 이 합니다."
               onChange={setUrl}
             />
+            {/* ── 가지 ── 주소가 정해져야 물어볼 수 있다. */}
+            <div className="mb-3">
+              <TextField
+                id="intake-branch"
+                label="가지"
+                sub="선택 — 비우면 원격의 기본 가지"
+                mono
+                value={branch}
+                placeholder="main · refactor-… · universe-trial"
+                help="⚠️ 비워 두면 git 이 **원격의 기본 가지**를 받습니다 — ⛔ 우주가 고른 것이 아닙니다. 잴 대상이 작업 가지에 있으면 여기서 골라야 **그 코드를 잽니다.**"
+                onChange={setBranch}
+              />
+              <ActionButton disabled={url.trim() === '' || askingBranches || busy} onClick={askBranches}>
+                {askingBranches ? '물어보는 중…' : '이 주소의 가지 목록'}
+              </ActionButton>
+
+              {branches !== null && !branches.ok && (
+                <Banner tone="unknown">
+                  <strong>⚪ 가지를 못 쟀다 — 「가지가 없다」가 아니다.</strong>
+                  <div className="mt-1.5 whitespace-pre-wrap">{branches.say}</div>
+                </Banner>
+              )}
+
+              {branches !== null && branches.ok && (
+                <>
+                  <p className={`mt-1.5 ${HELP_TEXT}`}>
+                    가지 <strong>{branches.branches.length}개</strong> — 눌러서 고르세요.
+                    {branches.branches.length > 40 && ' ⚠️ 많습니다. 위 칸에 직접 쳐도 됩니다.'}
+                  </p>
+                  <div className="mt-1.5 grid max-h-code gap-1.5 overflow-y-auto rounded-control border border-ui-line bg-ui-surface-sunken p-1.5">
+                    {branches.branches.map((one) => (
+                      <button
+                        key={one}
+                        type="button"
+                        className={`w-full rounded-control border px-3 py-2 text-left font-mono text-xs ${
+                          one === branch.trim()
+                            ? 'border-ui-accent bg-ui-surface-raised font-semibold'
+                            : 'border-ui-line bg-ui-surface hover:border-ui-accent'
+                        }`}
+                        onClick={() => setBranch(one)}
+                      >
+                        {one}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <TextField
               id="intake-name"
               label="은하 이름"
@@ -339,7 +497,11 @@ export function Intake() {
               onChange={setName}
             />
             <ActionButton primary disabled={url.trim() === '' || busy} onClick={fetchRepo}>
-              {busy ? '받아 오는 중…' : '이 주소를 받아 오기'}
+              {busy
+                ? '받아 오는 중…'
+                : branch.trim() === ''
+                  ? '이 주소를 받아 오기 — 기본 가지'
+                  : `이 주소를 받아 오기 — ${branch.trim()}`}
             </ActionButton>
           </div>
         )}

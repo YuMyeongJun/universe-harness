@@ -71,7 +71,9 @@
     padding: 8px 10px;
     border: 1px solid rgb(var(--rgb-ui-line));
     border-radius: var(--ui-radius-control);
-    background-color: rgb(var(--rgb-ui-surface-raised));
+    /* ⚠️ `surface-raised` 가 아니라 **`field`** 다 — 갈라 둔 이유는 `_semantic.css` 에 있다.
+       (다크에서는 두 값이 같아서 이 줄을 바꿔도 다크 화면은 안 변한다.) */
+    background-color: rgb(var(--rgb-ui-field));
     color: rgb(var(--rgb-ui-ink));
   }
 

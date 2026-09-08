@@ -1,5 +1,42 @@
 {
-  "TC-901": { "origin": "policy", "originRef": "e2e/fixtures/limit.html — 한도 소진이면 발송 버튼이 잠긴다" },
-  "TC-902": { "origin": "policy", "originRef": "e2e/fixtures/limit.html — 소진 배지(#burn-badge)가 보인다 (표적에 일부러 없다)" },
-  "TC-903": { "origin": "human", "originRef": "손으로 적은 TC — 이번 주행에서는 건너뛴다" }
+  "TC-901": {
+    "origin": "policy",
+    "originRef": "e2e/fixtures/limit.html — 한도 소진이면 발송 버튼이 잠긴다"
+  },
+  "TC-902": {
+    "origin": "policy",
+    "originRef": "e2e/fixtures/limit.html — 소진 배지(#burn-badge)가 보인다 (표적에 일부러 없다)"
+  },
+  "TC-903": {
+    "origin": "human",
+    "originRef": "손으로 적은 TC — 이번 주행에서는 건너뛴다"
+  },
+  "TC-BO-001": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/shell-chrome.md — LNB·footer 를 앱 크롬 표준으로 규정한다"
+  },
+  "TC-BO-002": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/shell-chrome.md:41 — Don't: production에서 DEV-only footer 노출 (VITE_PROCESS_ENV !== 'production')"
+  },
+  "TC-BO-010": {
+    "origin": "policy",
+    "originRef": "backoffice docs/menus/inventory.md + list-page-standard.md — 대시보드에서 리스트 화면으로 가는 길"
+  },
+  "TC-BO-011": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/search-form-standard.md:82-83 — 조회(isSearchButton)와 초기화(isSearchResetButton)가 둘 다 있어야 한다"
+  },
+  "TC-BO-012": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/list-page-standard.md — 리스트는 필터+총건수(SearchTableTotalCaption)+표가 한 벌이다"
+  },
+  "TC-BO-013": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/search-form-standard.md:70 — 초기화는 isSearchResetButton + onReset 을 같이 켠다"
+  },
+  "TC-BO-014": {
+    "origin": "policy",
+    "originRef": "backoffice docs/ui/list-page-standard.md Anti-patterns — page size 10 고정 금지 · 계약표는 pageLimitValues"
+  }
 }

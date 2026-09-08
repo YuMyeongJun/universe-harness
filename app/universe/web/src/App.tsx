@@ -1,10 +1,9 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-import { DomainSelect } from '@routes/DomainSelect';
 import { GalaxySelect } from '@routes/GalaxySelect';
 import { Intake } from '@routes/Intake';
+import { RepoSelect } from '@routes/RepoSelect';
 import { RunReport } from '@routes/RunReport';
-import { Survey } from '@routes/Survey';
 import { Tc } from '@routes/Tc';
 import { Violations } from '@routes/Violations';
 
@@ -13,11 +12,12 @@ export function App() {
     <BrowserRouter>
       <Routes>
         {/**
-         * ⚠️ **첫 화면이 바뀌었다 — 옛 화면은 지우지 않았다.**
+         * ⚠️⚠️ **형제 저장소를 끊었다.**
          * 전에는 `/` 가 형제 폴더의 남의 저장소(`qa-workflow-v2-main`)에서 읽어 온 「도메인」
-         * 목록이었고, 그래서 **우주가 아는 은하가 화면에 아예 안 떴다.**
-         * ⇒ `/` 는 은하가 되고, 옛 도메인 화면은 `/domains` 로 **살아 있다.**
-         * ⛔ 없애지 않았다: 없애면 도메인 지식 수집(`/d/:domain`)이 통째로 못 들어간다.
+         * 목록이었고, 그래서 **우주가 아는 은하가 화면에 아예 안 떴다.** 그 뒤 `/` 를 은하로
+         * 바꾸면서 옛 화면을 `/domains` 로 **남겨 뒀는데**, 그 자리가 계속 남의 저장소를 읽었다.
+         * ⇒ 이제 도메인 계열(`/domains` 의 목록 · `/d/:domain`)은 **없다.**
+         *   `/repos` 는 그 파일에 **같이 살고 있던 우주 자신의 기능**(잴 저장소 고르기)이다.
          */}
         <Route path="/" element={<GalaxySelect />} />
         {/**
@@ -27,8 +27,7 @@ export function App() {
          * 깃 주소를 입력하고」로 시작하는데 그 칸을 **CLI 를 아는 사람만** 밟을 수 있었다.
          */}
         <Route path="/intake" element={<Intake />} />
-        <Route path="/domains" element={<DomainSelect />} />
-        <Route path="/d/:domain" element={<Survey />} />
+        <Route path="/repos" element={<RepoSelect />} />
         {/* 조각 3 — 위반 목록과 처방. 지금까지 터미널 출력에만 있던 자리다. */}
         <Route path="/violations" element={<Violations />} />
         {/**

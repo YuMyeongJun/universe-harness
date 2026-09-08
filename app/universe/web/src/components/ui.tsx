@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-import type { Fill } from '@api/types';
 
 
 /**
@@ -217,12 +216,20 @@ export function Banner({ tone, children }: { tone: BannerTone; children: ReactNo
  *    `unknown` 은 점선(**아무것도 안 들어왔다**). 회색 두 개를 눈으로 가를 수단이 생긴다.
  */
 /**
- * ⚠️ **어휘가 둘이라 이름도 둘이다.** `Fill`(filled·partial·stub)은 「도메인 문서가 얼마나
- * 채워졌나」 전용이고, 판정 신호는 `ok`·`warn`·`bad` 다. 은하 목록에서 「좌표가 없다」를
- * `stub`(=골격만) 이라고 부르면 읽는 사람이 **다른 뜻으로 읽는다.**
+ * ⚠️ **어휘가 둘이라 이름도 둘이다.** `Fill`(filled·partial·stub)은 「얼마나 채워졌나」이고,
+ * 판정 신호는 `ok`·`warn`·`bad` 다. 「좌표가 없다」를 `stub`(=골격만) 이라고 부르면
+ * 읽는 사람이 **다른 뜻으로 읽는다.**
  * ⛔ 그렇다고 클래스 문자열을 두 벌 적지 않는다 — 두 자리가 갈리면 색만 고쳐지는 날이 온다.
  *    ⇒ 값은 **아래 한 벌**이고, `Fill` 이름은 그 한 벌을 **가리키기만** 한다.
+ *
+ * ⚠️⚠️ **이 타입은 `@api/types` 에 있었다.** 거기 있던 이유는 서버가 보내던
+ * `IDomainSummary.fill`(형제 저장소의 도메인 문서가 얼마나 찼나) 때문인데, 그 저장소를
+ * 끊으면서 **그 payload 가 없어졌다.** 지금 이 이름을 쓰는 곳은 `CommandList` 의
+ * `tone="filled"` **하나**다 — 즉 서버가 보내는 모양이 아니라 **화면의 어휘**다.
+ * ⇒ 쓰는 자리로 옮겼다. `@api/types` 에 남겨 두면 「서버가 이걸 보내나?」를 묻게 된다.
  */
+type Fill = 'filled' | 'partial' | 'stub';
+
 export type PillTone = Fill | 'ok' | 'warn' | 'bad' | 'auto' | 'unknown';
 
 const PILL_SIGNAL = {

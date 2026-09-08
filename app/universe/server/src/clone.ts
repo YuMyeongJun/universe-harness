@@ -58,10 +58,29 @@ export interface ICloneResult {
 /**
  * 받아 온다. ⛔ **덮지 않는다** — 같은 이름이 이미 있으면 도구가 거절하고 그 말을 그대로 전한다.
  */
-export const cloneRepo = async (url: string, name?: string): Promise<ICloneResult> => {
+/**
+ * ⛔ **가지 이름의 모양을 좁힌다** — 사람이 준 값이 그대로 인자가 되는 자리다(R76).
+ * ⚠️ `bin/clone.mjs` 안에도 **같은 검사**가 있다. 두 벌인 것은 사실이고 의도다:
+ *    도구는 터미널에서도 불리고, 서버는 화면에서도 불린다 — **각자 자기 입구를 막는다.**
+ */
+export const branchProblem = (branch: unknown): string | null => {
+  if (branch === undefined || branch === null || branch === '') return null;
+  if (typeof branch !== 'string') return '가지 이름은 문자열이라야 합니다.';
+  if (!/^(?!-)(?!.*\.\.)[^\s~^:?*[\\\u0000-\u001f]{1,255}$/.test(branch)) {
+    return `가지 이름이 아닙니다: ${branch}`;
+  }
+  return null;
+};
+
+/**
+ * @param branch ⚠️ 안 주면 git 이 **원격의 기본 가지**를 받는다. 잴 대상이 `main` 이 아닌 경우가
+ *   흔하므로(작업 가지) 화면이 고를 수 있게 열어 둔다. ⛔ 우주가 짐작해서 채우지 않는다.
+ */
+export const cloneRepo = async (url: string, name?: string, branch?: string): Promise<ICloneResult> => {
   const into = join(clonesDir(), name ?? url.replace(/\.git$/, '').split(/[/:]/).filter(Boolean).pop() ?? 'repo');
   const args = [url, '--into', into];
   if (name !== undefined) args.push('--name', name);
+  if (branch !== undefined && branch !== '') args.push('--branch', branch);
   const run = await runNodeTool(join(HARNESS_ROOT, 'bin/clone.mjs'), args, { timeoutMs: 300_000 });
   const draft = join(into, 'universe-galaxy.json');
   return {
@@ -75,6 +94,34 @@ export const cloneRepo = async (url: string, name?: string): Promise<ICloneResul
     into: run.exitCode === 0 ? into : null,
     draft: run.exitCode === 0 && existsSync(draft) ? draft : null,
   };
+};
+
+export interface IBranchList {
+  /** ⛔ `false` 는 「가지가 없다」가 **아니다** — 「못 쟀다」(⚪)다. */
+  ok: boolean;
+  branches: string[];
+  say: string;
+  exitCode: number | null;
+}
+
+/**
+ * 그 저장소의 가지 목록. ⛔ **받아 오지 않는다** — 묻기만 한다.
+ * ⚠️ 원격에 붙으므로 느릴 수 있다. 시간 제한에 걸린 것은 결과가 아니라 **못 잰 것**이다.
+ */
+export const listBranches = async (url: string): Promise<IBranchList> => {
+  const run = await runNodeTool(join(HARNESS_ROOT, 'bin/branches.mjs'), [url, '--json'], { timeoutMs: 60_000 });
+  try {
+    const parsed = JSON.parse(run.stdout) as { ok: boolean; branches: string[]; say: string };
+    return { ...parsed, exitCode: run.exitCode };
+  } catch {
+    /* ⛔ JSON 이 아니면 **못 쟀다**다 — 빈 목록으로 접으면 「가지가 없다」로 보인다. */
+    return {
+      ok: false,
+      branches: [],
+      say: `${run.stdout}${run.stderr}`.trim() || '가지 목록을 못 읽었습니다.',
+      exitCode: run.exitCode,
+    };
+  }
 };
 
 /**
@@ -135,10 +182,30 @@ export interface IRepoList {
   exitCode: number | null;
 }
 
-export const listRepos = async (limit?: number): Promise<IRepoList> => {
+/**
+ * ⛔ **소유자 이름의 모양을 좁힌다.** 사람이 준 문자열이 그대로 인자가 되는 자리라
+ * `--` 로 시작하는 값이 오면 **플래그로 읽힌다**(R76 의 그 자리와 같은 결).
+ * GitHub 의 계정·조직 이름 규칙: 영숫자와 하이픈, 39자 이하, 하이픈으로 시작·끝나지 않는다.
+ */
+export const ownerProblem = (owner: unknown): string | null => {
+  if (owner === undefined || owner === null || owner === '') return null;
+  if (typeof owner !== 'string') return '소유자 이름은 문자열이라야 합니다.';
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner)) {
+    return `소유자 이름이 GitHub 의 이름 모양이 아닙니다: ${owner}`;
+  }
+  return null;
+};
+
+/**
+ * @param owner 계정 또는 **조직**. ⚠️ 안 주면 `gh` 의 **활성 계정 자신**을 본다 —
+ *   실측으로 데인 자리다: 계정이 조직에만 속해 있으면 자기 소유 레포가 **0개**라
+ *   화면이 「저장소가 없다」처럼 보인다. 그건 못 본 것이지 없는 것이 아니다(§8).
+ */
+export const listRepos = async (limit?: number, owner?: string): Promise<IRepoList> => {
   const args = ['--json'];
   /* ⛔ 사람이 준 값을 그대로 인자에 넣지 않는다 — 정수로 좁힌다(R76 의 그 자리). */
   if (Number.isInteger(limit) && (limit as number) > 0) args.push('--limit', String(limit));
+  if (owner !== undefined && owner !== '') args.push(owner);
   const run = await runNodeTool(join(HARNESS_ROOT, 'bin/repos.mjs'), args, { timeoutMs: 60_000 });
   if (run.exitCode !== 0) {
     return { ok: false, data: null, say: `${run.stdout}${run.stderr}`.trim(), exitCode: run.exitCode };

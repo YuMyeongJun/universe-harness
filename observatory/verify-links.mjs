@@ -20,7 +20,16 @@ import { rejectUnknownFlags } from '../lib/flags.mjs';
 rejectUnknownFlags(process.argv.slice(2), ['--universe'], 'universe links');
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
-const SKIP_DIR = new Set(['node_modules', '.git', 'dist', 'out', '.harness', 'typedocs']);
+/**
+ * ⚠️⚠️ `.data` 가 왜 여기 있는가 — **실측으로 데인 자리다.**
+ *
+ * 콘솔이 「저장소 받아 오기」로 남의 저장소를 `app/universe/.data/clones/` 에 받는다.
+ * 그 저장소에도 `docs/**.md` 가 있고, 그 안의 링크는 **그 저장소의 사정**이다.
+ * ⇒ 훑개가 그것까지 세면서 **깨진 링크 7건**을 냈다. 우주는 그 문서를 고칠 권한도,
+ *   고칠 이유도 없다(남의 저장소는 읽기만 한다). 관문이 **남의 집을 검사한 것**이다.
+ * ⛔ 「어차피 gitignore 니까」로 넘기면 안 됐다 — 훑개는 git 을 안 보고 디스크를 본다.
+ */
+const SKIP_DIR = new Set(['node_modules', '.git', 'dist', 'out', '.harness', 'typedocs', '.data']);
 
 const walk = (dir, out = []) => {
   for (const name of readdirSync(dir)) {

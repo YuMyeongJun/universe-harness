@@ -181,4 +181,22 @@ for (const row of unjudged) {
 }
 console.error('\n   → 콘솔에서 판정을 붙여라(`universe console` 이 그 화면이 서는지 잰다).');
 console.error('   ⛔ 단정을 약하게 만들어 fail 을 없애지 마라 — 그래서 종료 조건이 「fail 0」이 아니다.');
-process.exit(1);
+
+/**
+ * ⛔⛔ **여기는 `1` 이 박혀 있었다 — ⚪ 를 ❌ 로 부르던 자리다.**
+ *
+ * 이 저장소의 어휘는 셋이다(0 · 1 · **3 못 쟀다**). 그런데 이 줄이 `process.exit(1)` 이라,
+ * 계약이 「**못 쟀다** — 검증 분모가 0이다(자기 채점)」라고 답해도 도구는 **1(잰 빨강)** 로 끝났다.
+ * ⇒ 화면은 그 1을 정직하게 옮겨 「❌ 판단하지 않은 fail 이 있다」로 그렸다 —
+ *   **화면이 거짓말한 것이 아니라 도구가 거짓말을 먹인 것**이다. 사람은 없는 fail 을 찾으러 간다.
+ *
+ * ⭐ 계약은 **처음부터 옳게 답하고 있었다**: 같은 payload 의 `done.exitCode` 가 `3` 이다.
+ *   ⛔ 그러니 이유 문자열에서 「못 쟀다」를 찾아 짐작하지 않는다 — **계약이 든 수를 그대로 쓴다.**
+ *   (문자열로 가르면 계약이 말투를 바꾸는 날 조용히 갈린다.)
+ * ⚠️ 계약이 그 칸을 안 주면 예전 동작대로 `1` 이다 — 없는 값을 3으로 올려 잡지 않는다.
+ */
+const verdictCode = Number.isInteger(done.exitCode) ? done.exitCode : 1;
+if (verdictCode === EXIT_UNMEASURED) {
+  console.error('   ⚠️ 이것은 **⚪ 못 쟀다(3)** 다 — ❌ 실패가 아니다. 없는 fail 을 찾으러 가지 마라.');
+}
+process.exit(verdictCode);

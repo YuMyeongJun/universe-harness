@@ -204,6 +204,23 @@ export const receiveRunResult = async (
   mkdirSync(tempDir(), { recursive: true });
   const bodyPath = tempFile('body');
   const originsPath = options.origins === undefined ? null : tempFile('origins');
+
+  /**
+   * ⭐⭐ **출처 명부의 정본은 하나다** — `qa/e2e/origins.json`.
+   *
+   * ⛔⛔ 실측으로 데였다. 같은 Playwright 리포트를 두 자리가 판정했는데 **답이 갈렸다**:
+   *   · 축(`observatory/loop-state.mjs`)은 `--origins qa/e2e/origins.json` 을 넘겨 **검증 7건**
+   *   · 콘솔은 아무것도 안 넘겨 **검증 0건 · 「전부 자기 채점」**
+   * 사람이 보는 쪽이 **틀린 답**을 냈다. 화면에는 「분모가 0이다 — 이 주행은 아무것도 검증하지
+   * 않았다」가 떴는데, 그 주행은 **문서에서 뽑은 TC 7건을 실제로 검증**하고 있었다.
+   * ⇒ 부르는 쪽이 안 주면 **저장소의 명부를 기본으로** 쓴다. 정본이 둘이면 반드시 갈린다(R47·R91).
+   * ⚠️ 부르는 쪽이 주면 그것이 이긴다 — 다른 저장소의 명부를 넘길 수 있어야 한다.
+   * ⛔ 파일이 없으면 **지어내지 않는다** — 안 넘기고, 그러면 예전처럼 `unknown` 이 된다.
+   */
+  const houseOrigins = join(HARNESS_ROOT, 'qa/e2e/origins.json');
+  const fallbackOrigins = originsPath === null && usePlaywright && existsSync(houseOrigins)
+    ? relative(HARNESS_ROOT, houseOrigins)
+    : null;
   /* ⛔ 절대 경로를 도구에 넘기지 않는다 — 도구의 메시지에 남의 홈 경로가 박힌다(R152).
      `runNodeTool` 의 cwd 는 언제나 저장소 뿌리라 상대경로가 그대로 재현된다. */
   const relBody = relative(HARNESS_ROOT, bodyPath);
@@ -217,6 +234,7 @@ export const receiveRunResult = async (
       relBody,
       ...(usePlaywright ? ['--from-playwright'] : []),
       ...(relOrigins !== null ? ['--origins', relOrigins] : []),
+      ...(relOrigins === null && fallbackOrigins !== null ? ['--origins', fallbackOrigins] : []),
       '--json',
     ];
     const command = `node qa/dist/run/cli.js ${args.join(' ')}`;

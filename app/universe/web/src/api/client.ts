@@ -1,18 +1,19 @@
 import type {
   IAdoptResult,
+  IBranchList,
+  IBrowseResult,
+  IGhLoginState,
+  IGhOrgs,
+  IGhStatus,
   ICaseVerdict,
   ICloneResult,
-  IDomainSummary,
-  IEmitFile,
   IGalaxyDraftResult,
   IGalaxyList,
   IJudgedRun,
   IObservation,
-  IProgress,
   IRepoListResult,
   IRunListItem,
   IRunReceipt,
-  ISurvey,
   ITcRunResult,
   ITcTemplateResult,
   IWatchResult,
@@ -38,75 +39,53 @@ const req = async <T>(url: string, init?: RequestInit): Promise<T> => {
   return body as T;
 };
 
+/**
+ * 서버가 서 있는가, 그리고 **어느 우주를 읽는가.**
+ *
+ * ⚠️⚠️ 전에는 이 자리가 `workflowRoot`(형제 폴더의 남의 저장소)와 `browser`(열린 로그인 세션)를
+ * 함께 실어 왔다. 둘 다 **끊었다** — 세션을 여는 화면(수집)도 남의 저장소를 읽던
+ * 도메인 계열도 지웠으므로, 그 칸을 남겨 두면 **영원히 아무 값도 안 오는 칸**이 된다.
+ */
 export interface IHealth {
   ok: boolean;
-  workflowRoot: string;
+  universeRoot: string;
+  /** `ok:false` 일 때만 온다 — 찾아본 자리와, 사람이 할 일. */
   tried?: string;
   hint?: string;
-  browser: { open: boolean; domain: string | null; url: string | null };
 }
 
 export const getHealth = (): Promise<IHealth> => req<IHealth>('/api/health');
 
-export const getDomains = (): Promise<{ domains: IDomainSummary[] }> =>
-  req<{ domains: IDomainSummary[] }>('/api/domains');
 
-export const getSurvey = (d: string): Promise<{ survey: ISurvey; progress: IProgress }> =>
-  req(`/api/domains/${d}/survey`);
+/**
+ * ── 폴더 훑기 ──
+ *
+ * ⛔ 브라우저의 폴더 선택기(`webkitdirectory` · `showDirectoryPicker`)는 **절대 경로를 안 준다.**
+ * 서버는 실제 경로를 받아야 하므로 **서버가 훑어** 주고 화면은 타고 내려간다
+ * (자세한 이유는 `server/src/browse.ts` 머리말).
+ */
+export const browseDir = (dir?: string): Promise<IBrowseResult> =>
+  req<IBrowseResult>(`/api/fs${dir === undefined ? '' : `?dir=${encodeURIComponent(dir)}`}`);
 
-export const putSurvey = (
-  d: string,
-  patch: Partial<ISurvey>,
-): Promise<{ survey: ISurvey; progress: IProgress }> =>
-  req(`/api/domains/${d}/survey`, { method: 'PUT', body: JSON.stringify(patch) });
+/**
+ * ── 깃 로그인 ──
+ *
+ * ⭐ 상태는 **언제나 계정 이름과 함께** 온다. 「로그인됨」만 보면 조직 계정과 개인 계정이
+ * 섞이는 날 어느 쪽으로 붙었는지 모른다.
+ */
+export const getGh = (): Promise<IGhStatus> => req<IGhStatus>('/api/gh');
 
-export const resetSurvey = (d: string): Promise<{ survey: ISurvey; progress: IProgress }> =>
-  req(`/api/domains/${d}/survey/reset`, { method: 'POST' });
+/** 기기 흐름 시작 — 일회용 코드와 URL 이 **먼저** 온다. 나머지는 서버가 배경에서 기다린다. */
+export const startGhLogin = (): Promise<IGhLoginState> =>
+  req<IGhLoginState>('/api/gh/login', { method: 'POST' });
 
-export const openBrowser = (d: string): Promise<{ ok: boolean; url: string }> =>
-  req(`/api/domains/${d}/browser/open`, { method: 'POST' });
+/** 이 계정이 속한 조직 — 소유자 칸의 후보. ⛔ 실패와 「0개」를 화면이 가를 수 있게 `ok` 가 온다. */
+export const getGhOrgs = (): Promise<IGhOrgs> => req<IGhOrgs>('/api/gh/orgs');
 
-export const closeBrowser = (): Promise<{ ok: boolean }> =>
-  req('/api/browser/close', { method: 'POST' });
+export const pollGhLogin = (): Promise<IGhLoginState> => req<IGhLoginState>('/api/gh/login');
 
-export interface IScanResult {
-  survey: ISurvey;
-  progress: IProgress;
-  scanned: {
-    url: string;
-    title: string;
-    shot: string | null;
-    found: number;
-    added: number;
-    reach: { textLength: number; inputs: number; buttons: number; thin: boolean };
-    /** 못 쟀다고 볼 이유. null 이면 잰 것이다. */
-    unmeasured: string | null;
-  };
-}
-
-export const scan = (d: string): Promise<IScanResult> =>
-  req(`/api/domains/${d}/scan`, { method: 'POST' });
-
-export const previewEmit = (d: string, title: string): Promise<{ files: IEmitFile[] }> =>
-  req(`/api/domains/${d}/emit/preview?title=${encodeURIComponent(title)}`);
-
-export const applyEmit = (
-  d: string,
-  title: string,
-  overwrite: string[],
-): Promise<{ written: string[]; skipped: { path: string; why: string }[] }> =>
-  req(`/api/domains/${d}/emit`, { method: 'POST', body: JSON.stringify({ title, overwrite }) });
-
-export interface IProvenance {
-  detected: boolean;
-  ref: string | null;
-  reason: string | null;
-  detail: { port: number; pid: number; cwd: string; branch: string; commit: string; dirty: boolean } | null;
-}
-
-/** 「수집 대상 빌드」를 서버에서 확인한다. 못 알아내면 이유가 온다. */
-export const getProvenance = (d: string): Promise<IProvenance> =>
-  req<IProvenance>(`/api/domains/${d}/provenance`);
+export const cancelGhLogin = (): Promise<IGhLoginState> =>
+  req<IGhLoginState>('/api/gh/login/cancel', { method: 'POST' });
 
 /**
  * ── 잴 저장소 고르기 ──
@@ -249,10 +228,16 @@ export const postVerdict = (
  * 이 함수는 그때 **던지지 않고 결과를 돌려준다.** 던지는 것은 요청의 모양이 틀렸을 때(400)와
  * 서버가 도구를 못 불렀을 때(500)뿐이다.
  */
-export const postClone = (url: string, name?: string): Promise<ICloneResult> =>
+/** @param branch ⚠️ 안 주면 **원격의 기본 가지**를 받는다 — 우주가 고른 것이 아니다. */
+export const postClone = (url: string, name?: string, branch?: string): Promise<ICloneResult> =>
   req<ICloneResult>('/api/clones', {
     method: 'POST',
-    body: JSON.stringify(name === undefined ? { url } : { url, name }),
+    /* ⛔ 안 준 칸은 **안 보낸다** — `undefined` 를 보내면 서버가 「빈 이름」과 「안 준 것」을 못 가른다. */
+    body: JSON.stringify({
+      url,
+      ...(name === undefined || name === '' ? {} : { name }),
+      ...(branch === undefined || branch === '' ? {} : { branch }),
+    }),
   });
 
 /**
@@ -271,8 +256,22 @@ export const postClone = (url: string, name?: string): Promise<ICloneResult> =>
  *    네트워크·서버 로그·프로세스 목록을 타고 흐른다. 그래서 **칸을 안 만든다.**
  * ⛔ 못 읽은 것을 **빈 목록으로 접지 않는다** — `ok:false` 는 ⚪(못 쟀다)이지 ❌ 가 아니다.
  */
-export const getRepos = (limit?: number): Promise<IRepoListResult> =>
-  req<IRepoListResult>(limit === undefined ? '/api/repos' : `/api/repos?limit=${String(limit)}`);
+/**
+ * @param owner 계정 또는 **조직**. ⚠️ 안 주면 `gh` 의 **활성 계정 자신**을 본다 —
+ *   계정이 조직에만 속해 있으면 그 목록은 **0개**이고, 화면에서 그건 「저장소가 없다」로 보인다.
+ *   ⛔ 그건 못 본 것이지 없는 것이 아니다(§8).
+ */
+export const getRepos = (limit?: number, owner?: string): Promise<IRepoListResult> => {
+  const q = new URLSearchParams();
+  if (limit !== undefined) q.set('limit', String(limit));
+  if (owner !== undefined && owner !== '') q.set('owner', owner);
+  const tail = q.toString();
+  return req<IRepoListResult>(tail === '' ? '/api/repos' : `/api/repos?${tail}`);
+};
+
+/** 그 저장소의 가지 목록. ⛔ `ok:false` 는 「가지가 없다」가 아니라 **못 쟀다**다. */
+export const getBranches = (url: string): Promise<IBranchList> =>
+  req<IBranchList>(`/api/branches?url=${encodeURIComponent(url)}`);
 
 export const postAdopt = (draft: string): Promise<IAdoptResult> =>
   req<IAdoptResult>('/api/adopt', { method: 'POST', body: JSON.stringify({ draft }) });

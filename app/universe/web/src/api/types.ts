@@ -1,89 +1,82 @@
-export type Fill = 'filled' | 'partial' | 'stub';
+/**
+ * 화면과 서버가 주고받는 모양.
+ *
+ * ⚠️⚠️ **여기 있던 도메인 계열 타입을 전부 지웠다** —
+ * `Fill`·`IDomainSummary`·`ItemKind`·`ItemStatus`·`ISurveyItem`·`IEntry`·`ISurvey`·
+ * `IProgress`·`IEmitFile` 과 라벨 세 벌(`FILL_LABEL`·`KIND_LABEL`·`STATUS_LABEL`).
+ * 그것들은 **형제 폴더의 남의 저장소**(`qa-workflow-v2-main`)의 도메인 지식 문서를
+ * 나르던 모양이고, 그 저장소를 끊으면서 **보내는 쪽도 받는 쪽도 없어졌다.**
+ * ⛔ 「나중에 쓸지도 모르니」로 안 남겼다: 아무도 안 만들고 아무도 안 읽는 타입은
+ *    다음 사람에게 「이걸 채워야 하나」를 묻게 만드는 빚이다.
+ */
 
-export interface IDomainSummary {
-  domain: string;
-  title: string;
-  docs: number;
-  bytes: number;
-  tbdDocs: number;
-  lnbFolders: number;
-  fill: Fill;
+
+export interface IBranchList {
+  /** ⛔ `false` 는 「가지가 없다」가 **아니다** — 「못 쟀다」(⚪)다. 자격이 없어 못 물어본 것일 수 있다. */
+  ok: boolean;
+  branches: string[];
+  say: string;
+  exitCode: number | null;
 }
 
-export type ItemKind = 'lnb' | 'account' | 'flow' | 'term' | 'issue';
-export type ItemStatus = 'unmeasured' | 'confirmed' | 'corrected' | 'rejected';
+/* ── 폴더 훑기 ── `server/src/browse.ts` 가 내는 모양 ────────────────── */
 
-export interface ISurveyItem {
-  id: string;
-  kind: ItemKind;
-  label: string;
-  url: string;
-  detail: string;
-  origin: 'auto' | 'human';
-  status: ItemStatus;
-}
-
-export interface IEntry {
-  baseUrl: string;
-  loginUrl: string;
-  loginMethod: string;
-  accountId: string;
-  accountPw: string;
-  landingUrl: string;
-  allowInsecureTls: boolean;
-  sourceRef: string;
-  note: string;
-}
-
-export interface ISurvey {
-  domain: string;
-  updatedAt: string | null;
-  collectedAt: string | null;
-  entry: IEntry;
-  items: ISurveyItem[];
-}
-
-export interface IProgress {
-  total: number;
-  done: number;
-  unmeasured: number;
-}
-
-export interface IEmitFile {
+export interface IBrowseEntry {
+  name: string;
   path: string;
-  content: string;
-  exists: boolean;
-  isStub: boolean;
+  /** ⚠️ **표시일 뿐이다** — 「저장소로 보인다」이지 「잴 수 있다」가 아니다. 고르는 것은 사람이다. */
+  hasPackageJson: boolean;
+  hasGit: boolean;
 }
 
-export const FILL_LABEL: Record<Fill, string> = {
-  filled: '작성됨',
-  partial: '일부',
-  stub: '골격만',
-};
+export interface IShortcut {
+  label: string;
+  path: string;
+}
 
-export const KIND_LABEL: Record<ItemKind, string> = {
-  lnb: 'LNB 메뉴',
-  account: '계정 체계',
-  flow: '화면 흐름',
-  term: '용어',
-  issue: '알려진 이슈',
-};
+export interface IBrowseResult {
+  dir: string;
+  /** 홈보다 위로는 못 올라간다 — 뿌리에서는 `null`. */
+  parent: string | null;
+  home: string;
+  entries: IBrowseEntry[];
+  self: { hasPackageJson: boolean; hasGit: boolean };
+  /** ⭐ 숨김 폴더는 목록에 안 나온다 — 「받아 오기」가 받아 온 자리(`.data/clones`)로 가는 지름길. */
+  shortcuts: IShortcut[];
+}
 
-export const STATUS_LABEL: Record<ItemStatus, string> = {
-  unmeasured: '미확인',
-  confirmed: '확인함',
-  corrected: '고쳐서 확인',
-  rejected: '아님',
-};
+/* ── 깃 로그인 ── `bin/gh-auth.mjs` 가 내는 모양 ─────────────────────── */
+
+export interface IGhStatus {
+  installed: boolean;
+  loggedIn: boolean;
+  /** ⭐ **언제나 함께 온다.** 「로그인됨」만으로는 어느 계정인지 모른다. */
+  account: string | null;
+  protocol: string | null;
+  scopes: string[];
+  say: string;
+  login: IGhLoginState;
+}
+
+export interface IGhOrgs {
+  /** ⛔ `false` 는 「조직이 없다」가 아니라 **못 물어봤다**다. 화면이 둘을 갈라야 한다. */
+  ok: boolean;
+  orgs: string[];
+  account: string | null;
+  scopes: string[];
+  say: string;
+}
 
 /**
- * ── 잴 저장소 고르기 ── 서버(`server/src/galaxy-draft.ts`)가 `bin/galaxy.mjs` 를 부르고
- * **그 도구가 한 말을 그대로** 나른 것. ⛔ 화면은 이 값을 다시 세거나 채우지 않는다.
- *
- * ⚠️ 여기 이름과 모양은 서버의 `IGalaxyDraftResult` 와 **한 글자도 다르면 안 된다.**
- * 두 자리가 갈리면 화면은 조용히 `undefined` 를 그리고, 그건 「없다」로 보인다.
+ * ⛔ `idle`(아직 시작 안 함)과 `waiting`(코드를 냈고 사람을 기다림)을 **같은 말로 쓰지 않는다** —
+ * 붙이면 화면이 「코드가 없는 진행 중」을 그리게 되고, 사람은 뭘 해야 할지 모른다.
  */
+export type IGhLoginState =
+  | { stage: 'idle' }
+  | { stage: 'waiting'; code: string; url: string; before: string | null }
+  | { stage: 'done'; before: string | null; after: string | null; switched: boolean; say: string }
+  | { stage: 'failed'; why: string; say: string };
+
 export interface IGalaxyCandidates {
   /**
    * 태양계 후보. ⛔ **도구도 서버도 고르지 않았다** — 사람이 고른다(관측 법칙 §9).

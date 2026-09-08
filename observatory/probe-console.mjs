@@ -12,9 +12,13 @@
  *
  *  1. **뜨고 답하는가.** `/api/galaxies` 가 200 을 주고, 그 목록이 `universe.config.json` 의
  *     등재 목록과 **같은가**. ⛔ 여기 은하 이름을 적지 않는다(§9) — 설정에서 읽어 대조한다.
- *  2. ⛔⛔ **못 찾았을 때 빈 목록을 주지 않는가.** 지식 저장소를 없는 곳으로 가리키고
- *     물어본다. 「도메인 0개」로 답하면 그것이 이 저장소가 가장 싫어하는 사고다 —
- *     **안 잰 것이 「없다」로 세어지는** 자리(§8). 「못 찾았다」고 말해야 한다.
+ *  2. ⛔⛔ **못 찾았을 때 「괜찮다」고 하지 않는가.** 우주 뿌리를 **없는 곳**으로 가리킨
+ *     서버를 따로 하나 더 띄워 `/api/health` 에 물어본다. `ok:true` 로 답하면 그것이
+ *     이 저장소가 가장 싫어하는 사고다 — **안 잰 것이 통과로 세어지는** 자리(§8).
+ *     「못 찾았다」고, 그리고 **어디를 봤는지** 말해야 한다.
+ *     ⚠️ 이 시험은 전에 **형제 폴더의 남의 저장소**(`qa-workflow-v2-main`)를 없는 곳으로
+ *        가리켜서 쟀다. 그 저장소를 끊으면서 잴 대상이 사라졌는데, ⛔ **시험을 지우지 않고
+ *        옮겼다** — 사라진 것은 「무엇을 읽는가」이지 「못 읽었을 때 뭐라 하는가」가 아니다.
  *
  * ## ⚠️ 안 재는 것 (적어 둔다)
  *
@@ -95,9 +99,7 @@ const registered = JSON.parse(await readFile(path.join(ROOT, 'universe.config.js
 
 const server = spawn(process.execPath, [ENTRY], {
   cwd: APP,
-  /* ⚠️ 지식 저장소를 **없는 곳**으로 가리킨다 — 둘째 시험이 그것을 잰다. 그리고 이렇게 하면
-     형제 저장소가 있든 없든 **어느 기계에서나 같은 답**이 나온다(실측이 기계에 안 매인다). */
-  env: { ...process.env, PORT: String(PORT), QA_WORKFLOW_DIR: path.join(APP, '.data/없는-지식저장소') },
+  env: { ...process.env, PORT: String(PORT) },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let log = '';
@@ -149,25 +151,52 @@ if (galaxies.status !== 200) {
 }
 
 /**
- * ⛔⛔ **못 찾았을 때 「0개」라고 답하면 그것이 사고다.**
- * 빈 목록은 「도메인이 없다」로 읽히고, 그건 「못 읽었다」와 다른 말이다.
+ * ⛔⛔ **없는 우주를 가리켜 놓고 「괜찮다」고 하면 그것이 사고다.**
+ *
+ * ⚠️ 서버를 **하나 더** 띄운다. 위의 서버는 진짜 우주를 읽어야 첫 시험(등재 목록 대조)이
+ *    성립하므로, 뿌리를 망가뜨린 서버는 **따로** 세워야 두 시험이 서로를 안 망친다.
  */
-const health = await get('/api/health');
+const BAD_PORT = 8798;
+const badRoot = path.join(APP, '.data/없는-우주');
+const badServer = spawn(process.execPath, [ENTRY], {
+  cwd: APP,
+  env: { ...process.env, PORT: String(BAD_PORT), UNIVERSE_ROOT: badRoot },
+  stdio: ['ignore', 'ignore', 'ignore'],
+});
+const stopBad = () => { badServer.kill('SIGTERM'); };
+process.on('exit', stopBad);
+
+const getBad = async (route) => {
+  for (let tries = 0; tries < 40; tries += 1) {
+    try {
+      /* eslint-disable-next-line no-await-in-loop */
+      const res = await fetch(`http://127.0.0.1:${BAD_PORT}${route}`);
+      return { status: res.status, body: await res.json().catch(() => null) };
+    } catch {
+      /* eslint-disable-next-line no-await-in-loop, no-promise-executor-return */
+      await new Promise((r) => { setTimeout(r, 250); });
+    }
+  }
+  return null;
+};
+
+const health = await getBad('/api/health');
 const text = JSON.stringify(health?.body ?? {});
 if (health === null) {
   console.error('  ⛔ /api/health 가 답하지 않는다');
   failed = true;
 } else if (/"ok"\s*:\s*true/.test(text)) {
-  console.error('  ⛔ 지식 저장소가 **없는데 「ok」라고 답한다** — 안 잰 것이 통과로 세어진다(§8)');
+  console.error('  ⛔ 우주가 **없는데 「ok」라고 답한다** — 안 잰 것이 통과로 세어진다(§8)');
   console.error(`     ${text.slice(0, 200)}`);
   failed = true;
-} else if (!/없는-지식저장소/.test(text)) {
+} else if (!/없는-우주/.test(text)) {
   console.error('  ⛔ 못 찾았다고는 하는데 **어디를 봤는지 안 말한다** — 사람이 고칠 수가 없다');
   console.error(`     ${text.slice(0, 200)}`);
   failed = true;
 } else {
-  console.log('  ✅ 지식 저장소를 못 찾으면 **못 찾았다고 말한다** (빈 목록으로 삼키지 않는다)');
+  console.log('  ✅ 우주를 못 찾으면 **못 찾았다고 말한다** (조용히 ok 로 삼키지 않는다)');
 }
+stopBad();
 
 /**
  * ⛔⛔ **사람의 판정이 화면 밖으로 나가는가** — 이게 없으면 고리가 **끝날 수 없다**.
@@ -407,16 +436,33 @@ if (!(await watchRefuses({}, '은하를 골라'))) {
  *   사람이 이 관문을 **끄는 법부터** 배운다. ⇒ **수로 말한다.** 판정은 사람이 한다.
  * ⚠️ 그래서 이 줄은 **하한**이다: 「부르는 코드가 있다」지 「화면에서 쓸 수 있다」가 아니다.
  */
+/**
+ * ⚠️⚠️ **이 훑개가 틀린 수를 낸 적이 있다 — 홑따옴표만 읽었다.**
+ *
+ * 화면이 주소를 만드는 방법은 둘이다: 고정 주소는 `'/api/galaxies'`(홑따옴표), 인자가 붙는
+ * 주소는 <code>`/api/branches?url=…`</code>(백틱)다. 훑개가 앞의 것만 읽던 동안
+ * `/api/branches`·`/api/fs`·`/api/observations` **셋이 「화면이 안 부른다」로 세어졌다** —
+ * 화면이 멀쩡히 부르고 있는데도.
+ * ⛔ 그 수는 사람이 「무엇을 아직 못 하는가」를 판단하는 근거라, **틀린 수는 없는 수보다 나쁘다**:
+ *   있는 기능을 없다고 읽고 다시 만들게 한다.
+ * ⇒ 따옴표 종류를 **안 가린다**(`['\"`+백틱]). 서버 쪽도 `put`·`delete` 를 마저 읽고,
+ *   경로에 **숫자**가 들어가는 것(`/api/e2e/watch`)도 집는다 — 그것도 빠져 있었다.
+ *
+ * ⚠️ 그래도 이 줄은 여전히 **하한**이다: 「부르는 코드가 있다」지 「화면에서 쓸 수 있다」가 아니다.
+ */
 const routesOf = (text, re) => new Set([...text.matchAll(re)].map((m) => m[1]));
 const serverSrc = await readFile(path.join(APP, 'server/src/server.ts'), 'utf8').catch(() => '');
 const clientSrc = await readFile(path.join(APP, 'web/src/api/client.ts'), 'utf8').catch(() => '');
-const served = routesOf(serverSrc, /app\.(?:get|post)\('(\/api\/[a-z-]+)/g);
-const called = routesOf(clientSrc, /'(\/api\/[a-z-]+)/g);
-if (served.size === 0 || clientSrc === '') {
+const ROUTE = '(\\/api\\/[a-z0-9-]+)';
+const served = new RegExp(`app\\.(?:get|post|put|delete)\\(\\s*['"\`]${ROUTE}`, 'g');
+const called = new RegExp(`['"\`]${ROUTE}`, 'g');
+const servedSet = routesOf(serverSrc, served);
+const calledSet = routesOf(clientSrc, called);
+if (servedSet.size === 0 || clientSrc === '') {
   console.log('  ⏭  화면이 부르는 자리 — 소스를 못 읽었다(배달본이다). 못 쟀다.');
 } else {
-  const onlyServer = [...served].filter((r) => !called.has(r));
-  console.log(`  ⓘ 서버가 내는 자리 ${served.size}개 · 화면이 부르는 것 ${called.size}개`);
+  const onlyServer = [...servedSet].filter((r) => !calledSet.has(r));
+  console.log(`  ⓘ 서버가 내는 자리 ${servedSet.size}개 · 화면이 부르는 것 ${calledSet.size}개`);
   if (onlyServer.length > 0) {
     console.log(`     ⚠️ **화면이 안 부르는 자리 ${onlyServer.length}개**: ${onlyServer.join(' · ')}`);
     console.log('        ⛔ 이 칸은 **터미널을 아는 사람만** 쓸 수 있다 — 이 제품의 전제와 어긋난다.');
