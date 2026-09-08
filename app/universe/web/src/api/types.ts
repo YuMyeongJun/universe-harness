@@ -636,3 +636,51 @@ export interface IAdoptResult {
   /** 도구가 사람에게 한 말 — ⛔ **그대로** 나른다. */
   say: string;
 }
+
+/**
+ * ── 첫 칸 ⓪ ── **이 기계의 git 이 아는 저장소 하나.**
+ *
+ * ⛔ 이 모양은 화면이 정하지 않았다 — `bin/repos.mjs` 가 내는 것을 **그대로** 받는다.
+ *    화면에서 이름을 바꾸면 도구와 화면이 갈리고, 갈린 뒤엔 어느 쪽이 사실인지 아무도 모른다.
+ */
+export interface IRepo {
+  nameWithOwner: string;
+  url: string;
+  visibility: string;
+  isFork: boolean;
+  isArchived: boolean;
+  updatedAt: string;
+  description: string;
+}
+
+/**
+ * **고를 수 있는 저장소 목록.**
+ *
+ * ⛔⛔ `truncated` 가 이 형에서 가장 중요한 칸이다. `gh` 는 기본으로 위에서 몇 개만 잘라 온다 —
+ *    그걸 안 보여 주면 **잘린 목록이 전부인 척**한다. 「내 레포가 여기 없다」고 느낀 사람은
+ *    화면이 고장 난 줄 알지, 목록이 잘렸다고 생각하지 않는다(§8 — 늘 분모를 지고 다닌다).
+ * ⛔ 토큰은 **이 형에 칸 자체가 없다.** 도구가 로그를 가리는 것과 별개로, 나를 곳이 없어야 한다.
+ */
+export interface IRepoListData {
+  account: string | null;
+  host: string | null;
+  scopes: string | null;
+  owner: string | null;
+  limit: number;
+  count: number;
+  /** ⛔ true 면 **이게 전부가 아니다.** 화면은 반드시 그 사실을 말한다. */
+  truncated: boolean;
+  repos: IRepo[];
+}
+
+/**
+ * ⛔ `ok:false` 는 「레포가 없다」가 **아니다** — 「**못 쟀다**」다(⚪).
+ *    `gh` 가 없거나 로그인이 안 됐을 때가 그것이고, 그때 빈 목록을 그리면
+ *    사람은 **없는 사실**(레포가 하나도 없다)을 믿는다.
+ */
+export interface IRepoListResult {
+  ok: boolean;
+  data: IRepoListData | null;
+  say: string;
+  exitCode: number | null;
+}

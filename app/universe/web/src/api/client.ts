@@ -9,6 +9,7 @@ import type {
   IJudgedRun,
   IObservation,
   IProgress,
+  IRepoListResult,
   IRunListItem,
   IRunReceipt,
   ISurvey,
@@ -258,5 +259,17 @@ export const postClone = (url: string, name?: string): Promise<ICloneResult> =>
  * ⛔ 서버는 **받아 온 자리 안의 초안만** 받는다(우주 밖 파일을 읽는 자리가 되지 않게).
  * ⚠️ 여기서도 `ok:false` 는 **결과**다 — 「`TODO:` 가 남았다」가 그것이고, 그건 사람이 채울 일이다.
  */
+/**
+ * ── 첫 칸 ⓪ ── **이 기계의 git 이 아는 저장소 목록.** `GET /api/repos`.
+ *
+ * ⛔⛔ **로그인을 화면이 하지 않는다.** 사용자가 요구한 「깃 로그인으로 레포 선택」에서
+ *    로그인은 **이미 되어 있는 것**을 쓴다 — `gh auth login` 은 사람이 자기 터미널에서 하고,
+ *    이 콘솔은 그 결과를 **읽기만** 한다. 화면에 자격을 받는 칸을 만들면 그 값이
+ *    네트워크·서버 로그·프로세스 목록을 타고 흐른다. 그래서 **칸을 안 만든다.**
+ * ⛔ 못 읽은 것을 **빈 목록으로 접지 않는다** — `ok:false` 는 ⚪(못 쟀다)이지 ❌ 가 아니다.
+ */
+export const getRepos = (limit?: number): Promise<IRepoListResult> =>
+  req<IRepoListResult>(limit === undefined ? '/api/repos' : `/api/repos?limit=${String(limit)}`);
+
 export const postAdopt = (draft: string): Promise<IAdoptResult> =>
   req<IAdoptResult>('/api/adopt', { method: 'POST', body: JSON.stringify({ draft }) });

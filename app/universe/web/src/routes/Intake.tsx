@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import { getGalaxies, postAdopt, postClone } from '@api/client';
-import type { IAdoptResult, ICloneResult } from '@api/types';
+import { getGalaxies, getRepos, postAdopt, postClone } from '@api/client';
+import type { IAdoptResult, ICloneResult, IRepoListResult } from '@api/types';
 
 import { ActionButton } from '@components/form-controls/ActionButton';
 import { TextField } from '@components/form-controls/TextField';
@@ -32,6 +32,23 @@ import { Banner, CARD, CARD_NEXT, CODE, ContentPane, HELP_TEXT, PageHead, SECTIO
  *  5. ⛔ **`TODO:` 를 화면이 대신 채우지 않는다.** 태양계는 사람이 고른다(§9).
  *     자동으로 채우면 초안이 완성본 행세를 하고, 관문은 엉뚱한 것을 재게 된다.
  *  6. ⛔ **「무시하고 계속」·「TODO 무시하고 들이기」 갈래가 없다.** 넘길 수 있는 관문은 넘겨진다.
+ *
+ * ── ⓪ **주소를 외우게 하지 않는다**(레포 고르기) ────────────────────────
+ * 사용자가 요구한 두 번째 길은 「**깃 로그인을 통해서 깃 레포를 선택**」이었다.
+ * `GET /api/repos` 는 서버에 **있었는데 화면에서 부르는 곳이 0곳**이었다 — 즉 그 길은
+ * **터미널을 아는 사람만** 밟을 수 있었다(콘솔 프로브가 「화면이 안 부르는 자리」로 세던 칸).
+ *
+ * ⛔⛔ 그런데 **로그인을 화면이 하지 않는다.** 여기서 「로그인」은 *이미 되어 있는 것을 쓴다*는
+ *     뜻이다 — `gh auth login` 은 사람이 자기 터미널에서 한 번 하고, 콘솔은 그 결과를 **읽기만**
+ *     한다. 화면에 자격을 받는 칸을 만들면 그 값이 네트워크·서버 로그·프로세스 목록을 탄다.
+ *     ⇒ **칸을 안 만들었다.** 로그인이 안 됐으면 도구가 그렇게 말하고 화면은 그 말을 옮긴다.
+ * ⛔ **잘린 목록을 전부인 척하지 않는다.** `gh` 는 기본으로 위에서 몇 개만 가져온다 —
+ *    `truncated` 면 화면이 **먼저** 그 사실을 말한다. 안 말하면 「내 저장소가 없다」로 읽히고,
+ *    그 사람은 **화면이 고장 난 줄 알고** 주소를 직접 넣을 생각을 안 한다(§8 — 분모를 지고 다닌다).
+ * ⛔ **못 쟀다(⚪)와 비었다(0)를 같은 그림으로 그리지 않는다.** `gh` 가 없어서 못 읽은 것과
+ *    이 계정에 저장소가 없는 것은 **다른 사실**이고, 사람이 갈 곳도 다르다.
+ * ⛔ **고른다고 바로 받아 오지 않는다.** 고르는 것은 주소를 칸에 넣는 데서 끝난다 —
+ *    한 번의 실수 클릭이 5분짜리 내려받기가 되면 안 된다.
  *
  * ── ⭐ 들인 뒤에 **다시 물어본다** ──────────────────────────────────────
  * 도구가 「들였다」고 말해도 화면은 그것만 믿지 않는다 — `getGalaxies()` 를 **다시 불러서**
@@ -64,6 +81,34 @@ export function Intake() {
 
   /** 들인 뒤 **다시 물어본** 결과. ⛔ 도구의 말이 아니라 목록이 낸 답이다. */
   const [listed, setListed] = useState<string | null>(null);
+
+  /** 이 기계의 git 이 아는 레포. ⛔ `null` 은 「없다」가 아니라 **「아직 안 물어봤다」**다. */
+  const [repos, setRepos] = useState<IRepoListResult | null>(null);
+  const [asking, setAsking] = useState(false);
+
+  /**
+   * ⭐ **주소를 외우게 하지 않는다** — 이 기계의 git 이 이미 아는 것을 보여 주고 고르게 한다.
+   *
+   * ⛔ 여기서 **로그인을 시키지 않는다.** 로그인이 안 됐으면 도구가 그렇게 말하고,
+   *    화면은 그 말을 옮기며 「그건 당신 터미널에서 한 번 하는 일」이라고 알려 준다.
+   *    ⛔ 화면에 자격을 받는 칸을 만들면 그 값이 네트워크를 탄다 — 그래서 안 만든다.
+   */
+  const askRepos = (): void => {
+    setAsking(true);
+    setRefused(null);
+    /* ⛔ 묻는 순간 앞의 목록을 지운다 — 남겨 두면 그것이 지금 목록으로 읽힌다. */
+    setRepos(null);
+    void getRepos().then(
+      (came) => {
+        setAsking(false);
+        setRepos(came);
+      },
+      (failed: Error) => {
+        setAsking(false);
+        setRefused(failed.message);
+      },
+    );
+  };
 
   const fetchRepo = (): void => {
     setBusy(true);
@@ -186,6 +231,93 @@ export function Intake() {
         {step === 'clone' && (
           <div className={CARD}>
             <h2 className={SECTION}>① 깃 주소 — 받는 규율은 도구가 안다</h2>
+
+            {/* ⭐ 주소를 외우게 하지 않는다 — 이 기계의 git 이 아는 것을 고르게 한다. */}
+            <div className="mb-3">
+              <ActionButton disabled={asking || busy} onClick={askRepos}>
+                {asking ? '물어보는 중…' : '내 저장소 목록에서 고르기'}
+              </ActionButton>
+              <p className={HELP_TEXT}>
+                ⛔ <strong>여기서 로그인하지 않습니다</strong> — 이 콘솔은 이 기계의 git 이{' '}
+                <strong>이미</strong> 아는 것을 읽기만 합니다. 로그인을 화면에서 받으면 그 자격이
+                네트워크와 서버 로그를 타고 흐릅니다. 그래서 <strong>칸을 안 만들었습니다.</strong>
+              </p>
+            </div>
+
+            {repos !== null && !repos.ok && (
+              <Banner tone="unknown">
+                <strong>⚪ 목록을 못 쟀다 — 「저장소가 없다」가 아니다.</strong>
+                <div className="mt-1.5">
+                  ⛔ 이 둘은 <strong>다른 사실</strong>입니다. 여기서 빈 목록을 그리면 당신은
+                  「내 저장소가 하나도 없다」를 믿게 됩니다 — 그건 아직 아무도 모릅니다.
+                </div>
+                {repos.say !== '' && <div className={SAY}>{repos.say}</div>}
+                <div className="mt-1.5">
+                  대개는 이 기계에 <code>gh</code> 로그인이 안 된 것입니다. 그건{' '}
+                  <strong>사람이 자기 터미널에서 한 번</strong> 하는 일이고, 화면은 그걸 대신
+                  못 합니다. 그동안에도 <strong>아래에 주소를 직접 넣으면 됩니다</strong> — 이 칸은
+                  편의이지 유일한 길이 아닙니다.
+                </div>
+              </Banner>
+            )}
+
+            {repos !== null && repos.ok && repos.data !== null && (
+              <div className="mb-3">
+                <Banner tone={repos.data.truncated ? 'unknown' : 'ok'}>
+                  <strong>
+                    {repos.data.account ?? '(계정을 못 읽었다)'} — {repos.data.repos.length}개를 보여줍니다.
+                  </strong>
+                  {repos.data.truncated ? (
+                    <div className="mt-1.5">
+                      ⚠️ <strong>이게 전부가 아닙니다.</strong> 도구가 위에서{' '}
+                      <strong>{repos.data.limit}개</strong>까지만 가져왔습니다 — 여기 없다고 해서
+                      그 저장소가 없는 것이 아닙니다. ⛔ 안 보이면{' '}
+                      <strong>아래에 주소를 직접 넣으세요.</strong>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5">
+                      이 계정이 아는 것을 <strong>다 가져왔습니다</strong> — 잘리지 않았습니다.
+                    </div>
+                  )}
+                </Banner>
+
+                {repos.data.repos.length === 0 && (
+                  <p className={HELP_TEXT}>
+                    ⛔ 목록은 <strong>제대로 읽혔고</strong>, 그 안이 비어 있습니다 — 위의 ⚪
+                    (못 쟀다)와 <strong>다른 사실</strong>입니다.
+                  </p>
+                )}
+
+                <ul className="mt-2 max-h-code overflow-auto rounded-control border border-ui-line">
+                  {repos.data.repos.map((one) => (
+                    <li key={one.nameWithOwner} className="border-b border-ui-line last:border-b-0">
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-2.5 py-2 text-left hover:bg-ui-surface-sunken"
+                        onClick={() => {
+                          /* ⛔ 고르는 것은 **주소를 칸에 넣는 것까지**다. 바로 받아 오지 않는다 —
+                             한 번의 실수 클릭이 5분짜리 내려받기가 되면 안 된다. */
+                          setUrl(one.url);
+                        }}
+                      >
+                        <span className="font-mono text-xs">{one.nameWithOwner}</span>
+                        <span className={HELP_TEXT}>
+                          {one.visibility}
+                          {one.isFork ? ' · 포크' : ''}
+                          {one.isArchived ? ' · 보관됨' : ''}
+                          {one.description === '' ? '' : ` · ${one.description}`}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className={HELP_TEXT}>
+                  ⛔ 고르면 <strong>아래 칸에 주소가 들어갈 뿐</strong>입니다 — 바로 받아 오지
+                  않습니다. 받아 오는 것은 당신이 버튼을 눌러야 시작합니다.
+                </p>
+              </div>
+            )}
+
             <TextField
               id="intake-url"
               label="깃 주소"
