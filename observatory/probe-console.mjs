@@ -213,6 +213,33 @@ if (storeMod === null || resultMod === null) {
   }
 }
 
+/**
+ * ⛔⛔ **주소를 넣는 칸이 화면에도 있는가** — 사람의 계획은 **화면에서** 시작한다.
+ *
+ * 실측(R163): CLI 는 `universe clone` 으로 받아 오는데 **화면에는 그 자리가 없었다.**
+ * 계획의 첫 칸(「깃 주소를 입력한다」)이 콘솔에 없으면, 그 계획은 **CLI 를 아는 사람만** 밟는다.
+ * ⛔ 여기서 재는 것은 **거절**이다 — 진짜로 받아 오는 것은 `probe-clone.sh` 가 잰다.
+ *   ⚠️ 관문이 매 바퀴 남의 저장소를 받아 오면 안 된다.
+ */
+const refuses = async (body, expect) => {
+  const res = await fetch(`http://127.0.0.1:${PORT}/api/clones`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  const said = res === null ? '' : JSON.stringify(await res.json().catch(() => ({})));
+  return res !== null && res.status === 400 && said.includes(expect);
+};
+if (!(await refuses({}, '깃 주소를 주세요'))) {
+  console.error('  ⛔ 주소 없이 불렀는데 **400 으로 거절하지 않는다** — 화면에 그 칸이 없거나 죽었다');
+  failed = true;
+} else if (!(await refuses({ url: 'https://TOKEN@example.invalid/x/y.git' }, '자격이 박혀'))) {
+  console.error('  ⛔ **자격이 박힌 주소를 받아들인다** — 토큰이 서버 로그와 프로세스 목록에 남는다');
+  failed = true;
+} else {
+  console.log('  ✅ 주소를 받는 자리가 있고, **토큰이 박힌 주소를 거절한다**');
+}
+
 stop();
 if (failed) {
   console.error('\n⛔ 콘솔이 사람의 계획이 지나가는 자리인데 그 자리가 거짓말을 한다.');

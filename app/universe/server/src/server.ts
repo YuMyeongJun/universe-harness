@@ -20,6 +20,7 @@ import {
   makeGalaxyDraft,
   readGalaxyDraft,
 } from './galaxy-draft.js';
+import { cloneInputProblem, cloneRepo } from './clone.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import {
   fromParamProblem,
@@ -371,6 +372,25 @@ export const createApp = (): express.Express => {
     void makeGalaxyDraft(String(body.name).trim(), String(body.dir).trim()).then(
       (result) => res.json(result),
       (e: unknown) => fail(res, 500, `좌표 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **깃 주소를 받아 저장소를 받아 온다.** `{ url, name? }`.
+   *
+   * ⛔ 받는 규율은 `bin/clone.mjs` 가 안다 — 서버는 **부르고 나른다**(clone.ts 머리말).
+   * ⛔ **토큰 칸이 없다.** 인증은 그 기계의 git 이 한다. 자격이 박힌 주소는 거절한다 —
+   *    그 순간 토큰이 **인자**가 되어 셸 히스토리·프로세스 목록·서버 로그에 남는다.
+   * ⛔ **못 받은 것을 4xx 로 만들지 않는다.** 「자격이 없다」·「그런 저장소가 없다」는
+   *    **결과**다(200 + `ok:false` + 도구가 한 말). 400 은 **요청의 모양**이 틀렸을 때뿐이다.
+   */
+  app.post('/api/clones', (req: Request, res: Response) => {
+    const body = req.body as { url?: unknown; name?: unknown };
+    const problem = cloneInputProblem(body.url, body.name);
+    if (problem !== null) return fail(res, 400, problem);
+    void cloneRepo(String(body.url).trim(), body.name === undefined ? undefined : String(body.name)).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `받아 오는 도구를 부르지 못했습니다: ${(e as Error).message}`),
     );
   });
 
