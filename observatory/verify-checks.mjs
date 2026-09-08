@@ -254,6 +254,21 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-loop.sh']],
   },
   {
+    check: '새 사람의 길 ⑦(quickstart)',
+    bite: '못 쟀는데 초록을 낸다',
+    expect: '새 사람의 길이',
+    file: 'observatory/loop-state.mjs',
+    /**
+     * ⛔ 새 사람의 길 마지막 칸은 「끝났는가」다. 갓 깐 우주에서는 **못 재는 것이 정상**이고,
+     * 그때 **⚪(3)로 정직하게 죽는가**를 잰다.
+     * ⚠️ 이 칸이 **못 재는 것**도 적어 뒀다: 상자에 `qa/dist` 가 안 배달돼서 ⚪ 의 이유는
+     *    언제나 「계약이 안 지어져 있다」다 — **「축을 선언 안 했다」 갈래는 여기서 안 밟힌다**
+     *    (그쪽은 `probe-loop.sh` 가 잰다). 「둘 중 하나면 통과」로 두면 재는 척이 된다.
+     */
+    mutate: (t) => t.replace('  process.exit(EXIT_UNMEASURED);', '  process.exit(0);'),
+    cmd: ['node', ['observatory/verify-quickstart.mjs']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',

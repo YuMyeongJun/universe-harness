@@ -140,6 +140,29 @@ try {
   await step('⑥ 별이 태어난다',
     process.execPath, [join(ROOT, 'bin/universe.mjs'), 'new', 'my-app', 'src/components', 'DashboardToday', '--universe', './universe'],
     (r) => r.code === 0 && /별이 태어났다/.test(r.out));
+
+  /**
+   * ⑦ **「끝났는가」까지 간다.** 사람의 계획은 여기서 끝난다 — 재고 · 화면 시험 · 판정 · 반복.
+   *
+   * ⛔ 새 은하는 `commands.e2e` 를 **선언하지 않았다.** 그러면 이 칸은 ⚪(3)여야 한다 —
+   *   **초록도 빨강도 아니다.** 실측(R163): 등록된 은하 하나도 그 축을 선언 안 해서
+   *   이 칸은 **한 번도 안 돌았고**, 사람은 계획의 마지막 칸이 있는지도 몰랐다.
+   * ⚠️ 여기서 브라우저를 띄우지 않는다 — 관문이 매 바퀴 화면 시험을 돌리면 아무도 안 본다.
+   *   재는 것은 **길이 이어져 있는가**이고, 실제 주행은 `probe-loop`·`qa-e2e` 은하가 잰다.
+   */
+  await step('⑦ 「끝났는가」가 이어져 있다 (축이 없으면 ⚪ 3)',
+    process.execPath, [join(ROOT, 'bin/universe.mjs'), 'loop', '--galaxy', 'my-app', '--universe', './universe'],
+    /**
+     * ⛔ **⚪ 가 났다고 통과가 아니다 — 「왜 ⚪ 인가」를 본다.**
+     *
+     * ⚠️⚠️ **이 칸이 실제로 재는 것을 정확히 적는다.** 갓 깐 우주엔 `qa/dist` 가 **안 배달된다** —
+     * 그래서 여기서 나오는 ⚪ 는 **언제나 「TC 계약이 안 지어져 있다」**이고, 「축을 선언 안 했다」
+     * 갈래는 **이 상자에서 한 번도 안 밟힌다.** 변이로 확인했다(축 문구를 바꿔도 안 물린다).
+     * ⇒ 여기서 재는 것은 **「길이 이어져 있고, 못 잴 때 ⚪ 로 정직하게 죽는가」**까지다.
+     *   축 갈래는 `probe-loop.sh` 가, 실제 주행은 `qa-e2e` 은하가 잰다.
+     * ⛔ 「둘 중 하나면 통과」로 두면 **재는 척**이 된다 — 그래서 무엇을 못 재는지 여기 적었다.
+     */
+    (r) => r.code === 3 && /(commands\.e2e|TC 계약)/.test(r.out));
 } finally {
   if (!argv.includes('--keep')) {
     await rm(box, { recursive: true, force: true });

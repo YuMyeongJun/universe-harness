@@ -151,6 +151,35 @@ node <우주-저장소>/bin/universe.mjs new my-app dashboard DashboardToday --u
 ⛔ 은하가 `commands.test` 를 선언하지 않았으면 **행동 계약(`*.test.tsx`)을 안 만든다.**
 안 만들었다고 화면에서 말한다 — 그 별에는 지켜 줄 계약이 없다는 뜻이다.
 
+## 6. 끝났는지 묻는다
+
+```bash
+universe loop --galaxy my-app
+```
+
+사람의 계획은 여기서 끝난다: 재고 → TC → **화면 시험** → fail 목록 → **사람이 판정** → 다시.
+
+| 종료코드 | 뜻 |
+|---|---|
+| 0 | **판단하지 않은 fail 0** — 이 회전에서 멈춰도 된다 |
+| 1 | 판단 안 한 fail 이 남았다 |
+| 3 | ⚪ **못 쟀다** |
+
+⛔ **종료 조건은 「fail 0」이 아니다.** 「fail 0」을 목표로 두면 **가장 싼 해법이 단정을
+약하게 만드는 것**이 된다. 그래서 「**판단하지 않은** fail 0」이다.
+
+⚠️ 갓 만든 은하는 `commands.e2e` 를 선언하지 않았으니 **처음엔 ⚪ 가 나온다** —
+「화면이 멀쩡하다」가 아니라 **안 쟀다**는 뜻이다. 축을 붙이려면 좌표에 적어라:
+
+```json
+"commands": { "e2e": "npx playwright test --reporter=json > .universe/e2e.json" }
+```
+
+⚠️ `universe clone`·`universe galaxy` 는 저장소에 Playwright 가 있으면 **이 줄을 초안에 적어 준다.**
+
+판정은 콘솔에서 붙인다(`universe console` 이 그 화면이 서는지 잰다). 판정을 붙이면 콘솔이
+**붙인 주행을 파일로도** 남기고, `universe loop --report <그 파일>` 이 그것을 읽어 「끝났다」고 말한다.
+
 ## 다음
 
 - [사용법](02-usage.md) — 명령 전부
