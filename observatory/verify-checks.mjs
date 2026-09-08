@@ -269,6 +269,20 @@ const CASES = [
     cmd: ['node', ['observatory/verify-quickstart.mjs']],
   },
   {
+    check: '반복이 멈추는가(repeat)',
+    bite: '안 줄어드는데 계속 돈다',
+    expect: '안 줄어드는데 계속 돈다',
+    file: 'observatory/repeat.mjs',
+    /**
+     * ⛔⛔ 사람의 계획은 「fail 0 까지 반복」인데, **멈추는 자리가 없으면** 그건 도구가 아니라
+     * 사람이 안 보는 사이에 도는 물건이다. 그리고 이 도구는 **판정을 자동으로 안 붙인다** —
+     * 붙이면 종료 조건(「판단하지 않은 fail 0」)이 그 자리에서 무의미해진다.
+     * ⇒ 「안 줄어든다」 갈래를 꺼 보면 같은 수로 `--max` 까지 돈다.
+     */
+    mutate: (t) => t.replace('  if (tail.length === stall && tail.every((v) => v === tail[0])) {', '  if (false) {'),
+    cmd: ['bash', ['observatory/probe-loop.sh']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',

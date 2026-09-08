@@ -58,6 +58,9 @@ const SUBCOMMANDS = {
   /* **이 은하는 끝났는가** — 종료 조건은 「fail 0」이 아니라 **「판단하지 않은 fail 0」**이다.
      ⛔ 판정을 여기서 만들지 않는다 — `qa` 의 계약이 낸 답을 **나른다**. */
   loop: 'observatory/loop-state.mjs',
+  /* **fail 0 까지 반복한다.** ⛔ 판정은 자동으로 안 붙인다 — 붙이면 종료 조건이 무의미해진다.
+     ⛔ 「끝날 때까지」 안 돈다: 끝났다 · 안 줄어든다 · 바퀴를 다 썼다 · 못 쟀다 넷에서 멈춘다. */
+  repeat: 'observatory/repeat.mjs',
   round: 'bin/round.mjs',
   observe: 'observatory/observe.mjs',
   verify: 'observatory/verify.mjs',
