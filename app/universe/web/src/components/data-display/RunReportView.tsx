@@ -5,6 +5,7 @@ import { DoneVerdict } from '@components/data-display/DoneVerdict';
 import { PreconditionList } from '@components/data-display/PreconditionList';
 import { RunCaseRow } from '@components/data-display/RunCaseRow';
 import { RunTally } from '@components/data-display/RunTally';
+import { CARD, OrbitRule } from '@components/ui';
 
 /**
  * 주행 하나를 통째로 그린다 — **판단하지 않은 것부터.**
@@ -21,8 +22,9 @@ import { RunTally } from '@components/data-display/RunTally';
  *
  * ⛔ **「무시하고 계속」·「전부 통과 처리」 버튼은 없다.** 넘길 수 있는 관문은 넘겨진다.
  */
-const SECTION_HEAD = 'mb-3.5 mt-8.5 text-label font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
-const CARD = 'rounded-card border border-ui-line bg-ui-surface p-4';
+/* ⚠️ 위 여백이 `mt-8.5` → `mt-3.5` 로 줄었다. 위 여백은 이제 앞선 `OrbitRule` 이 진다 —
+   둘 다 8.5 를 주면 구획 사이가 두 배로 벌어진다(같은 속성을 두 자리에서 주지 않는다). */
+const SECTION_HEAD = 'mb-3.5 mt-3.5 text-label font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 const EMPTY_NOTE = 'text-meta text-ui-ink-dim';
 
 interface ISection {
@@ -88,6 +90,9 @@ export function RunReportView({ payload }: IRunReportViewProps) {
         const cases = pick(section.bucket);
         return (
           <div key={section.bucket}>
+            {/* 무더기 다섯이 이어 붙으면 어디서 하나가 끝나는지 안 보인다 —
+                궤도 하나가 그 경계를 눈으로 말한다. ⛔ 뜻은 안 나른다(`ui.tsx`). */}
+            <OrbitRule className="mt-8.5" />
             <h2 className={SECTION_HEAD}>
               {section.title} — 전체 {payload.stats.total}건 중 {cases.length}건
             </h2>

@@ -519,6 +519,54 @@ export interface IRunToolTrace {
   stderr: string;
 }
 
+/**
+ * 서버가 **남긴** 주행 한 건.
+ *
+ * ⛔⛔ 이 칸이 없으면 **사람의 판정이 화면 밖으로 못 나간다.** 판정을 적으려면 그 판정이
+ * 어느 주행에 붙는지를 알아야 하는데, 그 주소가 `id` 다. `POST /api/runs` 가 이것을 준다.
+ */
+export interface IRunMetaView {
+  id: string;
+  receivedAt: string;
+  receivedShape: RunShape;
+  from: string | null;
+  /**
+   * 판정을 붙여 **다시 쟀는가.** `true` 면 위 `shape` 는 `contract` 다 —
+   * 원문이 Playwright 였어도 판정을 붙일 칸이 계약 모양에만 있기 때문이다.
+   */
+  remeasured: boolean;
+}
+
+/**
+ * **판정이 붙은 채로 다시 잰 주행** — `GET /api/runs/:id` · `POST /api/runs/:id/verdict` 의 답.
+ *
+ * ⭐ 서버는 「판단하지 않은 fail 이 하나 줄었다」를 **계산하지 않는다.** 저장해 둔 케이스에
+ * 판정을 붙여 **도구를 다시 부르고** 그 답을 그대로 나른다 — 그래서 화면의 수와 관문의 수가
+ * 갈리지 않는다. ⛔ 화면도 다시 세지 않는다.
+ */
+/**
+ * 목록에 뜨는 주행 한 줄 — `GET /api/runs`.
+ *
+ * ⛔⛔ **여기에는 「끝났는가」가 없다. 없는 게 맞다.** 서버가 그 목록에 붙여 보내는 말 그대로:
+ *   「이 목록은 「끝났는가」를 말하지 않는다 — 그 답은 주행을 **열어 다시 재야** 나온다.」
+ * ⇒ 화면은 목록에서 **판단하지 않은 fail 의 수를 알 수 없다.** 그 자리에 `0` 을 찍으면
+ *   「이 주행은 끝났다」는 거짓말이 된다. **`⚪` 를 찍어야 한다**(`CountBadge`).
+ *
+ * ⚠️ `verdictsRecorded` 를 그 수로 **대신 쓰지 마라.** 그건 **적힌 판정의 수**이지
+ * 「판단으로 세어진 수」가 아니다 — 사유가 짧은 `accepted` 는 저장은 되되 세어지지 않는다.
+ * 둘을 같은 칸에 쓰면 화면이 「3건 판단함」이라고 말하는데 관문은 「1건 남았다」고 말하게 된다.
+ */
+export interface IRunListItem extends Omit<IRunMetaView, 'remeasured'> {
+  /** ⛔ **적힌 수**다. 「판단으로 세어진 수」가 아니다. */
+  verdictsRecorded: number;
+  verdictsCleared: number;
+}
+
+export interface IJudgedRun extends IRunReceipt {
+  id: string;
+  run: IRunMetaView;
+}
+
 export interface IRunReceipt {
   /** ⭐ 도구의 JSON 그대로. ⛔ `null` 은 못 받았다 — 화면이 빈 목록으로 접지 않는다. */
   report: unknown;
@@ -531,4 +579,11 @@ export interface IRunReceipt {
   /** 서버가 알아챈 것(빌드가 낡았다 등). ⛔ 판정이 아니다 — 화면이 고쳐 적지 않는다. */
   notes: string[];
   tool: IRunToolTrace;
+  /**
+   * ⛔ **`null` 이면 주행을 못 남긴 것이다** — 잰 결과는 멀쩡한데 **판정을 붙일 자리가 없다.**
+   * 그 둘은 다른 사실이라 화면이 갈라 말해야 한다(⚪ 로 접지도, 조용히 숨기지도 않는다).
+   * ⚠️ `undefined` 는 「이 답에는 그 칸이 안 온다」다(도구 JSON 을 화면이 그대로 그리는 길).
+   */
+  id?: string | null;
+  run?: IRunMetaView | null;
 }

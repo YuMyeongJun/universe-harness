@@ -1,6 +1,6 @@
 import type { IRunPayload } from '@api/types';
 
-import { Pill, Tile } from '@components/ui';
+import { CARD, Pill, SECTION, Tile } from '@components/ui';
 
 /**
  * **분모를 먼저 보여 준다.**
@@ -11,8 +11,6 @@ import { Pill, Tile } from '@components/ui';
  * ⛔ 그리고 **검증 분모는 전체 건수가 아니다.** 구현에서 뽑은 TC(자기 채점)와 ⚪ 못 잰 것은
  * 빠진다. 뺀 것을 **합쳐 두지 않고 갈라** 적는 이유도 같다 — 합치면 「0건」의 뜻을 잃는다.
  */
-const CARD = 'rounded-card border border-ui-line bg-ui-surface p-4';
-const SECTION = 'mb-3.5 mt-0 text-label font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 const TILES = 'flex flex-wrap gap-2.5';
 const NOTE = 'mt-3.5 text-meta text-ui-ink-dim';
 const IDS = 'font-mono';
@@ -29,13 +27,21 @@ export function RunTally({ payload }: IRunTallyProps) {
     <div className={CARD}>
       <h2 className={SECTION}>전체 {stats.total}건 중 — ⛔ 건수는 분모와 함께만 읽는다</h2>
       <div className={TILES}>
-        <Tile v={stats.total} l="전체" />
-        <Tile v={`✅ ${stats.expected}`} l="통과" />
-        <Tile v={`❌ ${stats.unexpected}`} l="실패" />
-        <Tile v={`⚪ ${stats.skipped}`} l="못 쟀다" />
-        <Tile v={stats.flaky} l="갈렸다(flaky)" />
-        <Tile v={verification.denominator} l="검증 분모" />
-        <Tile v={payload.done.unjudged.length} l="판단 안 한 fail" />
+        {/* ⛔ **판정이 아닌 수에는 색을 안 칠한다.** 「전체 42건」이 좋은 소식인지
+            나쁜 소식인지 화면은 모른다 — 모르는 것에 색을 칠하면 그게 거짓말이다. */}
+        <Tile reading={stats.total} label="전체" />
+        <Tile reading={`✅ ${stats.expected}`} label="통과" tone="ok" />
+        <Tile reading={`❌ ${stats.unexpected}`} label="실패" tone="bad" />
+        {/* ⛔⛔ 이 칸은 초록도 빨강도 아니다 — **점선 테두리**로 나머지 둘과 갈린다. */}
+        <Tile reading={`⚪ ${stats.skipped}`} label="못 쟀다" tone="unknown" />
+        <Tile reading={stats.flaky} label="갈렸다(flaky)" />
+        <Tile reading={verification.denominator} label="검증 분모" />
+        {/* 이 루프의 종료 조건이다 — 0 이 아니면 아직 안 끝났다. */}
+        <Tile
+          reading={payload.done.unjudged.length}
+          label="판단 안 한 fail"
+          tone={payload.done.unjudged.length === 0 ? undefined : 'bad'}
+        />
       </div>
 
       <p className={NOTE}>

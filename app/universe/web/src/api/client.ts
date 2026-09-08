@@ -1,10 +1,13 @@
 import type {
+  ICaseVerdict,
   IDomainSummary,
   IEmitFile,
   IGalaxyDraftResult,
   IGalaxyList,
+  IJudgedRun,
   IObservation,
   IProgress,
+  IRunListItem,
   IRunReceipt,
   ISurvey,
 } from './types';
@@ -182,4 +185,47 @@ export const postRun = (raw: string, from?: 'contract' | 'playwright'): Promise<
   req<IRunReceipt>(from === undefined ? '/api/runs' : `/api/runs?from=${from}`, {
     method: 'POST',
     body: raw,
+  });
+
+/**
+ * **남아 있는 주행 목록** — `GET /api/runs`.
+ *
+ * ⛔⛔ **이 목록은 「끝났는가」를 모른다.** 서버가 `note` 로 그렇게 적어 보낸다 —
+ * 화면은 그 문장을 **그대로 나르고**, 목록의 수 자리에는 `0` 이 아니라 **`⚪`** 를 찍는다.
+ * 「판단하지 않은 fail 이 0건」과 「그게 몇 건인지 모른다」는 다른 사실이다.
+ */
+export const getRuns = (): Promise<{ runs: IRunListItem[]; note: string }> =>
+  req<{ runs: IRunListItem[]; note: string }>('/api/runs');
+
+/**
+ * **판정이 붙은 채로 다시 잰 주행을 받아 온다** — `GET /api/runs/:id`.
+ *
+ * ⭐ 「다시 잰다」가 핵심이다. 서버는 저장해 둔 케이스에 판정을 붙여 **계약 도구를 다시 부르고**
+ * 그 답을 그대로 준다 — 화면도 서버도 「판단하지 않은 fail 이 하나 줄었다」를 **세지 않는다.**
+ */
+export const getRun = (id: string): Promise<IJudgedRun> =>
+  req<IJudgedRun>(`/api/runs/${encodeURIComponent(id)}`);
+
+/**
+ * **사람이 내린 판정을 적는다** — `POST /api/runs/:id/verdict`.
+ *
+ * ⛔⛔ **답으로 오는 것은 「저장했다」가 아니라 다시 잰 주행 전체다.** 그래서 호출부는
+ * 답을 **그대로 화면에 갈아 끼우면 되고**, 「판단하지 않은 fail」의 새 수를 스스로 세면 안 된다.
+ * 세는 순간 화면의 수와 관문의 수가 갈리고, 갈린 뒤엔 어느 쪽이 사실인지 아무도 모른다.
+ *
+ * ⛔ **한 번에 한 건이다.** 서버가 `caseId` 배열을 거절한다(400) — 일괄 판정 갈래는
+ *    「전부 통과 처리」로 가는 가장 짧은 길이라 계약이 막아 뒀다.
+ * ⛔ `verdict: null` 은 **지우는 것**이다(장부에는 남는다). 「판단 안 함으로 되돌린다」이지
+ *    「없던 일로 한다」가 아니다.
+ * ⚠️ 사유가 짧은 `accepted` 도 **저장은 된다** — 그것이 판단으로 세어지는지는 계약이 정하고,
+ *    답의 `report.done.unjudged` 에 그대로 남아 있다. 화면이 미리 막지 않는다.
+ */
+export const postVerdict = (
+  id: string,
+  caseId: string,
+  verdict: ICaseVerdict | null,
+): Promise<IJudgedRun> =>
+  req<IJudgedRun>(`/api/runs/${encodeURIComponent(id)}/verdict`, {
+    method: 'POST',
+    body: JSON.stringify({ caseId, verdict }),
   });

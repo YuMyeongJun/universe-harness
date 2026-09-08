@@ -1,6 +1,6 @@
 import type { IScanScope } from '@api/types';
 
-import { Banner, Pill } from '@components/ui';
+import { Banner, CARD, CODE, Pill } from '@components/ui';
 
 /**
  * **분모** — 「몇 건」 앞에 반드시 오는 것.
@@ -20,10 +20,8 @@ import { Banner, Pill } from '@components/ui';
 /** 비율을 백분율로 — 이름을 붙여 둔다(매직 넘버가 아니라 단위 환산이다). */
 const PERCENT = 100;
 
-const CARD = 'rounded-card border border-ui-line bg-ui-surface p-4';
 const ROW = 'mt-2.5 flex flex-wrap items-baseline gap-2';
 const META = 'text-meta text-ui-ink-faint';
-const CODE = 'rounded-chip bg-ui-surface-sunken px-1.25 py-px font-mono text-xs';
 
 export interface IScanScopeProps {
   scope: IScanScope;

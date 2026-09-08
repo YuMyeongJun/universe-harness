@@ -1,6 +1,6 @@
 import type { IPrecondition } from '@api/types';
 
-import { Banner } from '@components/ui';
+import { Banner, CARD_NEXT, SECTION } from '@components/ui';
 
 /**
  * **전제가 케이스보다 먼저다.**
@@ -13,8 +13,6 @@ import { Banner } from '@components/ui';
  * ⛔ 전제가 **0개 선언된 것**도 「다 섰다」가 아니라 **못 잰 것**이다 — 아무것도 확인하지
  * 않은 주행이 측정 가능으로 보이면, 그 뒤의 숫자는 전부 뜻을 잃는다.
  */
-const CARD = 'mt-3.5 rounded-card border border-ui-line bg-ui-surface p-4';
-const SECTION = 'mb-3.5 mt-0 text-label font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 const ROW = 'border-b border-ui-line py-2.5 last:border-b-0';
 const NAME = 'font-mono font-semibold';
 const DETAIL = 'mt-1 block text-meta text-ui-ink-dim';
@@ -41,7 +39,7 @@ export interface IPreconditionListProps {
 
 export function PreconditionList({ preconditions, measurable, because }: IPreconditionListProps) {
   return (
-    <div className={CARD}>
+    <div className={CARD_NEXT}>
       <h2 className={SECTION}>전제 — 케이스보다 먼저 본다</h2>
 
       {!measurable && (

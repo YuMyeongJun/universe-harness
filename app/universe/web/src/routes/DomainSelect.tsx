@@ -9,7 +9,9 @@ import { CommandList } from '@components/data-display/CommandList';
 import { ToolEcho } from '@components/data-display/ToolEcho';
 import { ActionButton } from '@components/form-controls/ActionButton';
 import { TextField } from '@components/form-controls/TextField';
-import { Banner, Empty, HELP_TEXT, PageHead, Pill, Shell, SUB } from '@components/ui';
+import { ConsoleShell } from '@components/layout/ConsoleShell';
+import { SidebarNav, type ISidebarGroup } from '@components/layout/SidebarNav';
+import { Banner, CARD, CARD_NEXT, CODE, ContentPane, Empty, HELP_TEXT, PageHead, Pill, SECTION, SUB } from '@components/ui';
 
 const kb = (n: number): string => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 
@@ -20,10 +22,6 @@ const DOMAIN_ROW = [
   'text-left text-inherit no-underline hover:border-ui-accent',
 ].join(' ');
 
-const CARD = 'rounded-card border border-ui-line bg-ui-surface p-4';
-const CARD_NEXT = 'mt-3.5 rounded-card border border-ui-line bg-ui-surface p-4';
-const SECTION = 'mb-3.5 mt-0 text-label font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
-const CODE = 'rounded-chip bg-ui-surface-sunken px-1.25 py-px font-mono text-xs';
 
 /**
  * S1 · **잴 저장소 고르기** — 무엇을 잴 것인지 여기서 정한다.
@@ -43,6 +41,8 @@ export function DomainSelect() {
   const [domains, setDomains] = useState<IDomainSummary[] | null>(null);
   const [health, setHealth] = useState<IHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** ② 에서 고른 도메인. ⛔ 고르기 전에는 목록을 본문에 다시 늘어놓지 않는다. */
+  const [pickedDomain, setPickedDomain] = useState<string | null>(null);
 
   const [repoDir, setRepoDir] = useState('');
   const [galaxyName, setGalaxyName] = useState('');
@@ -99,19 +99,38 @@ export function DomainSelect() {
     );
   };
 
+  const sidebarGroups: ISidebarGroup[] = [
+    {
+      title: '도메인 — 형제 저장소에서 읽어 온 것',
+      /* ⛔ 못 읽었으면 **빈 목록으로 그리지 않는다** — 빈 목록은 「도메인이 없다」로 읽힌다. */
+      unmeasured: error ?? (domains === null ? '아직 못 받았다 — 불러오는 중이다.' : null),
+      items: (domains ?? []).map((one) => ({
+        id: one.domain,
+        /* ⚠️ 문서 수는 **잰 수다** — 서버가 파일을 세어 준다. 그래서 여기는 ⚪ 가 아니다.
+           ⛔ 다만 이 수는 「지식이 충분한가」가 아니다. 그건 옆의 배지가 말한다. */
+        label: one.title,
+        count: one.docs,
+      })),
+    },
+  ];
+
+  const sidebar = (
+    <SidebarNav
+      label="도메인"
+      groups={sidebarGroups}
+      selected={pickedDomain}
+      onSelect={setPickedDomain}
+    />
+  );
+
   return (
-    <Shell>
+    <ConsoleShell sidebar={sidebar}>
+      <ContentPane>
       <PageHead
         eyebrow="우주 콘솔"
         title="잴 저장소 고르기"
         sub="로컬 폴더를 지정하면 서버가 그 저장소를 읽어 좌표 초안을 만듭니다. 초안은 초안입니다 — 도구가 못 읽은 자리는 사람이 채웁니다."
       />
-
-      <p className={`mb-4.5 ${HELP_TEXT}`}>
-        <Link to="/">← 우주가 아는 은하</Link> · <Link to="/violations">위반 목록과 처방 보기 →</Link>{' '}
-        — 무엇이 위반인지, 무엇을 고쳐야 하는지. 건수는 언제나{' '}
-        <strong>훑은 파일 수와 함께</strong> 나온다.
-      </p>
 
       {/**
        * ⛔⛔ **이 화면의 「도메인」은 은하가 아니다.** 없으면 다음 사람이 그걸 은하로 안다.
@@ -126,8 +145,7 @@ export function DomainSelect() {
         <div className="mt-1.5">
           아래 목록은 <strong>형제 폴더의 남의 저장소</strong>(<code>qa-workflow-v2-main</code>)에서
           읽어 온 도메인 지식 문서다 — <code>universe.config.json</code> 과 <code>galaxies/</code> 가
-          아는 <strong>은하와는 아무 관계가 없다.</strong> 우주가 아는 은하는{' '}
-          <Link to="/">첫 화면</Link>에 있다.
+          아는 <strong>은하와는 아무 관계가 없다.</strong> 우주가 아는 은하는 왼쪽 레일의 <strong>「은하」</strong>에 있다.
         </div>
         <div className="mt-1.5">
           ⛔ 이 화면을 <strong>없애지 않았다</strong> — 도메인 지식 수집이 여기로 들어간다. 다만
@@ -276,8 +294,19 @@ export function DomainSelect() {
 
         {domains === null && !error && <Empty>불러오는 중…</Empty>}
 
+        {/**
+          * ⛔ 목록 **전부**를 여기 다시 늘어놓지 않는다 — 그건 왼쪽(②)의 일이다.
+          * 여기 뜨는 것은 **고른 하나**이고, 고르기 전에는 고르라고 적는다.
+          */}
+        {pickedDomain === null && domains !== null && domains.length > 0 && (
+          <Empty>
+            <strong>왼쪽에서 도메인을 고르세요.</strong>
+            <div className="mt-1.5">도메인 {domains.length}개가 목록에 있습니다.</div>
+          </Empty>
+        )}
+
         <div className="grid gap-2.5">
-          {(domains ?? []).map((summary) => (
+          {(domains ?? []).filter((one) => one.domain === pickedDomain).map((summary) => (
             <Link key={summary.domain} to={`/d/${summary.domain}`} className={DOMAIN_ROW}>
               <span>
                 <span className="block font-semibold">
@@ -294,6 +323,7 @@ export function DomainSelect() {
           ))}
         </div>
       </div>
-    </Shell>
+      </ContentPane>
+    </ConsoleShell>
   );
 }

@@ -4,7 +4,7 @@ import { judgeLaw, missingSamples } from '@lib/verdict';
 
 import { RuleRoster } from '@components/data-display/RuleRoster';
 import { ViolationRow } from '@components/data-display/ViolationRow';
-import { Banner } from '@components/ui';
+import { Banner, CARD_NEXT, SUBSECTION } from '@components/ui';
 
 /**
  * 법칙 하나의 실측 한 장 — **판정 · 규칙 명부 · 위반 목록**.
@@ -15,8 +15,6 @@ import { Banner } from '@components/ui';
  * ⛔ **못 잰 것(⚪)을 초록으로 그리지 않는다.** 훑은 파일이 0개거나 기준선이 없으면
  * 건수가 0이어도 초록이 아니다 — 색(`unknown`)과 문구를 함께 가른다.
  */
-const CARD = 'mt-3.5 rounded-card border border-ui-line bg-ui-surface p-4';
-const SECTION = 'mb-2.5 mt-4.5 text-xs font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 const SECTION_FIRST = 'mb-2.5 mt-0 text-xs font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 
 export interface ILawReportProps {
@@ -30,7 +28,7 @@ export function LawReport({ law, scope }: ILawReportProps) {
   const noSamples = missingSamples(law, scope);
 
   return (
-    <div className={CARD}>
+    <div className={CARD_NEXT}>
       <Banner tone={verdict.tone}>
         <strong>
           {verdict.mark} {law.title} — {law.total}건
@@ -41,7 +39,7 @@ export function LawReport({ law, scope }: ILawReportProps) {
       <h3 className={SECTION_FIRST}>이 법칙이 켠 규칙 — 0건도 함께 적는다</h3>
       <RuleRoster rules={law.rules} scope={scope} />
 
-      <h3 className={SECTION}>위반한 자리와 처방</h3>
+      <h3 className={SUBSECTION}>위반한 자리와 처방</h3>
 
       {noSamples !== null && (
         <Banner tone="unknown">

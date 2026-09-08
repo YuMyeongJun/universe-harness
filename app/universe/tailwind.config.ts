@@ -82,6 +82,16 @@ export default {
           warn: channel('ui-warn'),
           bad: channel('ui-bad'),
           shade: channel('ui-shade'),
+          /**
+           * ── 우주의 장식 ── ⛔ **판정을 나르지 않는다**(`_semantic.css`).
+           * ⚠️ 글자색으로 쓰지 마라 — 대비를 재지 않은 색이다. 선 전용이다.
+           *
+           * ⚠️ 여기 나온 장식 토큰은 `orbit` **하나뿐**이다. `star`·`nebula-*` 는
+           * `_space.css` 안에서만 쓰이므로 tailwind 에 안 연다 —
+           * **쓰는 데가 없는 이름은 다음 사람에게 「이걸 써도 되나」를 묻게 만드는 빚이다**
+           * (`_semantic.css` 가 완성색 별칭을 안 만든 것과 같은 기준).
+           */
+          orbit: channel('ui-orbit'),
         },
         /** 신호 한 벌 — face(면)·line(테두리)·ink(그 면 위 글자)는 셋이 한 몸이다. */
         tone: {
@@ -134,10 +144,41 @@ export default {
       opacity: {
         45: '0.45',
       },
+      /**
+       * ── 궤도 ── 화면을 가르는 선. 가운데가 밝고 양 끝이 바탕으로 사라진다.
+       *
+       * 왜 `border-t` 가 아닌가: 평평한 1px 선은 이 화면에 이미 잔뜩 있다(카드 테두리·표
+       * 밑선). 구획을 나누는 선까지 같은 모양이면 **위계가 안 선다** — 「이건 다른 종류의
+       * 경계다」를 말하는 채널이 필요했다. 양 끝이 사라지는 호는 우주 은유이면서
+       * 동시에 **구획선임을 모양으로 말한다.**
+       *
+       * ⚠️ 이름이 `bg-orbit` 인데 **선**인 이유: CSS 에서 그라디언트는 배경이지 테두리가
+       * 아니다. `border-image` 로도 되지만 반경·색을 따로 다시 적어야 한다.
+       * 쓰는 법은 높이 1px 짜리 빈 칸이다 — `<div className="h-px bg-orbit" />`.
+       * ⛔ 이 위에 글자를 얹지 마라(대비를 안 쟀다).
+       */
+      backgroundImage: {
+        orbit:
+          'linear-gradient(90deg,' +
+          ' rgb(var(--rgb-ui-orbit) / 0) 0%,' +
+          ' rgb(var(--rgb-ui-orbit)) 18%,' +
+          ' rgb(var(--rgb-ui-accent) / 0.55) 50%,' +
+          ' rgb(var(--rgb-ui-orbit)) 82%,' +
+          ' rgb(var(--rgb-ui-orbit) / 0) 100%)',
+      },
       maxWidth: { shell: 'var(--ui-shell-max)' },
       maxHeight: { code: 'var(--ui-code-max-h)' },
       minHeight: { textarea: 'var(--ui-textarea-min-h)' },
-      gridTemplateColumns: { entry: 'var(--ui-grid-entry)' },
+      /**
+       * ⛔ **폭을 여기 리터럴로 적지 마라.** 네 칸의 폭은 `_metrics.css` 한 자리에 있고
+       * 여기는 그 이름을 tailwind 에 노출할 뿐이다. 두 곳에 적히면 반드시 어긋난다.
+       */
+      gridTemplateColumns: {
+        entry: 'var(--ui-grid-entry)',
+        console: 'var(--ui-grid-console)',
+        'console-bare': 'var(--ui-grid-console-bare)',
+        inbox: 'var(--ui-grid-inbox)',
+      },
     },
   },
   plugins: [],

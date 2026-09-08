@@ -13,7 +13,7 @@ import {
 } from '@lib/verdict';
 
 import { CommandList } from '@components/data-display/CommandList';
-import { Banner, Pill } from '@components/ui';
+import { Banner, CARD_NEXT, CODE, Disclosure, Pill, SUBSECTION } from '@components/ui';
 
 /**
  * 은하 하나 — **우주가 아는 것 그대로 한 장.**
@@ -31,13 +31,10 @@ import { Banner, Pill } from '@components/ui';
  *     고쳐 적는 순간 화면의 말과 도구의 말이 갈리고, 갈린 뒤엔 어느 쪽이 사실인지 아무도 모른다.
  *  5. ⛔ **「무시하고 계속」·「이번만 건너뛰기」가 없다.** 넘길 수 있는 관문은 넘겨진다.
  */
-const CARD = 'mt-3.5 rounded-card border border-ui-line bg-ui-surface p-4';
 const HEAD = 'flex flex-wrap items-baseline justify-between gap-2';
 const BADGES = 'mt-3 flex flex-wrap gap-2';
 const WHY = 'mt-1.5 text-meta text-ui-ink-dim';
 const META = 'mt-1.5 text-meta text-ui-ink-faint';
-const CODE = 'rounded-chip bg-ui-surface-sunken px-1.25 py-px font-mono text-xs';
-const SECTION = 'mb-2.5 mt-4.5 text-xs font-semibold uppercase tracking-eyebrow text-ui-ink-faint';
 const GO = 'mt-3.5 inline-block rounded-control border border-ui-line px-3.75 py-2.25 no-underline';
 
 export interface IGalaxyCardProps {
@@ -59,7 +56,7 @@ export function GalaxyCard({ entry }: IGalaxyCardProps) {
   const blocked = cannotObserve(entry);
 
   return (
-    <div className={CARD}>
+    <div className={CARD_NEXT}>
       <div className={HEAD}>
         <span className="text-label font-semibold">{entry.name}</span>
         <Pill tone={state.tone}>
@@ -97,38 +94,65 @@ export function GalaxyCard({ entry }: IGalaxyCardProps) {
         </p>
       ))}
 
-      <p className={META}>
-        좌표:{' '}
-        {entry.coordinate.file === null ? (
-          <strong>⛔ 없다</strong>
-        ) : (
+      {/**
+       * ── 참고 자료 ──
+       *
+       * ⛔⛔ **접는 것이 판정을 가리면 안 된다.** 처음엔 좌표·경로·명령 셋을 **한 덩어리로**
+       * 접었는데, 브라우저에서 여섯 은하를 전부 눌러 보니 **접는 칸이 한 번도 안 떴다** —
+       * 「빠진 게 하나라도 있으면 안 접는다」는 가드에 `없는 명령` 이 매번 걸렸기 때문이다
+       * (실측: 여섯 은하 전부 `missingCommands` 가 ⚪ 이거나 54~68개).
+       * ⇒ 덩어리를 **둘로 갈랐다.** 좌표·경로는 여섯 전부 채워져 있어 접히고,
+       *   명령 목록은 **언제나 펼친 채**로 둔다 — 거기가 ⛔·⚪ 가 사는 자리다.
+       *
+       * ⚠️ 「가드를 느슨하게 해서 접히게 하자」로 가지 않았다. 그건 접기를 위해
+       *    판정을 숨기는 것이고, 순서가 거꾸로다.
+       */}
+      {(() => {
+        /* 좌표와 경로가 **셋 다 있을 때만** 접는다 — 하나라도 없으면 그 자리가 ⛔·⚪ 다. */
+        const placesKnown =
+          entry.coordinate.file !== null && entry.path !== null && entry.appDir !== null;
+
+        const places = (
           <>
-            <code className={CODE}>{entry.coordinate.file}</code>
-            {entry.coordinate.local && ' — 커밋되지 않는 명부(절대 경로가 사는 자리)'}
+            <p className={META}>
+              좌표:{' '}
+              {entry.coordinate.file === null ? (
+                <strong>⛔ 없다</strong>
+              ) : (
+                <>
+                  <code className={CODE}>{entry.coordinate.file}</code>
+                  {entry.coordinate.local && ' — 커밋되지 않는 명부(절대 경로가 사는 자리)'}
+                </>
+              )}
+            </p>
+            <p className={META}>
+              경로:{' '}
+              {entry.path === null ? <strong>⚪ 모른다</strong> : <code className={CODE}>{entry.path}</code>}
+              {' · '}
+              훑을 자리(<code className={CODE}>appDir</code>):{' '}
+              {entry.appDir === null ? <strong>⚪ 모른다</strong> : <code className={CODE}>{entry.appDir}</code>}
+            </p>
           </>
-        )}
-      </p>
-      <p className={META}>
-        경로: {entry.path === null ? <strong>⚪ 모른다</strong> : <code className={CODE}>{entry.path}</code>}
-        {' · '}
-        훑을 자리(<code className={CODE}>appDir</code>):{' '}
-        {entry.appDir === null ? <strong>⚪ 모른다</strong> : <code className={CODE}>{entry.appDir}</code>}
-      </p>
+        );
+
+        return placesKnown ? <Disclosure label="좌표 · 경로 (둘 다 있다)">{places}</Disclosure> : places;
+      })()}
 
       {/**
-       * ⛔ **없는 명령을 빈칸으로 두지 않는다.** 없는 축은 ⚪ 로 **안 재진다** —
-       * 빈칸으로 두면 「그 축이 초록」으로 읽힌다. 문장은 좌표에 적힌 것 그대로다.
+       * ⛔ **명령 목록은 접지 않는다.** 없는 명령은 ⚪ 로 **안 재지는 축**이고,
+       * 접으면 그 축이 「초록」으로 읽힌다 — 빈칸으로 두는 것과 같은 사고다.
+       * 문장은 좌표에 적힌 것 그대로다.
        */}
       {entry.coordinate.found && (
         <>
-          <h3 className={SECTION}>좌표에 선언된 명령 — 없는 것은 없다고 적는다</h3>
+          <h3 className={SUBSECTION}>좌표에 선언된 명령 — 없는 것은 없다고 적는다</h3>
           <CommandList commands={entry.commands} missing={entry.missingCommands} />
         </>
       )}
 
       {entry.notes.length > 0 && (
         <>
-          <h3 className={SECTION}>서버가 덧붙인 말 — 고쳐 적지 않았다</h3>
+          <h3 className={SUBSECTION}>서버가 덧붙인 말 — 고쳐 적지 않았다</h3>
           {entry.notes.map((note) => (
             <p key={note} className="mb-1.5 whitespace-pre-wrap text-meta text-ui-ink-dim">
               {note}

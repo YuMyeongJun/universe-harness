@@ -24,18 +24,9 @@ import {
   type ItemKind,
   type ItemStatus,
 } from '@api/types';
-import {
-  Banner,
-  Empty,
-  Field,
-  HELP_TEXT,
-  PageHead,
-  Pill,
-  Shell,
-  SUB,
-  Tile,
-  type PillTone,
-} from '@components/ui';
+import { ConsoleShell } from '@components/layout/ConsoleShell';
+import { SidebarNav, type ISidebarGroup } from '@components/layout/SidebarNav';
+import { Banner, CARD, ContentPane, Empty, Field, HELP_TEXT, PageHead, Pill, SUB, Tile, type PillTone } from '@components/ui';
 
 /**
  * ⚠️ **한 속성을 두 벌이 겹쳐 적지 않게 갈라 두었다.** tailwind 는 클래스를 적은 순서가
@@ -55,15 +46,22 @@ const BTN_PRIMARY = `${BTN_SHAPE} ${BTN_SIZE} ${BTN_SKIN_PRIMARY}`;
 const BTN_GHOST = `${BTN_SHAPE} ${BTN_SIZE} ${BTN_SKIN_GHOST}`;
 const BTN_GHOST_SM = `${BTN_SHAPE} ${BTN_SIZE_SM} ${BTN_SKIN_GHOST}`;
 
-const CARD = 'rounded-card border border-ui-line bg-ui-surface p-4';
 const ROW = 'flex flex-wrap items-center gap-2';
 /** 760px 아래에서 한 칸으로 접힌다 — 원래 `@media (max-width: 760px)` 였다. */
 const GRID_2 = 'grid grid-cols-2 gap-3 narrow:grid-cols-1';
 const SPACER = 'flex-1';
 
-const STEP_SHAPE = 'rounded-pill border px-3.5 py-1.75';
-const STEP_OFF = 'border-ui-line bg-ui-surface text-ui-ink-dim';
-const STEP_ON = 'border-ui-accent bg-ui-accent font-semibold text-ui-on-solid';
+/**
+ * **되돌아가기** — 이 콘솔에 남은 **단 하나의 본문 링크**다.
+ *
+ * ⛔ 다른 화면의 본문 링크 줄은 전부 지웠다(이동은 레일이 한다). 여기만 남긴 이유:
+ * `/d/:domain` 은 **도메인 안**의 화면이라 레일에 자기 자리가 없다 — 레일의 「도메인」은
+ * 목록이지 이 화면이 아니다. 그래서 이건 이동이 아니라 **한 단계 나가기**다.
+ * ⚠️ 맨 텍스트 밑줄이 아니라 **버튼 모양**이다 — 본문 한복판에 뜬 밑줄 글씨는
+ * 문장인지 링크인지 매번 다시 읽게 만든다.
+ */
+const BACK = 'inline-block rounded-control border border-solid border-ui-line bg-ui-surface-raised px-3 py-1.75 text-meta text-ui-ink-dim no-underline hover:text-ui-ink';
+
 
 const SEG = 'inline-flex overflow-hidden rounded-control border border-ui-line bg-ui-surface-raised';
 const SEG_OPTION = 'border-0 px-2.75 py-1.25 text-meta';
@@ -186,19 +184,42 @@ export function Survey() {
 
   if (!survey) {
     return (
-      <Shell>
-        {error ? <Banner tone="bad">{error}</Banner> : <Empty>불러오는 중…</Empty>}
-        <Link to="/domains" className={`${BTN_GHOST} underline`}>← 도메인 목록</Link>
-      </Shell>
+      <ConsoleShell>
+        <ContentPane>
+            <Link to="/domains" className={`${BACK} mb-3.5`}>
+              ← 도메인 목록
+            </Link>
+            {error ? <Banner tone="bad">{error}</Banner> : <Empty>불러오는 중…</Empty>}
+        </ContentPane>
+      </ConsoleShell>
     );
   }
 
   const e = survey.entry;
   const entryReady = e.baseUrl.trim() !== '' || e.loginUrl.trim() !== '';
 
+  /**
+   * ② **단계가 사이드바로 갔다** (2026-09-08).
+   * 전에는 본문 맨 위에 칩 넷이 가로로 놓여 있었는데, 3단계 폼이 길어지면 **위로 스크롤해야만**
+   * 다음 단계로 갈 수 있었다 — 지금 어느 단계인지도 화면 밖이었다.
+   *
+   * ⛔ **수 배지를 안 단다.** 단계는 **측정이 아니다** — 「② 자동 수집이 몇 건인가」는
+   *    셀 수 있어도 「③ 사람이 교정 단계가 몇 건인가」는 뜻이 없다. 셀 것이 없는 자리에
+   *    ⚪ 를 뿌리면 그 표가 흔해지고, 흔해지면 **진짜 ⚪ 를 아무도 안 본다**(`SidebarNav`).
+   */
+  const stepSidebar = (
+    <SidebarNav
+      label="실측 단계"
+      groups={[{ title: `실측 · ${domain}`, items: STEPS.map((one) => ({ id: String(one.n), label: one.label })) }]}
+      selected={String(step)}
+      onSelect={(id) => setStep(Number(id) as Step)}
+    />
+  );
+
   return (
-    <Shell>
-      <Link to="/domains" className={`${BTN_GHOST_SM} mb-3.5 inline-block underline`}>
+    <ConsoleShell sidebar={stepSidebar}>
+      <ContentPane>
+      <Link to="/domains" className={`${BACK} mb-3.5`}>
         ← 도메인 목록
       </Link>
       <PageHead
@@ -206,19 +227,6 @@ export function Survey() {
         title="도메인 지식 실측"
         sub="자동 수집은 초안일 뿐입니다. 사람이 확인한 항목만 지식 문서에 들어갑니다."
       />
-
-      <div className="mb-5 mt-4.5 flex flex-wrap gap-1.5">
-        {STEPS.map((s) => (
-          <button
-            key={s.n}
-            type="button"
-            className={`${STEP_SHAPE} ${step === s.n ? STEP_ON : STEP_OFF}`}
-            onClick={() => setStep(s.n)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
 
       {error && <Banner tone="bad">{error}</Banner>}
 
@@ -407,10 +415,14 @@ export function Survey() {
       {step === 3 && (
         <>
           <div className="mb-4 flex flex-wrap gap-2.5">
-            <Tile v={counts.total} l="수집된 항목" />
-            <Tile v={counts.done} l="확인함" />
-            <Tile v={counts.open} l="미확인" />
-            <Tile v={counts.rejected} l="아님" />
+            {/* ⛔ 여기 넷은 **판정이 아니라 진행**이다(수집·확인·미확인·아님).
+                그래서 신호색을 안 입힌다 — 「미확인 3건」은 나쁜 소식이 아니라 남은 일이다.
+                ⚠️ 색을 칠하고 싶어지면 먼저 물어라: **그 수가 ✅·❌·⚪ 중 무엇인가?**
+                셋 중 하나로 답할 수 없으면 그 수에는 신호가 없는 것이다. */}
+            <Tile reading={counts.total} label="수집된 항목" />
+            <Tile reading={counts.done} label="확인함" />
+            <Tile reading={counts.open} label="미확인" />
+            <Tile reading={counts.rejected} label="아님" />
           </div>
           {counts.open > 0 && (
             <Banner tone="warn">
@@ -606,6 +618,7 @@ export function Survey() {
           마지막 수집 {survey.collectedAt ? new Date(survey.collectedAt).toLocaleString('ko-KR') : '없음'}
         </p>
       )}
-    </Shell>
+      </ContentPane>
+    </ConsoleShell>
   );
 }

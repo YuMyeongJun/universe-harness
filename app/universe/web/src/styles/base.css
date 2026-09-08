@@ -41,6 +41,29 @@
     opacity: 0.45;
   }
 
+  /**
+   * ── 포커스 링 ── **없던 것을 새로 넣었다.**
+   *
+   * ⛔ 전에는 `input`·`textarea`·`select` 만 포커스 표시가 있었고
+   * **`button` 과 `a` 에는 아무것도 없었다.** 브라우저 기본 링에 기대고 있었는데,
+   * 이 콘솔의 바탕은 rgb(11 14 22) 라 크롬 기본 링(어두운 청)은 거의 안 보인다.
+   * ⇒ 이 화면은 **키보드로 끝까지 갈 수 있어야 하는 화면**이다. 사람이 fail 마다
+   *   판정을 붙이는 자리에서 「지금 어디에 있는지」를 모르면 엉뚱한 줄에 판정을 붙인다.
+   *
+   * ⚠️ `:focus` 가 아니라 **`:focus-visible`** 이다. `:focus` 로 쓰면 마우스로 누른
+   * 버튼에도 링이 남아서, 클릭 한 번마다 링이 하나씩 켜진 것처럼 보인다.
+   * ⚠️ `input` 쪽은 **일부러 안 바꿨다**(아래 `:focus` 그대로). 입력칸은 마우스로 눌러도
+   * 「여기에 타이핑된다」가 보여야 하고, 그게 원래 이 콘솔의 동작이었다.
+   *   ⇒ 바꾼 것은 **없던 자리에 넣은 것**뿐이고, 있던 자리는 안 건드렸다.
+   */
+  a:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible {
+    outline: var(--ui-ring-w) solid rgb(var(--rgb-ui-accent));
+    outline-offset: var(--ui-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+
   input,
   textarea,
   select {
@@ -100,10 +123,42 @@
     vertical-align: top;
   }
 
+  /**
+   * ⚠️ 머리줄에 **면과 굵은 밑선**을 줬다. 전에는 본문 칸과 테두리가 같아서, 표가 길어지면
+   * 스크롤 중에 「지금 보는 줄이 무슨 칸인지」가 사라졌다 — 이 화면의 표는
+   * fail 목록처럼 **길다.** 위계는 글자 크기 하나로는 안 선다.
+   * ⛔ 새 색을 안 만들었다: 면은 이미 있는 `surface-raised`, 선은 이미 있는 `orbit` 이다.
+   */
   th {
-    color: rgb(var(--rgb-ui-ink-faint));
+    background-color: rgb(var(--rgb-ui-surface-raised));
+    border-bottom: 2px solid rgb(var(--rgb-ui-orbit));
+    color: rgb(var(--rgb-ui-ink-dim));
     font-size: var(--ui-text-xs);
     font-weight: 600;
+    letter-spacing: var(--ui-tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  /**
+   * ── 고른 글자 ── 우주 테마에서 파란 강조면이 곧 「사람이 고른 것」이다.
+   * ⚠️ 색 짝(`accent` 면 · `on-solid` 글자)은 버튼과 **같은 짝**을 쓴다 —
+   * 여기만 다른 짝을 쓰면 짝 규칙(`_semantic.css`)이 한 자리에서 깨진다.
+   */
+  ::selection {
+    background-color: rgb(var(--rgb-ui-accent));
+    color: rgb(var(--rgb-ui-on-solid));
+  }
+
+  /**
+   * ── 스크롤 막대 ──
+   * ⚠️ 기본 막대는 밝은 회색이라 이 어두운 화면에서 **제일 밝은 물체**가 된다.
+   * 눈이 거기로 끌리는데 그건 정보가 아니다. 바탕 쪽으로 낮춘다.
+   * ⚠️ `scrollbar-color` 는 완성색 두 개를 요구한다(채널값을 못 받는다) —
+   * 그래서 이 두 줄만 `rgb(var(--…))` 를 **직접 쓴다.** 예외인 이유를 여기 적어 둔다.
+   */
+  * {
+    scrollbar-color: rgb(var(--rgb-ui-orbit)) rgb(var(--rgb-ui-bg));
+    scrollbar-width: thin;
   }
 
   /** 표 칸 안의 입력은 더 좁다 — 한 줄에 다섯 칸이 들어가야 한다. */
