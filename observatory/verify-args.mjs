@@ -39,7 +39,7 @@ const CALL = /rejectUnknownFlags\(\s*[^,]+,\s*\[([\s\S]*?)\]\s*,\s*'([^']+)'\s*\
 const routerSrc = await readFile(join(ROOT, 'bin/universe.mjs'), 'utf8');
 const routerBlock = routerSrc.slice(routerSrc.indexOf('const SUBCOMMANDS'),
   routerSrc.indexOf('};', routerSrc.indexOf('const SUBCOMMANDS')));
-const routed = [...routerBlock.matchAll(/^\s*([a-z-]+):\s*'([^']+)'/gm)].map((m) => [m[1], m[2]]);
+const routed = [...routerBlock.matchAll(/^\s*'?([a-z-]+)'?:\s*'([^']+)'/gm)].map((m) => [m[1], m[2]]);
 if (routed.length === 0) {
   console.error('⛔ 배분표를 못 읽었다 — 잴 대상이 0개가 된다. 통과가 아니다(§8).');
   process.exit(1);
@@ -99,7 +99,10 @@ for (const file of docFiles) {
   let context = [];
   for (const line of text.split('\n')) {
     /* ⚠️ 한 줄이 명령을 여럿 댈 수 있다 — 첫 것만 세면 나머지는 「문서에 없다」가 된다. */
-    const named = [...line.matchAll(/universe\s+([a-z]+)/g)].map((m) => m[1]);
+    /* ⛔ **하이픈까지 읽는다.** `([a-z]+)` 는 `learn-cards` 를 **`learn` 으로 잘라** 읽어서,
+       `learn-cards` 의 플래그를 `learn` 이 광고하는 것으로 셌다 — 그래서 「문서가 적는데
+       거부한다 3건」이라는 **거짓 빨간불**이 났다(실측). 훑개가 먼저 틀리는 자리다. */
+    const named = [...line.matchAll(/universe\s+([a-z][a-z-]*)/g)].map((m) => m[1]);
     if (named.length > 0) {
       context = named;
     } else if (!/^\s*(└|\|)/.test(line)) {

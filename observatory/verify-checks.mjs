@@ -1238,7 +1238,7 @@ const POSITIONALS = {
   round: ['audit'],
   init: ['--dir', 'docs'],
 };
-const ENTRY_POINTS = [...routerBlock.matchAll(/^\s*([a-z-]+):\s*'([^']+)'/gm)]
+const ENTRY_POINTS = [...routerBlock.matchAll(/^\s*'?([a-z-]+)'?:\s*'([^']+)'/gm)]
   .map(([, name, file]) => [`universe ${name}`,
     /* ⚠️ 전부 `node` 로 돌렸다가 `.sh` 진입점이 「다른 이유로 죽었다」로 나왔다 — 도구를
        못 돌린 것을 삼킨 것으로 읽는 자리다(R69 가 가른 그 구분). */

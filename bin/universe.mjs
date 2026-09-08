@@ -99,6 +99,10 @@ const SUBCOMMANDS = {
   qa: 'observatory/verify-qa.mjs',
   hooks: 'bin/hooks.mjs',
   learn: 'observatory/learn.mjs',
+  /* **반복 반려 → 브리핑 카드.** ⛔ 모델을 안 부른다 — 관문의 반려 사유를 세어서 옮길 뿐이다.
+     ⚠️ 빅뱅이 카드를 읽어 첫 관측에 끼워 넣는 자리는 **이미 있었다.** 채우는 길이
+     유료 하나뿐이라(궤적 2458줄 중 1줄만 채워졌다) 사실상 안 채워져 있었다. */
+  'learn-cards': 'observatory/learn-cards.mjs',
   /* 성공 궤적 → 지식 카드. ⛔ 기본은 모델을 안 부른다(`--write` 를 줘야 부른다 · R155). */
   extract: 'observatory/extract.mjs',
   /* 아무도 안 가리키는 별 — 「사람이 볼 수 있는가」의 싼 절반(R157). */
