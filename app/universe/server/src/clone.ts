@@ -19,7 +19,7 @@
  * 남의 저장소를 이 저장소 아무 데나 풀면 **커밋 대상으로 올라온다.** `.data/` 는 gitignore 다.
  */
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { dataDir, HARNESS_ROOT } from './paths.js';
 import { runNodeTool } from './run-tool.js';
@@ -74,5 +74,43 @@ export const cloneRepo = async (url: string, name?: string): Promise<ICloneResul
     say: `${run.stdout}${run.stderr}`.trim(),
     into: run.exitCode === 0 ? into : null,
     draft: run.exitCode === 0 && existsSync(draft) ? draft : null,
+  };
+};
+
+/**
+ * **채운 초안을 은하로 들인다** — `bin/adopt.mjs` 를 부른다.
+ *
+ * ⛔⛔ 들이는 규율(`TODO:` 가 남으면 거절 · 덮어쓰지 않음 · 커밋되는 `galaxies/` 에 안 씀)은
+ * 그 도구가 안다. 서버가 다시 구현하면 **두 자리가 조용히 갈린다**(R47·R91).
+ * ⚠️ 이 자리가 없으면 사람은 **CLI 를 아는 사람만** 계획을 끝까지 밟는다 —
+ * 화면에서 저장소를 받아 놓고 **등록은 터미널에서** 해야 했다.
+ */
+export interface IAdoptResult {
+  exitCode: number | null;
+  ok: boolean;
+  killed: boolean;
+  /** 도구가 사람에게 한 말 — **그대로** 나른다. 서버가 요약하지 않는다. */
+  say: string;
+}
+
+/** 초안 파일 경로만 받는다. ⛔ 이름은 도구가 초안에서 읽는다 — 서버가 정하지 않는다. */
+export const adoptInputProblem = (draft: unknown): string | null => {
+  if (typeof draft !== 'string' || draft.trim() === '') return '초안 파일 경로를 주세요.';
+  /* ⛔ **받아 온 자리 안에서만** 들인다 — 아무 경로나 받으면 우주 밖 파일을 읽는 자리가 된다(R76). */
+  const at = resolve(draft);
+  if (!at.startsWith(`${clonesDir()}/`)) {
+    return '이 콘솔이 받아 온 저장소 안의 초안만 들일 수 있습니다.';
+  }
+  if (!existsSync(at)) return '그런 초안 파일이 없습니다.';
+  return null;
+};
+
+export const adoptDraft = async (draft: string): Promise<IAdoptResult> => {
+  const run = await runNodeTool(join(HARNESS_ROOT, 'bin/adopt.mjs'), [resolve(draft)], { timeoutMs: 60_000 });
+  return {
+    exitCode: run.exitCode,
+    ok: run.exitCode === 0,
+    killed: run.killed,
+    say: `${run.stdout}${run.stderr}`.trim(),
   };
 };

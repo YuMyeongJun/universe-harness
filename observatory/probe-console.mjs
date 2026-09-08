@@ -240,6 +240,31 @@ if (!(await refuses({}, '깃 주소를 주세요'))) {
   console.log('  ✅ 주소를 받는 자리가 있고, **토큰이 박힌 주소를 거절한다**');
 }
 
+/**
+ * ⛔ **들이는 자리가 화면에도 있는가** — 없으면 사람은 화면에서 저장소를 받아 놓고
+ * **등록은 터미널에서** 해야 한다. 계획이 화면에서 안 끝난다.
+ * ⛔ 여기서 재는 것은 **거절**이다 — 진짜로 들이는 것은 `probe-clone.sh` 가 잰다.
+ *   ⚠️ 관문이 매 바퀴 은하를 등록하면 저장소가 더러워진다.
+ */
+const adoptRefuses = async (body, expect) => {
+  const res = await fetch(`http://127.0.0.1:${PORT}/api/adopt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  const said = res === null ? '' : JSON.stringify(await res.json().catch(() => ({})));
+  return res !== null && res.status === 400 && said.includes(expect);
+};
+if (!(await adoptRefuses({}, '초안 파일 경로'))) {
+  console.error('  ⛔ 초안 없이 불렀는데 **400 으로 거절하지 않는다** — 들이는 자리가 없거나 죽었다');
+  failed = true;
+} else if (!(await adoptRefuses({ draft: '/etc/hosts' }, '받아 온 저장소 안의 초안만'))) {
+  console.error('  ⛔ **우주 밖 경로를 받아들인다** — 아무 파일이나 읽는 자리가 된다(R76)');
+  failed = true;
+} else {
+  console.log('  ✅ 들이는 자리가 있고, **받아 온 자리 밖의 경로를 거절한다**');
+}
+
 stop();
 if (failed) {
   console.error('\n⛔ 콘솔이 사람의 계획이 지나가는 자리인데 그 자리가 거짓말을 한다.');

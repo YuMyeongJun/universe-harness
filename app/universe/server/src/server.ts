@@ -20,7 +20,7 @@ import {
   makeGalaxyDraft,
   readGalaxyDraft,
 } from './galaxy-draft.js';
-import { cloneInputProblem, cloneRepo } from './clone.js';
+import { adoptDraft, adoptInputProblem, cloneInputProblem, cloneRepo } from './clone.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import {
   fromParamProblem,
@@ -391,6 +391,24 @@ export const createApp = (): express.Express => {
     void cloneRepo(String(body.url).trim(), body.name === undefined ? undefined : String(body.name)).then(
       (result) => res.json(result),
       (e: unknown) => fail(res, 500, `받아 오는 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **채운 초안을 은하로 들인다.** `{ draft }`.
+   *
+   * ⛔ 들이는 규율은 `bin/adopt.mjs` 가 안다 — 서버는 **부르고 나른다**.
+   * ⛔ **받아 온 자리 안의 초안만** 받는다 — 아무 경로나 받으면 우주 밖 파일을 읽는 자리가 된다.
+   * ⛔ **못 들인 것을 4xx 로 만들지 않는다.** 「`TODO:` 가 남았다」·「이미 있는 은하다」는
+   *    **결과**다(200 + `ok:false` + 도구가 한 말). 400 은 요청의 모양이 틀렸을 때뿐이다.
+   */
+  app.post('/api/adopt', (req: Request, res: Response) => {
+    const body = req.body as { draft?: unknown };
+    const problem = adoptInputProblem(body.draft);
+    if (problem !== null) return fail(res, 400, problem);
+    void adoptDraft(String(body.draft)).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `들이는 도구를 부르지 못했습니다: ${(e as Error).message}`),
     );
   });
 
