@@ -67,6 +67,37 @@ const isUniverseRepo = Boolean(await stat(path.join(root, 'observatory/engine'))
 /* 엔진이 **쓸 수 있는 상태인가** — 빌드된 dist 가 있으면 그렇다(갓 클론엔 없다). */
 const engineReady = Boolean(await stat(path.join(packageHome,
   'observatory/engine/packages/@core/fe-agent-contracts/dist/index.js')).catch(() => null));
+/**
+ * ⛔⛔ **누가 변이 중이면 재지 않는다 — 그 위에서 잰 수는 거짓이다.**
+ *
+ * 실측(R163): 자식이 `verify-checks` 를 돌리는 동안 부모가 이걸 돌렸더니 **빨간불 6개**가 났다.
+ * 코드는 멀쩡했다 — 변이 틀이 파일을 잠깐 바꿔 둔 **움직이는 트리**를 잰 것이다.
+ * 몇 초 뒤 보니 그 파일들은 이미 원복돼 있었다. ⇒ **재는 동안 트리가 가만히 있어야 한다.**
+ *
+ * ⚠️ 잠금은 `verify-checks` 안에 **이미 있었다.** 그런데 그것을 **부르는 쪽**은 안 물었다 —
+ * 「옮긴 자리에 방어가 안 따라온다」의 또 한 판이다(R162).
+ * ⛔ 여기서 잠금을 **쥐지 않는다.** 쥐면 `check` 가 부르는 `verify-checks` 가 자기 부모에게 막힌다.
+ *   **물어보기만 한다.**
+ */
+const MUTATION_LOCK = path.join(root, 'observatory/.mutation-lock');
+const holder = await readFile(MUTATION_LOCK, 'utf8').then((t) => JSON.parse(t)).catch(() => null);
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+if (holder && typeof holder.pid === 'number' && holder.pid !== process.pid && alive(holder.pid)) {
+  /* ⛔ `console.error` 로 내지 않는다 — ⚪ 는 **실패가 아니라 못 쟀다**다.
+     부품 시험이 「실패 줄을 새 기호로 연다」며 옳게 물었다(오늘만 두 번째다). */
+  console.log(`⚪ **못 쟀다** — 다른 실행(pid ${holder.pid})이 **변이 중**이다.`);
+  console.log('   변이 틀은 파일을 잠깐 바꿔 둔다. 그 위에서 재면 **멀쩡한 코드가 빨갛게** 보인다(실측).');
+  console.log('   끝나기를 기다렸다가 다시 재라. ⛔ 이 빨간불을 코드 탓으로 읽지 마라.');
+  process.exit(EXIT_UNMEASURED);
+}
+
 console.log(`🔬 관문 — ${GATES.length}개 (라운드 없이 돈다)${isUniverseRepo ? '' : ' · 배달본이라 우주 전용 검사는 건너뛴다'}\n`);
 
 let staleFiles = 0;

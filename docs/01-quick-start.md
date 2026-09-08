@@ -4,7 +4,7 @@ title: 퀵스타트 — 5분
 type: doc
 parent: docs
 related: [usage, bigbang]
-description: 설치부터 첫 별이 태어나기까지. 명령 다섯 줄.
+description: 설치부터 첫 별이 태어나고 「끝났는가」를 묻기까지, 순서대로.
 ---
 
 # 퀵스타트 — 5분
@@ -154,10 +154,23 @@ node <우주-저장소>/bin/universe.mjs new my-app dashboard DashboardToday --u
 ## 6. 끝났는지 묻는다
 
 ```bash
-universe loop --galaxy my-app
+node <우주-저장소>/bin/universe.mjs loop --galaxy my-app --universe ./universe
 ```
 
-사람의 계획은 여기서 끝난다: 재고 → TC → **화면 시험** → fail 목록 → **사람이 판정** → 다시.
+⚠️ 위 2·3·4·5 와 **같은 꼴**이다. 이 자리에만 `universe loop --galaxy my-app` 라고 적혀
+있었는데, 이어 붙이지 않은 사람에게는 `command not found` 고 이어 붙였어도 `--universe` 가
+없으면 **깔린 폴더가 아니라 cwd 에서 위로 찾는다.** 새 사람의 길을 밟는 관문
+(`universe quickstart`)이 실제로 치는 것은 위 꼴이다.
+
+사람의 계획은 여기까지 온다:
+
+```
+주소 → 받기 → 좌표 → 들이기 → 관측 → 화면 시험 → 판정 → 끝났는가 → 반복
+```
+
+이 문서는 **저장소가 이미 그 기계에 있는** 길(2번 = `galaxy`)을 밟았다.
+주소만 있을 때는 앞의 두 칸이 `universe clone <주소>` → `universe adopt <초안파일>` 이다
+([사용법](02-usage.md) 의 `clone`·`adopt` 절).
 
 | 종료코드 | 뜻 |
 |---|---|
@@ -178,7 +191,20 @@ universe loop --galaxy my-app
 ⚠️ `universe clone`·`universe galaxy` 는 저장소에 Playwright 가 있으면 **이 줄을 초안에 적어 준다.**
 
 판정은 콘솔에서 붙인다(`universe console` 이 그 화면이 서는지 잰다). 판정을 붙이면 콘솔이
-**붙인 주행을 파일로도** 남기고, `universe loop --report <그 파일>` 이 그것을 읽어 「끝났다」고 말한다.
+**붙인 주행을 파일로도** 남기고, `universe loop --galaxy my-app --report <그 파일>` 이
+그것을 읽어 「끝났다」고 말한다.
+
+## 7. 그 바퀴를 반복한다
+
+```bash
+node <우주-저장소>/bin/universe.mjs repeat --galaxy my-app --universe ./universe
+```
+
+`loop` 이 **한 번 묻는 것**이라면 `repeat` 는 그것을 **fail 0 까지 돌리는 것**이다.
+⛔ **판정은 자동으로 안 붙인다** — 붙이면 「판단하지 않은 fail 0」이라는 종료 조건이
+그 자리에서 무의미해진다. 돌리고 · 세고 · **멈출 때를 말할** 뿐이다.
+⛔ **「끝날 때까지」 무한히 돌지 않는다**: 끝났다 · 안 줄어든다 · 바퀴를 다 썼다(`--max`, 기본 5) ·
+못 쟀다, 넷에서 멈춘다([사용법](02-usage.md) 의 `repeat` 절에 종료코드 표가 있다).
 
 ## 다음
 

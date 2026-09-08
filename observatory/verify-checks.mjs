@@ -283,6 +283,21 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-loop.sh']],
   },
   {
+    check: '카드 훑개(learn-cards)',
+    bite: '훑개가 눈멀어 카드가 영영 0장',
+    expect: '훑개가 눈멀었다',
+    file: 'observatory/learn-cards.mjs',
+    /**
+     * ⛔⛔ **훑개가 눈멀면 카드는 영영 0장인데 화면은 「반복 실패가 없다」로 보인다**(§8).
+     * 실측(부모가 다시 쟀다): 궤적의 `nebula-start` **2458줄 중 `skillCards` 가 채워진 것은 1줄**이다 —
+     * 자리는 있는데 **채우는 길이 유료 하나뿐**(`extract --write`)이라 사실상 안 채워졌다.
+     * ⇒ 이 도구는 **모델을 안 부르고** 반려 사유를 세어 카드를 만든다. 그 훑개가 죽으면 조용해진다.
+     * ⚠️ 겨냥은 **조건**이다 — 산문 파서를 눈멀게 한다(가드를 지우지 않는다).
+     */
+    mutate: (t) => t.replace('const item = FEEDBACK_ITEM.exec(line);', 'const item = null;'),
+    cmd: ['node', ['observatory/learn-cards.mjs', '--self-test']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',
