@@ -20,7 +20,7 @@ import {
   makeGalaxyDraft,
   readGalaxyDraft,
 } from './galaxy-draft.js';
-import { adoptDraft, adoptInputProblem, cloneInputProblem, cloneRepo } from './clone.js';
+import { adoptDraft, adoptInputProblem, cloneInputProblem, cloneRepo, listRepos } from './clone.js';
 import { galaxyNameProblem, observeGalaxy, sampleProblem } from './observation.js';
 import {
   fromParamProblem,
@@ -391,6 +391,24 @@ export const createApp = (): express.Express => {
     void cloneRepo(String(body.url).trim(), body.name === undefined ? undefined : String(body.name)).then(
       (result) => res.json(result),
       (e: unknown) => fail(res, 500, `받아 오는 도구를 부르지 못했습니다: ${(e as Error).message}`),
+    );
+  });
+
+  /**
+   * **이 기계의 gh 가 아는 레포 목록.** `?limit=` 만 받는다.
+   *
+   * ⛔ 서버가 `gh` 를 직접 부르지 않는다 — `bin/repos.mjs` 가 토큰 방어를 갖고 있다(clone.ts 머리말).
+   * ⛔ 못 읽은 것을 **빈 목록으로 접지 않는다** — 「레포가 없다」와 「못 쟀다」는 다른 사실이다.
+   */
+  app.get('/api/repos', (req: Request, res: Response) => {
+    const raw = req.query['limit'];
+    const limit = raw === undefined ? undefined : Number(raw);
+    if (raw !== undefined && (!Number.isInteger(limit) || (limit as number) < 1)) {
+      return fail(res, 400, 'limit 은 1 이상의 정수라야 합니다.');
+    }
+    void listRepos(limit).then(
+      (result) => res.json(result),
+      (e: unknown) => fail(res, 500, `레포 목록 도구를 부르지 못했습니다: ${(e as Error).message}`),
     );
   });
 

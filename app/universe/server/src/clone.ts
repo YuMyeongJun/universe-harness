@@ -114,3 +114,39 @@ export const adoptDraft = async (draft: string): Promise<IAdoptResult> => {
     say: `${run.stdout}${run.stderr}`.trim(),
   };
 };
+
+/**
+ * **이 기계의 `gh` 가 아는 레포 목록** — `bin/repos.mjs --json` 을 부른다.
+ *
+ * ⛔⛔ **서버가 gh 를 직접 부르지 않는다.** 토큰 방어(‘`gh auth token` 을 안 부른다’ ·
+ * ‘토큰처럼 생긴 것을 지운다’)가 그 도구 안에 있다. 서버가 gh 를 따로 부르면 **그 방어가
+ * 안 따라온다** — 이 저장소가 「옮긴 자리에 방어가 안 따라온다」로 여러 번 데인 자리다(R162).
+ * ⇒ 부르고, **그 도구가 낸 JSON 을 그대로** 나른다.
+ *
+ * ⛔ 못 읽으면 「0개」가 아니라 **못 쟀다**로 나른다(§8). gh 가 없거나 로그인이 안 됐을 수 있고,
+ * 토큰에 `repo` 가 없으면 **비공개가 안 보인다** — 「없다」와 「안 보인다」는 다른 사실이다.
+ */
+export interface IRepoList {
+  ok: boolean;
+  /** 도구가 그대로 낸 것. ⛔ 서버가 모양을 바꾸지 않는다. */
+  data: unknown;
+  /** 못 읽었을 때 사람이 읽을 말. */
+  say: string;
+  exitCode: number | null;
+}
+
+export const listRepos = async (limit?: number): Promise<IRepoList> => {
+  const args = ['--json'];
+  /* ⛔ 사람이 준 값을 그대로 인자에 넣지 않는다 — 정수로 좁힌다(R76 의 그 자리). */
+  if (Number.isInteger(limit) && (limit as number) > 0) args.push('--limit', String(limit));
+  const run = await runNodeTool(join(HARNESS_ROOT, 'bin/repos.mjs'), args, { timeoutMs: 60_000 });
+  if (run.exitCode !== 0) {
+    return { ok: false, data: null, say: `${run.stdout}${run.stderr}`.trim(), exitCode: run.exitCode };
+  }
+  try {
+    return { ok: true, data: JSON.parse(run.stdout), say: '', exitCode: 0 };
+  } catch {
+    /* ⛔ JSON 이 아니면 **못 쟀다**다 — 빈 목록으로 접으면 「레포가 없다」로 보인다. */
+    return { ok: false, data: null, say: `목록을 못 읽었습니다(JSON 이 아닙니다): ${run.stdout.slice(0, 200)}`, exitCode: run.exitCode };
+  }
+};

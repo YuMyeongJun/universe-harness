@@ -265,6 +265,32 @@ if (!(await adoptRefuses({}, '초안 파일 경로'))) {
   console.log('  ✅ 들이는 자리가 있고, **받아 온 자리 밖의 경로를 거절한다**');
 }
 
+/**
+ * ⛔ **레포를 고르는 자리가 화면에도 있는가** — 사용자가 「깃 로그인으로 레포를 선택해서 진행」이라 한 칸.
+ * ⛔ 여기서 재는 것은 **거절과 모양**이다 — 진짜 목록은 네트워크·gh 로그인에 매여 있어
+ *   기계마다 다르다. `probe-repos.sh` 가 그쪽을 잰다.
+ *
+ * ⚠️⚠️ **이 칸이 못 재는 것을 적어 둔다**(§8): gh 가 **정상인 기계**에서는 「못 읽었을 때
+ * 빈 목록으로 접지 않는가」 갈래를 **밟지 못한다.** 실측으로 확인했다 — 그 갈래를
+ * 「빈 목록 + ok:true」로 바꾸는 변이가 **안 물렸다**(조건이 안 만들어진다).
+ * ⇒ 여기서 참인 것은 **「거절이 서 있고, 못 쟀다를 말할 칸이 있다」**까지다.
+ *   그 갈래 자체는 `probe-repos.sh` 가 gh 없는 상태를 만들어 잰다.
+ */
+const reposRes = await fetch(`http://127.0.0.1:${PORT}/api/repos?limit=0`).catch(() => null);
+if (reposRes === null || reposRes.status !== 400) {
+  console.error(`  ⛔ 레포 목록이 **잘못된 limit 을 거절하지 않는다**(${reposRes?.status ?? '답 없음'})`);
+  failed = true;
+} else {
+  const shape = await fetch(`http://127.0.0.1:${PORT}/api/repos?limit=1`).then((r) => r.json()).catch(() => null);
+  /* ⛔ **못 읽은 것을 빈 목록으로 접지 않는가.** `ok:false` 여도 `say` 로 왜인지 말해야 한다. */
+  if (shape === null || typeof shape.ok !== 'boolean' || !('say' in shape)) {
+    console.error('  ⛔ 레포 목록이 **못 쟀다를 말할 칸이 없다** — 빈 목록으로 접히면 「레포가 없다」로 보인다');
+    failed = true;
+  } else {
+    console.log(`  ✅ 레포를 고르는 자리가 있고, **못 쟀을 때 말할 칸**이 있다 (ok=${shape.ok})`);
+  }
+}
+
 stop();
 if (failed) {
   console.error('\n⛔ 콘솔이 사람의 계획이 지나가는 자리인데 그 자리가 거짓말을 한다.');

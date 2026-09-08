@@ -329,6 +329,21 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-blueprint.sh']],
   },
   {
+    check: '레포 고르기(console)',
+    bite: '잘못된 limit 을 그대로 도구에 넘긴다',
+    expect: '잘못된 limit 을 거절하지 않는다',
+    file: 'app/universe/server/src/server.ts',
+    /**
+     * ⛔ 사람이 준 값을 **그대로 인자에 넣는 자리**는 이 저장소가 R76 에서 데인 곳이다.
+     * ⚠️ 이 변이가 재는 것은 **거절이 서 있는가**다 — 「못 읽었을 때 빈 목록으로 접지 않는가」는
+     *    gh 가 정상인 기계에서 **조건이 안 만들어져** 여기서 못 잰다(탐침 머리말에 적어 뒀다).
+     */
+    mutate: (t) => t.replace(
+      '    if (raw !== undefined && (!Number.isInteger(limit) || (limit as number) < 1)) {',
+      '    if (false) {'),
+    cmd: ['node', ['observatory/probe-console.mjs']],
+  },
+  {
     check: '말뭉치 감사(corpora)',
     bite: '판단하지 않은 인용',
     expect: '명부에 없는 인용',
