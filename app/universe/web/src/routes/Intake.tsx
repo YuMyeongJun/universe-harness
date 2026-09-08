@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { getBranches, getGalaxies, getGhOrgs, getRepos, postAdopt, postClone } from '@api/client';
+import { getBranches, getGalaxies, getGhOrgs, getRepos, postAdopt, postClone, readGalaxyDraft, writeGalaxyCoordinates } from '@api/client';
 import type { IAdoptResult, IBranchList, ICloneResult, IGhOrgs, IRepoListResult } from '@api/types';
 
 import { GhAuthPanel } from '@components/data-display/GhAuthPanel';
@@ -87,6 +87,18 @@ export function Intake() {
 
   const [cloned, setCloned] = useState<ICloneResult | null>(null);
   const [adopted, setAdopted] = useState<IAdoptResult | null>(null);
+  /**
+   * ── 초안의 빈칸 ── ⚠️⚠️ **여기가 막혀 있었다.**
+   * 전에는 이 화면이 「**파일을 열어 채운 뒤** ③으로 가세요」라고 말했다. ⛔ 터미널을 안 여는
+   * 사람에게는 **거기서 끝**이다 — 받아 오기까지 화면으로 와 놓고 마지막 한 칸에서
+   * 파일 편집기로 내보낸다. 이 제품의 전제(화면이 정본이다)와 정면으로 어긋난다.
+   * ⇒ 「잴 저장소」 화면에 이미 있던 그 칸을 여기에도 낸다. 서버 자리는 같은 것을 쓴다.
+   */
+  const [blanks, setBlanks] = useState<string[] | null>(null);
+  const [filled, setFilled] = useState<Record<string, string>>({});
+  const [writeNote, setWriteNote] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
+
   /** 요청의 모양이 틀렸거나(400) 서버가 도구를 못 불렀을 때(500)만 여기 담긴다. */
   const [refused, setRefused] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -165,6 +177,17 @@ export function Intake() {
         setCloned(came);
         /* 받아 왔고 초안까지 나왔을 때만 다음 칸으로 옮긴다. ⛔ 실패를 넘겨 보내지 않는다. */
         setStep(came.ok && came.draft !== null ? 'draft' : 'clone');
+        /* ⭐ 초안이 나왔으면 **빈칸 자리를 바로 읽어 온다** — 사람이 파일을 열 이유가 없게. */
+        setBlanks(null);
+        setFilled({});
+        setWriteNote(null);
+        if (came.draft !== null) {
+          void readGalaxyDraft(came.draft).then(
+            (draft) => setBlanks(draft.todos.at),
+            /* ⛔ 못 읽었으면 **빈 목록으로 그리지 않는다** — 「채울 게 없다」로 보인다(§8). */
+            () => setBlanks(null),
+          );
+        }
       },
       (failed: Error) => {
         setBusy(false);
@@ -576,11 +599,84 @@ export function Intake() {
                     ⛔ 특히 <strong>태양계(별이 사는 폴더)는 사람이 고릅니다</strong> — 도구는
                     후보만 냅니다.
                   </div>
-                  <div className="mt-1.5">
-                    파일을 열어 채운 뒤 ③으로 가세요. 남아 있으면 ③이{' '}
-                    <strong>몇 곳이 남았는지 말해 줍니다</strong>.
-                  </div>
                 </Banner>
+
+                {/**
+                  * ⚠️⚠️ **여기에 「파일을 열어 채우세요」가 적혀 있었다.**
+                  * 받아 오기까지 화면으로 와 놓고 **마지막 한 칸에서 파일 편집기로 내보냈다** —
+                  * 터미널을 안 여는 사람에게는 거기서 끝이다. ⛔ 화면이 정본이라는 전제가
+                  * 그 한 줄에서 깨져 있었다. ⇒ 채우는 칸을 여기 낸다.
+                  */}
+                {blanks === null && (
+                  <p className={HELP_TEXT}>
+                    ⚪ 빈칸 목록을 아직 못 읽었습니다 — <strong>「채울 것이 없다」가 아닙니다.</strong>{' '}
+                    초안 파일은 위 자리에 있습니다.
+                  </p>
+                )}
+
+                {blanks !== null && blanks.length === 0 && (
+                  <Banner tone="ok">
+                    <strong>✅ 채울 자리가 없다 — 초안이 다 찼다.</strong>
+                    <div className="mt-1.5">③으로 가서 은하로 들이세요.</div>
+                  </Banner>
+                )}
+
+                {blanks !== null && blanks.length > 0 && (
+                  <>
+                    {blanks.map((where) => (
+                      <TextField
+                        key={where}
+                        id={`blank-${where}`}
+                        label={where}
+                        sub="⛔ TODO — 도구가 못 읽은 자리"
+                        mono
+                        value={filled[where] ?? ''}
+                        placeholder="여기는 사람만 안다"
+                        onChange={(next) => setFilled({ ...filled, [where]: next })}
+                      />
+                    ))}
+
+                    <ActionButton
+                      primary
+                      disabled={writing || blanks.some((w) => (filled[w] ?? '').trim() === '')}
+                      onClick={() => {
+                        if (cloned?.draft === null || cloned?.draft === undefined) return;
+                        setWriting(true);
+                        setWriteNote(null);
+                        void writeGalaxyCoordinates(cloned.draft, filled).then(
+                          (done) => {
+                            setWriting(false);
+                            setBlanks(done.remaining);
+                            setWriteNote(
+                              done.remaining.length === 0
+                                ? `✅ 좌표에 적었다 — ${done.filled.length}곳. 남은 자리 0곳이다.`
+                                : `✅ ${done.filled.length}곳을 적었다 — ⚠️ 아직 ${done.remaining.length}곳 남았다.`,
+                            );
+                          },
+                          (failed: Error) => {
+                            setWriting(false);
+                            /* ⛔ 실패를 삼키지 않는다 — 서버가 쓴 문장 그대로 보여 준다. */
+                            setWriteNote(`⛔ 못 적었다 — ${failed.message}`);
+                          },
+                        );
+                      }}
+                    >
+                      {writing ? '적는 중…' : '좌표에 적기'}
+                    </ActionButton>
+
+                    {blanks.some((w) => (filled[w] ?? '').trim() === '') && (
+                      <span className={`mt-1.5 ${HELP_TEXT}`}>
+                        {blanks.filter((w) => (filled[w] ?? '').trim() === '').length}곳이 비어 있어 아직
+                        적을 수 없습니다. ⛔ 건너뛰는 길은 만들지 않았습니다 — 비워 둔 좌표는 관문이{' '}
+                        <strong>엉뚱한 것을 재게</strong> 합니다.
+                      </span>
+                    )}
+                    {writeNote !== null && (
+                      <span className={`mt-1.5 ${HELP_TEXT}`}>{writeNote}</span>
+                    )}
+                  </>
+                )}
+
                 <p className={HELP_TEXT}>
                   ⛔ 「TODO 를 무시하고 들이기」 갈래는 없습니다. 넘길 수 있는 관문은 넘겨집니다.
                 </p>

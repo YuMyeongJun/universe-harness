@@ -26,6 +26,7 @@ import {
   draftIdProblem,
   inputProblem,
   makeGalaxyDraft,
+  readDraftAt,
   readGalaxyDraft,
   writeGalaxyCoordinates,
   writeInputProblem,
@@ -355,9 +356,27 @@ export const createApp = (): express.Express => {
    * 「화면이 정본이다」가 마지막 칸에서 깨져 있었던 것이다.
    * ⛔ 여전히 커밋되는 `galaxies/` 에는 안 쓴다 — 초안은 `.data/` 에 산다.
    */
+  /**
+   * 초안 하나를 **다시 읽는다** — 화면이 「남은 빈칸이 어디인가」를 알아야 채울 칸을 그린다.
+   * ⚠️ `:id` 자리에 **파일 경로**도 온다(받아 오기가 만든 초안은 클론 폴더 안에 산다).
+   *    ⛔ 그 경로는 `draftFileOf` 가 **`.data/` 안인지** 막는다.
+   */
+  app.get('/api/galaxy-drafts/by-path', (req: Request, res: Response) => {
+    const file = String(req.query['file'] ?? '');
+    if (file === '') return fail(res, 400, '초안 파일 경로를 주세요.');
+    try {
+      const found = readDraftAt(file);
+      if (found === null) return fail(res, 404, `그런 초안이 없습니다: ${file}`);
+      res.json(found);
+    } catch (e: unknown) {
+      return fail(res, 400, (e as Error).message);
+    }
+  });
+
   app.put('/api/galaxy-drafts/:id/coordinates', (req: Request, res: Response) => {
     const id = String(req.params['id'] ?? '');
-    const bad = draftIdProblem(id);
+    /* ⚠️ 경로가 오면 id 검사를 안 한다 — 대신 `draftFileOf` 가 **`.data/` 안인지**를 막는다. */
+    const bad = id.includes('/') ? null : draftIdProblem(id);
     if (bad !== null) return fail(res, 400, bad);
     const body = req.body as { filled?: unknown };
     const problem = writeInputProblem(body.filled);

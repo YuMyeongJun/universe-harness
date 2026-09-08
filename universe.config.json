@@ -35,7 +35,8 @@
     "backoffice",
     "console",
     "whitehole",
-    "qa-e2e"
+    "qa-e2e",
+    "wh-luna"
   ],
   "//observatory": "관측소 = 별이 실제로 도는지 재는 장치. @plugins/harness-react-vite 를 끼운다.",
   "observatory": {

@@ -20,7 +20,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { HARNESS_ROOT, dataDir } from './paths.js';
 import { runNodeTool } from './run-tool.js';
@@ -378,8 +378,29 @@ export const writeInputProblem = (filled: unknown): string | null => {
   return null;
 };
 
+/**
+ * ⛔⛔ **초안이 사는 자리가 둘이다** — 실측으로 데였다.
+ *  · 「잴 저장소」가 만든 것 → `.data/galaxy-drafts/<id>.json`
+ *  · **`clone` 이 만든 것 → 받아 온 폴더 안 `universe-galaxy.json`**
+ * 화면의 「받아 오기」는 뒤쪽을 들고 있는데 이 함수는 앞쪽만 알아서, 사람이 받아 온 초안을
+ * **화면에서 채울 방법이 없었다** — 화면이 「파일을 열어 채우세요」라고 말하던 이유가 이것이다.
+ *
+ * ⇒ **파일 경로도 받는다.** ⛔ 다만 **`.data/` 안으로 가둔다**: 사람이 준 문자열이 그대로
+ *   파일 경로가 되는 자리라, 안 가두면 이 콘솔이 **아무 파일이나 고치는 도구**가 된다(R76).
+ */
+export const draftFileOf = (idOrPath: string): string => {
+  if (!idOrPath.includes('/')) return join(draftsDir(), `${idOrPath}.json`);
+  const abs = resolve(idOrPath);
+  const root = dataDir();
+  const rel = relative(root, abs);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error(`초안은 .data/ 안에 있어야 합니다: ${abs}`);
+  }
+  return abs;
+};
+
 export const writeGalaxyCoordinates = (id: string, filled: Record<string, string>): IWriteResult => {
-  const file = join(draftsDir(), `${id}.json`);
+  const file = draftFileOf(id);
   if (!existsSync(file)) throw new Error(`그런 초안이 없습니다: ${id}`);
   const draft: unknown = JSON.parse(readFileSync(file, 'utf8'));
   if (!isRecord(draft)) throw new Error('초안이 객체가 아닙니다.');
@@ -399,4 +420,24 @@ export const writeGalaxyCoordinates = (id: string, filled: Record<string, string
   /* ⭐ **다시 읽어서** 남은 자리를 센다 — 방금 적은 것을 믿지 않고 파일을 다시 본다. */
   const after: unknown = JSON.parse(readFileSync(file, 'utf8'));
   return { written: file, filled: done, remaining: todoPaths(after) };
+};
+
+/**
+ * 초안을 **파일 경로로** 읽는다. ⛔ `draftFileOf` 가 `.data/` 밖을 막는다.
+ * ⚠️ `describe` 가 그대로 쓰이므로 화면이 보는 모양은 id 로 읽은 것과 **같다** —
+ *    두 길이 다른 모양을 내면 화면이 자리마다 다르게 그린다.
+ */
+export const readDraftAt = (fileOrId: string): IGalaxyDraftResult | null => {
+  const file = draftFileOf(fileOrId);
+  if (!existsSync(file)) return null;
+  const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
+  if (!isRecord(parsed)) return null;
+  /* ⚠️ id 가 없다 — 이 초안은 클론 폴더 안에 산다. 화면은 **경로**로 다시 부른다. */
+  return describe(file, parsed, {
+    command: `(다시 읽음) ${file}`,
+    exitCode: null,
+    stdout: '',
+    stderr: '',
+    out: file,
+  });
 };

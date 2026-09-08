@@ -109,10 +109,19 @@ export const makeGalaxyDraft = (name: string, dir: string): Promise<IGalaxyDraft
  * 「⚪ 아직 화면에서 못 적는다」로 **그대로 적고** 초안 파일 자리를 알려 준다.
  * ⛔ 실패를 삼키고 「적었다」고 말하지 않는다 — 그러면 아무도 안 적힌 좌표가 완성본이 된다.
  */
+export interface IWriteResult {
+  written: string;
+  /** 실제로 적힌 자리. ⛔ 요청한 것 전부가 아니라 **적힌 것**만 온다. */
+  filled: string[];
+  /** 아직 남은 `TODO:` 자리. 0 이면 초안이 다 찼다. */
+  remaining: string[];
+}
+
+/** @param id 초안 id 또는 **초안 파일 경로**(받아 오기가 만든 초안은 클론 폴더 안에 산다). */
 export const writeGalaxyCoordinates = (
   id: string,
   filled: Record<string, string>,
-): Promise<{ written: string }> =>
+): Promise<IWriteResult> =>
   req(`/api/galaxy-drafts/${encodeURIComponent(id)}/coordinates`, {
     method: 'PUT',
     body: JSON.stringify({ filled }),
@@ -134,6 +143,10 @@ export const writeGalaxyCoordinates = (
  * @param sample 표본을 몇 건까지 받을 것인가 — 관측소의 `--sample` 그대로.
  *   ⚠️ `0` 이면 표본이 **하나도 안 온다.** 그러면 건수는 있는데 **처방이 없다**(R94 의 그 형태).
  */
+/** 초안을 **파일 경로로** 읽는다 — 받아 오기가 만든 초안은 클론 폴더 안에 산다. */
+export const readGalaxyDraft = (file: string): Promise<IGalaxyDraftResult> =>
+  req<IGalaxyDraftResult>(`/api/galaxy-drafts/by-path?file=${encodeURIComponent(file)}`);
+
 export const getObservation = (galaxy: string, sample: number): Promise<IObservation> =>
   req<IObservation>(
     `/api/observations/${encodeURIComponent(galaxy)}?sample=${encodeURIComponent(String(sample))}`,
