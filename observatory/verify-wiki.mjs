@@ -108,6 +108,8 @@ const localFiles = (await readdir(pagesDir)).filter((name) => name.endsWith('.md
 
 let missing = 0;
 let differing = 0;
+/** 다른 장의 원문 — 판정이 **원인을 갈라 말하려면** 수만으로는 안 된다. */
+const diffs = [];
 
 console.log(`── 위키 본문 대조 — 발행본 ${localFiles.length}장`);
 for (const file of localFiles) {
@@ -129,6 +131,9 @@ for (const file of localFiles) {
     continue;
   }
   differing += 1;
+  /* ⛔ **원문을 들고 있어야 「왜 다른가」를 가를 수 있다** — 수만 세면 「손으로 고쳐졌다」와
+     「발행을 안 했다」가 같은 말이 된다(실측으로 그렇게 틀리게 말했다). */
+  diffs.push({ slug, local: a, remote: b });
   const aLines = a.split('\n');
   const bLines = b.split('\n');
   const firstDiff = aLines.findIndex((line, index) => line !== bLines[index]);
@@ -155,8 +160,30 @@ if (missing === localFiles.length) {
   console.error('   본문을 받아다 주고 다시 불러라 — 이 도구는 위키를 스스로 못 읽는다.');
   process.exit(EXIT_UNMEASURED);
 }
+/**
+ * ⛔⛔ **「다르다」의 원인을 하나로 부르지 않는다.**
+ *
+ * 예전엔 다르기만 하면 **「손으로 고쳐졌다」**고 말했다. 실측(R163): 저장소 쪽이 「은하 4」인데
+ * 위키는 「은하 2」였고 발행 날짜도 **어제**였다 — 아무도 손대지 않았고 **발행을 안 한 것**이다.
+ * ⛔ 그런데 화면은 「누가 위키를 고쳤다」고 말했다. **사람을 엉뚱한 데로 보낸다.**
+ * ⇒ **발행 줄의 날짜**로 가른다: 위키가 더 오래됐으면 「낡았다(발행 안 함)」,
+ *   같은 날인데 다르면 그때가 「손으로 고쳐졌다」다.
+ * ⚠️ 이것도 **하한**이다 — 같은 날 발행하고 같은 날 손으로 고치면 못 가른다.
+ */
 if (differing > 0) {
-  console.error(`\n⛔ 위키가 손으로 고쳐진 장 ${differing}개. 저장소를 고치고 다시 발행하라 — 위키가 정본이 아니다.`);
+  const stamp = (t) => /_발행 (\d{4}-\d{2}-\d{2})/.exec(t ?? '')?.[1] ?? null;
+  const stale = diffs.filter((d) => {
+    const mine = stamp(d.local);
+    const theirs = stamp(d.remote);
+    return mine !== null && theirs !== null && theirs < mine;
+  }).length;
+  if (stale === differing) {
+    console.error(`\n⛔ 위키가 **낡았다** — ${differing}장이 옛 발행본이다(위키 쪽 날짜가 더 이르다).`);
+    console.error('   ⚠️ **손으로 고쳐진 것이 아니다.** 발행을 안 한 것이다 — `universe publish` 는 사람이 판단한다.');
+  } else {
+    console.error(`\n⛔ 위키가 발행본과 다른 장 ${differing}개 (그중 ${differing - stale}장은 **날짜가 같은데도 다르다** — 손으로 고쳐졌을 수 있다).`);
+    console.error('   저장소를 고치고 다시 발행하라 — 위키가 정본이 아니다.');
+  }
   process.exit(1);
 }
 if (fetchedDir) {
