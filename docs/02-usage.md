@@ -581,6 +581,13 @@ universe check
 | 관문 | 무엇을 보는가 |
 |------|---------------|
 | **좌표 감사** `node observatory/verify-coordinates.mjs` | 커밋되는 것에 「그 기계에만 있는 좌표」가 있는가. 회사 이름을 열거하지 않고 **구조로** 잰다 — 절대 경로와, 은하 좌표의 `path` 가 상대가 아닌 것. 로컬 명부(`galaxies.local/`)는 **안 본다** |
+| **행동 계약 보호** `node bigbang/selftest-behavior-contract.mjs` | 태어난 별의 **행동 계약 테스트**를 3차가 못 고치게 막는 자물쇠가 살아 있는가. 풀리면 에이전트가 채점표를 고쳐 통과한다 |
+| **엔진 계약 규칙** `observatory/engine/packages/@core/fe-agent-contracts/src/selftest.ts` | 엔진의 규칙 하나하나가 **어기는 코드에서 잡히고 옳은 코드에서는 안 잡히는가**(양방향). 규칙 패턴이 죽은 채 커밋된 적이 있다 |
+| **초안이 도는가** `bash observatory/probe-draft.sh` | 좌표 초안을 떠서 **실제로 걸어 보고** 관측이 파일을 보는가. 「코드가 없는 자리를 가리키는 좌표」가 ⚪ 3 으로 드러난다 |
+| **주소로 받아 오는가** `bash observatory/probe-clone.sh` | `clone` 이 토큰을 거절하고, 받을 자리가 비어 있지 않으면 멈추는가 |
+| **레포를 고르는가** `bash observatory/probe-repos.sh` | `repos` 가 토큰을 손에 안 쥐고, 자격이 없으면 「0개」가 아니라 ⚪ 로 말하는가 |
+| **구조 설명이 있는가** `bash observatory/probe-blueprint.sh` | `blueprint` 가 **모델을 안 부르는 갈래**로 도는가. `--write` 없이 모델을 부르면 문다 |
+| **끝났는가가 갈리는가** `bash observatory/probe-loop.sh` | `loop`·`repeat` 가 리포트를 읽고 **셋으로 갈리는가**(끝났다·남았다·못 쟀다). ⛔ 브라우저를 안 띄운다 — 커밋되는 리포트 픽스처로만 잰다 |
 | **3차 배선** `node observatory/verify-nebula-wiring.mjs` | 3차의 배선을 **모델 호출 0회**로 잰다. 미리 적어 둔 대본으로 돌려 여덟을 본다 — 범위 관문 · 게이트 축 넷이 **이름을 내는가** · 요구사항 신호 · 빈 계약 거부 · 받은 계약 보호 · 못 쟀으면 초록불로 안 끝내는가 · 궤적에 레인이 적히는가 · `extract` 가 그 대본을 빼는가 |
 
 ## `laws` · `links` · `checks` · `mutate` — 검사를 검사한다
