@@ -52,7 +52,16 @@ export default defineConfig({
   retries: 0,
   /* ⚠️ 남의 dev 서버는 첫 요청에서 의존성을 최적화하느라 느릴 수 있다(실측 vite 재최적화). */
   timeout: 60_000,
-  reporter: [['list']],
+  /**
+   * ⭐ **한 건 끝날 때마다 한 줄** — 화면이 보면서 그릴 수 있게(`reporters/ndjson.ts`).
+   *
+   * ⛔ `json` 리포터를 **대체하지 않는다.** 판정은 여전히 계약 도구가 `json` 산출을 먹고 낸다.
+   *    ⚠️ 이 줄들은 **진행**이다. 화면이 이걸로 스스로 채점하기 시작하면 두 자리에서 세게 되고,
+   *    갈린 뒤에는 어느 쪽이 사실인지 아무도 모른다.
+   * ⚠️ `UNIVERSE_NDJSON` 이 없으면 그 리포터는 **아무것도 안 하고 그렇게 말한다** —
+   *    즉 이 설정을 평소처럼 써도 달라지는 것이 없다.
+   */
+  reporter: [['list'], ['./reporters/ndjson.ts']],
   use: {
     baseURL,
     ignoreHTTPSErrors: true,
