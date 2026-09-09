@@ -74,7 +74,51 @@ printf '🛡  커밋 관문 — 빠른 것만 (%s)\n' "$HOME_DIR"
 
 ENGINE_SELFTEST="$HOME_DIR/observatory/engine/packages/@core/fe-agent-contracts/src/selftest.ts"
 
-run '부품 시험'      "$HOME_DIR/lib/selftest.mjs"             node "$HOME_DIR/lib/selftest.mjs"
+# ⛔⛔ **이 은하의 코드가 나빠졌는가** — 소비 저장소에서 이 관문의 존재 이유다.
+#    ⚠️⚠️ 실측(2026-09-08): 여기 `observe` 가 **없어서**, 우주를 깔고 훅까지 켠 저장소에서
+#    위반이 6건 늘어난 커밋이 관문을 **그냥 지나갔다.** 관문 다섯이 전부 「우주가 멀쩡한가」만
+#    보고 있었고 **「당신 코드가 나빠졌는가」는 아무도 안 봤다.**
+#    ⛔ 느려서 뺀 것이 아니다 — 진짜 은하(1,407파일)에서 **0.73초**다(실측).
+# ⛔⛔ **깔린 폴더의 사본으로 부르면 안 된다 — 거기엔 엔진이 없다.**
+#    엔진은 배달되지 않고 **패키지가 들고 온다**(`lib/gates.mjs` 의 `runsFrom: 'package'`).
+#    실측(2026-09-08): `$HOME_DIR/observatory/observe.mjs` 를 직접 불렀더니
+#    「관측 엔진을 찾지 못했다」로 죽었다 — 도구가 그 사유를 정확히 말해 줬다.
+#    ⇒ **패키지의 CLI** 를 찾아 그 폴더를 겨눈다. 못 찾으면 ⏭ 로 물러난다(거짓 초록보다 낫다).
+# ⛔⛔ **아래 세 자리의 `universe` 는 전부 「명령 이름」이다 — 패키지 이름이 아니다.**
+#    npm 패키지 이름은 `universe-harness` 이지만 `package.json` 의 `bin` **키**는 `universe` 라서
+#    깔리는 파일은 `node_modules/.bin/universe` 이고 PATH 에 놓이는 것도 `universe` 다.
+#    ⚠️ 여기를 `universe-harness` 로 바꾸면 **훅이 CLI 를 영영 못 찾는다** — 그러면 아래
+#    「못 찾으면 막는다」 갈래에 걸려 **이 저장소의 모든 커밋이 막힌다.** 바꾸지 마라.
+OBSERVE_CLI=""
+if [ -x "$REPO/node_modules/.bin/universe" ]; then
+  OBSERVE_CLI="$REPO/node_modules/.bin/universe"      # 소비 저장소 — 깔린 패키지
+elif [ -f "$HOME_DIR/bin/universe.mjs" ]; then
+  OBSERVE_CLI="$HOME_DIR/bin/universe.mjs"            # 우주 저장소 자신
+elif command -v universe >/dev/null 2>&1; then
+  # ⚠️ 전역 설치(`npm i -g` · `npm link`). 저장소마다 패키지 매니저가 다르므로
+  #    `node_modules` 에 있다고 **전제하지 않는다** — yarn berry · pnpm 배치가 실제로 있다.
+  OBSERVE_CLI="$(command -v universe)"
+fi
+# ⛔⛔ **못 찾으면 건너뛰지 않고 막는다 — 여기서 ⏭ 는 거짓 초록이다.**
+#    ⚠️ 다른 검사의 ⏭ 는 「그 부품이 배달되지 않았다」는 뜻이라 정직하다. 그런데 이 검사가
+#    ⏭ 로 넘어가면 **「당신 코드가 나빠졌는가」를 아무도 안 본 채 커밋이 통과한다.**
+#    ⛔ 안 잰 것이 통과로 보이는 자리를 만들지 않는다(관측 법칙 §8).
+#    ⚠️ 실측 배경: 저장소마다 패키지 매니저가 다르다(yarn berry · pnpm · 전역 설치).
+#    `node_modules/.bin/universe` 가 없는 배치가 실제로 있다.
+if [ -z "$OBSERVE_CLI" ]; then
+  printf '  ⛔ %s — 우주 CLI 를 못 찾았다. **재지 못했다**(통과가 아니다).\n' '법칙 관측'
+  printf '     찾아본 자리: %s · %s\n' "$REPO/node_modules/.bin/universe" "$HOME_DIR/bin/universe.mjs"
+  printf '     ⇒ 이 저장소의 패키지 매니저로 우주를 깔거나, 전역 설치면 PATH 의 것을 쓰도록 훅을 고쳐라.\n'
+  fail=1
+else
+  run '법칙 관측'    "$OBSERVE_CLI"                          "$OBSERVE_CLI" observe --universe "$HOME_DIR"
+fi
+# ⚠️⚠️ **표적이 `lib/selftest.mjs` 가 아니라 `observatory/verify-checks.mjs` 다 — 일부러 그렇다.**
+#    부품 시험은 우주 **자신의 소스**를 읽는다(변이 케이스가 `expect:` 를 적었는지 등). 그 소스는
+#    배달되지 않으므로 소비 저장소에서는 `ENOENT` 로 죽는다. 실측(2026-09-08): 그래서 갓 깐
+#    저장소에서 **모든 커밋이** 자기 코드와 무관한 크래시로 막혔다 — R58 이 경고한 바로 그 모양이고,
+#    그걸 본 사람은 관문을 끄는 법부터 배운다. ⇒ **읽을 대상이 있을 때만** 돈다(우주 저장소).
+run '부품 시험'      "$HOME_DIR/observatory/verify-checks.mjs" node "$HOME_DIR/lib/selftest.mjs"
 run '우주 형식'      "$HOME_DIR/observatory/verify-laws.sh"   bash "$HOME_DIR/observatory/verify-laws.sh"
 run '문서 링크'      "$HOME_DIR/observatory/verify-links.mjs" node "$HOME_DIR/observatory/verify-links.mjs"
 run '엔진 계약 규칙' "$ENGINE_SELFTEST"                        node "$ENGINE_SELFTEST"

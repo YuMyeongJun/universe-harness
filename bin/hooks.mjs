@@ -15,6 +15,7 @@
 import { spawn } from 'node:child_process';
 import { access, constants, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import { hookLabels } from '../lib/gates.mjs';
 import { requireUniverseHome } from '../lib/home.mjs';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 
@@ -61,9 +62,12 @@ if (argv.includes('--install')) {
   console.log(`🛡  커밋 관문을 켰다 — **빠른 것만** 돈다(느린 것은 round close 가 본다). (core.hooksPath=${hookDir})`);
   /* ⚠️ **손으로 적은 목록은 낡는다.** 여기엔 넷이 적혀 있었는데 훅은 **다섯**을 돌고 있었다
      (`부품 시험` 이 R38 에 늘었는데 안내는 그대로였다 · 실측 R73).
-     ⇒ **훅에서 읽는다.** 훅이 진실이고 안내는 그 그림자다(R55 의 처방과 같다). */
+     ⇒ **훅에서 읽는다.** 훅이 진실이고 안내는 그 그림자다(R55 의 처방과 같다).
+     ⛔⛔ 그런데 훑개가 여기 박혀 있었고 `^run '` 이라 **들여쓴 호출을 못 봤다** —
+     그래서 `법칙 관측` 이 안내에서 통째로 빠졌다(실측 2026-09-08). 훑개를
+     `lib/gates.mjs` 의 `hookLabels` 한 자리로 옮기고 시험이 그것을 문다. */
   const hookText = await readFile(HOOK, 'utf8').catch(() => '');
-  const labels = [...hookText.matchAll(/^run '([^']+)'/gm)].map((m) => m[1]);
+  const labels = hookLabels(hookText);
   console.log(`   ${labels.join(' · ') || '(훅을 못 읽었다 — 목록을 셀 수 없다)'}`);
   console.log('   급할 때만 `git commit --no-verify` (그래도 `round close` 가 다시 문다).');
   process.exit(0);

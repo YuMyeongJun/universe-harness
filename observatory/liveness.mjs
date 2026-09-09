@@ -194,6 +194,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const root = await requireUniverseHome(flag('--universe'));
   const config = JSON.parse(await fs.readFile(path.join(root, 'universe.config.json'), 'utf8'));
   const gname = flag('--galaxy') ?? config.galaxies[0];
+  /**
+   * ⛔⛔ **등록된 은하가 없으면 ⚪ 로 물러난다 — 죽지 않는다.**
+   *
+   * ⚠️⚠️ 실측(갓 깐 소비 저장소): `init` 은 `galaxies: []` 로 깔린다. 그러면 여기서
+   * `config.galaxies[0]` 이 `undefined` 가 되고, 아래가 **`galaxies/undefined.json`** 을 읽어
+   * `ENOENT` 스택트레이스로 죽었다. 관문에는 **❌ 빨간불**로 찍혔다.
+   * ⛔ 그건 「세션이 죽었다」가 아니라 **잴 대상이 아직 없다**는 뜻이다 — 다른 사실이다.
+   *    갓 깐 사람이 그 빨간불을 보면 **도구가 깨진 줄 알고 관문을 안 믿는 법부터 배운다.**
+   * ⇒ 같은 자리에서 `blind-census` 는 이미 「등록된 은하: (없음)」으로 ⚪ 를 낸다. 그 선례를 따른다.
+   */
+  if (gname === undefined) {
+    console.log('── **살아 있는가** — ⚪ 못 쟀다');
+    console.log('   등록된 은하가 없다. ⛔ 「죽었다」가 아니라 **잴 대상이 아직 없다**는 뜻이다.');
+    console.log('   ⇒ `universe galaxy <이름> --dir <경로>` 로 좌표를 만들고 `universe.config.json` 의 `galaxies` 에 올려라.');
+    process.exit(EXIT_UNMEASURED);
+  }
   const gfile = (await findGalaxyFile(root, gname)) ?? path.join(root, 'galaxies', `${gname}.json`);
   const galaxy = resolveGalaxyPath(root, JSON.parse(await fs.readFile(gfile, 'utf8')));
 

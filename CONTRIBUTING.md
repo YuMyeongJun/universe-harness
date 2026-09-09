@@ -24,15 +24,28 @@ description: 우주에 무언가를 더할 때 지켜야 할 것 — 법칙·별
 | 무엇을 안 하기로 했는지 | [법칙들](laws/) — 특히 [관측](laws/observation.md) |
 | 지금까지 무엇을 쟀는지 | [log/](log/) · [docs/05-expectations.md](docs/05-expectations.md) |
 | 아직 안 푼 것 | [nebula/](nebula/) |
+| **npm 에 올리는 법** | [docs/10-publishing.md](docs/10-publishing.md) — ⛔ 그 문서를 안 읽고 `npm publish` 를 치지 마라 |
 
 ## 1. 관문
 
 **먼저 커밋 관문을 켜라.** 한 번만 하면 된다.
 
 ```bash
-npm link                                  # `universe` 를 잇는다 (한 번만 · 되돌리기: npm rm -g universe)
+npm link                                  # `universe` 를 잇는다 (한 번만)
 universe hooks --install                  # git config core.hooksPath .githooks
 ```
+
+⛔⛔ **되돌릴 때는 `npm rm -g universe-harness` 다 — `npm rm -g universe` 가 아니다.**
+`npm rm -g` 가 받는 것은 **패키지 이름**이고, 이 저장소는 이름이 둘이다:
+
+| | 이름 | 어디서 쓰나 |
+|---|---|---|
+| **패키지** | `universe-harness` | `npm i` · `npm rm -g` · `package.json` |
+| **명령** | `universe` | 터미널에서 치는 것 · 문서의 모든 `universe X` |
+
+⚠️ npm 의 `universe` 는 **남의 패키지**다(crossfilter/universe). 명령 이름으로 지우려 하면
+아무것도 안 지우거나 **남의 것을 건드린다.** 이름이 갈린 것은 배포하면서 생긴 일이라
+[배포 가이드](docs/10-publishing.md) 에도 같은 표가 있다.
 
 ⛔ `npm link` 를 안 하면 `universe` 는 **없는 명령**이다 — 그때는 아래의 `universe X` 를
 `node bin/universe.mjs X` 로 바꿔 친다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).

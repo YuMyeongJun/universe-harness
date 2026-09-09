@@ -178,15 +178,27 @@ if (!command || wantsHelp) {
   const { realpath } = await import('node:fs/promises');
   let resolved = null;
   for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    /* ⛔ **여기의 `universe` 는 명령 이름이다 — 패키지 이름(`universe-harness`)이 아니다.**
+       PATH 에 깔리는 것은 `package.json` 의 `bin` 키이고 그것은 `universe` 로 둔다.
+       바꾸면 훅(`.githooks/pre-commit`)과 메뉴가 CLI 를 못 찾는다. */
     /* eslint-disable-next-line no-await-in-loop */
     resolved = await realpath(path.join(dir, 'universe')).catch(() => null);
     if (resolved) { break; }
   }
   const how = invocationLabel(resolved, packageHome);
+  /**
+   * ⛔⛔ **되돌리는 명령은 「패키지 이름」으로 부른다 — 「명령 이름」이 아니다.**
+   * `npm link` 가 전역에 등록하는 이름은 `package.json` 의 `name`(= `universe-harness`)이고,
+   * PATH 에 놓이는 파일 이름은 `bin` 의 키(= `universe`)다. **이 둘이 다르다.**
+   * ⚠️ 예전엔 둘이 같아서(`name: "universe"`) `npm rm -g universe` 가 우연히 맞았다.
+   * npm 에 올리며 패키지 이름만 `universe-harness` 로 바뀌었으므로, 옛 문구를 그대로 두면
+   * 사람이 그것을 치고 **「없는 패키지다」로 끝난다 — 그런데 링크는 그대로 남는다.**
+   * 도구가 틀린 말을 하는 것은 안 가르친 것만 못하다(R161).
+   */
   lines.push('', how === 'universe'
     ? '  인자 없이 `universe` 를 치면 **고르면서** 쓸 수 있다 — 명령줄을 만들어 보여 준다.'
     : `  ⚠️ \`universe\` 는 아직 PATH 에 없다 — 지금은 \`${how} …\` 로 부른다.\n`
-      + `     이어 붙이려면: cd ${packageHome} && npm link   (되돌리기: npm rm -g universe)\n`
+      + `     이어 붙이려면: cd ${packageHome} && npm link   (되돌리기: npm rm -g universe-harness)\n`
       + '     이어 붙이고 나면 인자 없이 `universe` 를 쳐서 **고르면서** 쓸 수 있다.');
   console.log(lines.join('\n'));
   process.exit(0);

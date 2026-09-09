@@ -60,12 +60,26 @@ verdict is computed from measured axes only.
 
 ## Quick start
 
+⚠️ **The package name and the command name are different.**
+You install **`universe-harness`**; you type **`universe`**.
+
 ```bash
-npm i -g @universe/harness          # or: npx
-universe init --dir /path/to/repo   # installs laws + observatory into your repo
-universe galaxy                     # reads your repo and drafts its coordinates
-universe observe                    # measures law violations — no model, no network
+npm i -D universe-harness                       # into your repo
+./node_modules/.bin/universe init               # installs laws + observatory into <repo>/universe/
+./node_modules/.bin/universe galaxy             # reads your repo and drafts its coordinates
+./node_modules/.bin/universe observe            # measures law violations — no model, no network
 ```
+
+⛔ **Never type `npx universe`.** That name on npm belongs to someone else
+(crossfilter/universe, a dataset exploration tool). Ours is `npx universe-harness` —
+**one hyphen apart from someone else's package.**
+⚠️ This warning exists because the docs used to walk people into that exact trap, four times
+over. Publishing to npm did **not** retire it: that name is still not ours. The only thing
+that changed is that we now have a name of our own.
+
+Hacking on the harness itself instead? Clone it and `npm link` — and remember that undoing
+that is `npm rm -g universe-harness`, **not** `npm rm -g universe`. `npm rm -g` takes the
+*package* name, not the command name.
 
 ⛔ `universe galaxy` **refuses to guess.** Anything it cannot read from your repo is left as a
 `TODO` for you to fill, rather than invented. That is the house style throughout.
@@ -80,7 +94,12 @@ at, that is not a passing test — it is a missed shot, and you re-aim.
 
 ## Status
 
-25 gates, 0 red. Stage 1, 2 and 3 have all been run against a real 2,027-file production repo,
+⛔ **The gate count is not written by hand here.** It went stale six times in this repo's
+history, so the number now lives in a generated block — see the "지금 상태" table in
+[README.md](README.md), filled by `universe facts`. What matters here: **zero red**, and every
+gate carries a mutation test.
+
+Stage 1, 2 and 3 have all been run against a real 2,027-file production repo,
 not just fixtures. What is measured and what is still guesswork is tracked honestly in
 [docs/05-expectations.md](docs/05-expectations.md) (Korean) — including the parts that
 **do not work yet**.

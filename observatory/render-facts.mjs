@@ -70,16 +70,50 @@ const body = [
   `| 판 | ${config.version} |`,
 ].join('\n');
 
+/**
+ * ── **등록된 은하 목록도 생성한다.**
+ *
+ * ⚠️⚠️ 실측(2026-09-08): `galaxies/README.md` 의 「등록된 은하」 표가 **`_(아직 없음)_`** 이었다.
+ * 실제로는 넷이 등록돼 있었다. 은하가 하나도 없다는 말은 이 제품에서 **「실측 대상이 없다」**는
+ * 뜻이라 가장 무거운 거짓말이고, 하필 은하 문서의 첫 표가 그 말을 하고 있었다.
+ * ⛔ 손으로 적으면 또 낡는다 — 좌표 파일이 정본이고 이 표는 그 그림자다.
+ *
+ * ⛔ **경로는 안 찍는다.** 안쪽 은하는 상대 경로지만 남의 저장소는 절대 경로이고,
+ * 그것이 공개 저장소에 올라간 사고가 이미 있었다(R152 · 좌표 감사가 그래서 생겼다).
+ * 여기 도는 것은 `galaxies/` 뿐이고 `galaxies.local/` 은 **안 본다** — 거기가 남의 좌표가 사는 자리다.
+ */
+const GALAXIES_DOC = join(ROOT, 'galaxies/README.md');
+const GALAXY_BEGIN = '<!-- GALAXIES:BEGIN -->';
+const GALAXY_END = '<!-- GALAXIES:END -->';
+
+const galaxyRows = [];
+for (const name of config.galaxies) {
+  const g = JSON.parse(await readFile(join(ROOT, 'galaxies', `${name}.json`), 'utf8').catch(() => 'null'));
+  if (!g) { galaxyRows.push(`| \`${name}\` | ⛔ 좌표 파일이 없다 | — | — |`); continue; }
+  const cmds = Object.keys(g.commands ?? {}).filter((k) => !k.startsWith('//'));
+  galaxyRows.push(`| \`${g.name ?? name}\` | ${g.laws?.length ?? 0}개 | ${g.solarSystems?.length ?? 0}개 | ${cmds.length ? cmds.map((c) => `\`${c}\``).join(' · ') : '—'} |`);
+}
+const galaxyBody = [
+  `| 은하 | 켠 법칙 | 태양계 | 선언한 명령 |`,
+  `|---|---:|---:|---|`,
+  ...galaxyRows,
+].join('\n');
+
+const BLOCKS = [
+  ...DOCS.map((doc) => ({ doc, begin: BEGIN, end: END, body })),
+  { doc: GALAXIES_DOC, begin: GALAXY_BEGIN, end: GALAXY_END, body: galaxyBody },
+];
+
 let stale = 0;
-for (const doc of DOCS) {
+for (const { doc, begin, end, body: blockBody } of BLOCKS) {
   const text = await readFile(doc, 'utf8');
-  const start = text.indexOf(BEGIN);
-  const stop = text.indexOf(END);
+  const start = text.indexOf(begin);
+  const stop = text.indexOf(end);
   if (start === -1 || stop === -1) {
-    console.error(`⛔ ${doc} 에 ${BEGIN} / ${END} 표식이 없다.`);
+    console.error(`⛔ ${doc} 에 ${begin} / ${end} 표식이 없다.`);
     process.exit(1);
   }
-  const next = `${text.slice(0, start + BEGIN.length)}\n${body}\n${text.slice(stop)}`;
+  const next = `${text.slice(0, start + begin.length)}\n${blockBody}\n${text.slice(stop)}`;
   if (argv.includes('--check')) {
     if (next !== text) { stale += 1; console.error(`⛔ 낡았다: ${doc}`); }
     continue;
@@ -91,7 +125,7 @@ if (argv.includes('--check')) {
     console.error('   `node observatory/render-facts.mjs` 로 다시 채워라.');
     process.exit(1);
   }
-  console.log(`✅ 문서 ${DOCS.length}편의 「지금 상태」 수치가 실측과 같다.`);
+  console.log(`✅ 문서 ${BLOCKS.length}편의 「지금 상태」 수치가 실측과 같다.`);
   process.exit(0);
 }
-console.log(`✅ 문서 ${DOCS.length}편의 「지금 상태」를 다시 적었다 — 법칙 ${config.laws.length} · 규칙 ${rules.length} · 주인 없는 규칙 ${orphans.length}`);
+console.log(`✅ 문서 ${BLOCKS.length}편의 「지금 상태」를 다시 적었다 — 법칙 ${config.laws.length} · 규칙 ${rules.length} · 주인 없는 규칙 ${orphans.length} · 은하 ${config.galaxies.length}`);

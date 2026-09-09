@@ -16,9 +16,24 @@ description: 우주의 법칙이 적용되는 저장소들. 우주는 별이 아
 
 ## 등록된 은하
 
-| 은하 | 스택 | 태양계 | 상태 |
-|------|------|--------|------|
-| _(아직 없음)_ | — | — | — |
+<!-- GALAXIES:BEGIN -->
+| 은하 | 켠 법칙 | 태양계 | 선언한 명령 |
+|---|---:|---:|---|
+| `tiny-galaxy` | 6개 | 1개 | `build` · `test` · `lintJson` · `testFile` · `lintFix` · `typecheck` |
+| `messy-galaxy` | 6개 | 1개 | — |
+| `console` | 5개 | 1개 | `typecheck` · `build` |
+| `qa-e2e` | 3개 | 0개 | `e2e` · `e2eWatch` |
+<!-- GALAXIES:END -->
+
+⛔ **이 표는 `universe facts` 가 좌표 파일에서 생성한다 — 손으로 고치지 마라.**
+⚠️ 실측(2026-09-08): 여기 `_(아직 없음)_` 이라 적혀 있었고 실제로는 넷이 등록돼 있었다.
+「은하가 없다」는 이 제품에서 **「실측 대상이 없다」**는 뜻이라 가장 무거운 거짓말이다.
+
+⚠️ **남의 저장소는 이 목록에 없다.** backoffice · whitehole · wh-luna 는 실측에 쓴 진짜
+은하지만 **커밋하지 않는 좌표**라 `galaxies.local/` 에 산다 — 절대 경로가 공개 저장소에
+올라간 사고가 있었고(R152), 그 뒤로 `universe.config.json` 에서 뺐다.
+⛔ 다시 넣지 마라. 그 은하들로 잰 기록은 [결과](../docs/04-results.md) 에 그대로 있다 —
+**기록은 역사이고, 목록은 지금이다.**
 
 > 은하는 `universe.config.json` 의 `galaxies` 에 등록하고 `galaxies/<이름>.json` 에 좌표를 둔다.
 > 실측 대상 은하가 하나도 없으면 `observe.mjs` 는 **커버리지만** 보고 그렇게 말한다 — 없는 것을 있는 척하지 않는다.

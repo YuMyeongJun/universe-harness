@@ -20,7 +20,7 @@
  *    더러우면 시작하지 않는다 — 남의 변경을 날릴 수 있기 때문이다.
  */
 import { readFile, writeFile, rm } from 'node:fs/promises';
-import { rmSync } from 'node:fs';
+import { rmSync, existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve, join } from 'node:path';
@@ -114,7 +114,7 @@ const CASES = [
     expect: '주인 없는 규칙: tailwind/arbitrary-value',
     file: 'laws/tokens.md',
     mutate: (t) => t.replace(/^(rules:\s*\[)([^\]]*)\]/m, (_m, head) => `${head}]`),
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
   },
   {
     check: '문서 링크(verify-links)',
@@ -493,7 +493,7 @@ const CASES = [
     check: '콘솔이 서는가(console)',
     bite: '지식 저장소를 못 찾았는데 「ok」라고 답함',
     expect: '없는데 「ok」라고 답한다',
-    file: 'app/universe/server/src/paths.ts',
+    file: 'app/universe/server/src/server.ts',
     /**
      * ⛔⛔ **못 찾았을 때 「0개」로 답하면 그것이 사고다.** 빈 목록은 「도메인이 없다」로
      * 읽히고, 그건 「못 읽었다」와 다른 말이다(§8). 콘솔은 사람의 계획이 전부 지나가는
@@ -502,7 +502,18 @@ const CASES = [
      * ⚠️ 이 변이는 **TypeScript 소스**를 건드린다. 그래서 탐침이 **낡으면 스스로 다시 짓는다** —
      *    처음엔 「낡았으면 ⚪」로 했는데, 그러면 **소스를 고치는 변이가 판정을 못 바꾼다.**
      */
-    mutate: (t) => t.replace('if (existsSync(dir)) return { ok: true, dir };', 'return { ok: true, dir };'),
+    /**
+     * ⛔⛔ **조준이 죽어 있었다 — 2026-09-08 실측.**
+     * 이 변이는 `paths.ts` 의 `if (existsSync(dir)) return { ok: true, dir };` 를 겨누고 있었는데,
+     * 그 코드는 **리팩터링으로 사라진 지 오래**였다(지금 `paths.ts` 에는 `existsSync` 도 `ok:` 도 없다).
+     * 변이가 파일을 **하나도 안 바꾸니** 시험대는 `⚠️ 변이가 안 먹었다` 로 세었는데,
+     * 그건 `❌` 가 아니라 `⚠️` 로 찍혀서 **눈에 안 띄었다.** ⇒ 이 검사는 그 뒤로
+     * **한 번도 무는 것이 확인되지 않았다.**
+     * ⇒ 지금 실재를 재는 자리는 `/api/health` 다(`server.ts`). 거기를 겨눈다.
+     * ⚠️ 조준을 옮길 때는 **변이가 정말 파일을 바꾸는지** 먼저 확인해라 —
+     *   안 바꾸면 이 시험은 조용히 장식이 된다.
+     */
+    mutate: (t) => t.replace('const ok = existsSync(manifest);', 'const ok = true;'),
     cmd: ['node', ['observatory/probe-console.mjs']],
   },
   {
@@ -956,7 +967,7 @@ const CASES = [
        정상으로 보였다. 여기서는 은하에 `.vue` 하나를 떨어뜨려 같은 상태를 만든다 —
        은하가 그 확장자를 판단하기 전엔 초록불이 나오면 안 된다. */
     mutate: () => '<template><div/></template>\n',
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
   },
   {
     check: '드리프트(observe)',
@@ -966,7 +977,7 @@ const CASES = [
     /* ⚠️⚠️ **이 경로는 R37 전까지 한 번도 안 돌았다.** 유일한 은하가 깨끗해서 모든 법칙이
        0건이었고, 드리프트는 언제나 0이었다. 「초록불」이 「재고 있다」를 뜻하지 않았다. */
     mutate: (t) => t.replace('<img src="/a.png" />', '<img src="/a.png" alt="상품" />'),
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'messy-galaxy']],
   },
   {
     check: '더러운 은하 생성(generate --check)',
@@ -1018,12 +1029,35 @@ const CASES = [
     file: 'observatory/learn-baseline.json',
     /* ⚠️ 성운은 「로그에만 남은 제안은 실행되지 않는다」를 법으로 적어 뒀는데,
        **궤적에만 남은 관측**은 아무도 안 봤다 — `learn` 을 어떤 관문도 부르지 않았다(R48). */
-    mutate: (t) => t.replace(/"판단": "\*\*우주 탓이다\.\*\* 스테이지가/, '"판단": "TODO: 아직 — 스테이지가'),
+    /**
+     * ⛔⛔ **한 항목을 이름으로 겨누지 마라 — 그렇게 했다가 조준이 죽어 있었다.**
+     *
+     * ⚠️⚠️ 실측(2026-09-08): 이 변이는 `boot-broken` 의 판단 문구를 겨누고 있었다. 그런데
+     * `learn --check` 는 그것을 **「기준선에 있는데 이제 안 나오는 후보」**로 분류한다 —
+     * 지금 궤적에서 그 후보가 안 나오기 때문이다. **죽은 항목을 변이시키니 아무 일도 안 났고**,
+     * 검사는 exit 0 으로 통과했다. ⛔ 그리고 아래 `localEvidence` 미봉이 그것을
+     * 「쌓인 실패 궤적이 없다」로 덮었다 — **틀린 사유였다.** 궤적은 3,003건이나 있었다.
+     * (확인: 살아 있는 후보 `no-submit` 을 같은 식으로 변이하니 **물었다.**)
+     *
+     * ⇒ **판단이 붙은 것을 전부** TODO 로 바꾼다. 그러면 그때그때 **살아 있는 후보가
+     *   무엇이든** 물린다. 후보가 하나도 안 살아 있을 때만 못 무는데, 그때는 정말로
+     *   잴 것이 없는 것이고 `localEvidence` 갈래가 **옳게** 받는다.
+     */
+    mutate: (t) => t.replace(/"판단": "(?!TODO)/g, '"판단": "TODO: 아직 — '),
     cmd: ['node', ['observatory/learn.mjs', '--check']],
   },
   {
     check: '학습 재발 감지(learn --check)',
     bite: '고쳤다는 기록이 알리바이가 됨',
+    /**
+     * ⚠️⚠️ **이쪽은 조준이 아니라 증거가 없다 — 위 케이스와 사정이 다르다.**
+     * 재발을 재려면 **`고침` 이 적힌 후보가 지금도 궤적에 나와야** 한다. 그런데
+     * `고침` 을 가진 후보는 `scorer-crash:s02-spa-deeplink` **하나뿐이고 그것은 닫혔다**
+     * (지금 궤적에서 안 나온다 — 실측 2026-09-08). 살아 있는 후보들에는 `고침` 칸이 없다.
+     * ⇒ 여기서 안 무는 것은 **검사가 죽어서가 아니다.** `localEvidence` 갈래가 옳게 받는다.
+     * ⛔ 진짜로 재게 하려면 **`scorer-crash` 를 재현하는 실패 궤적을 픽스처로 커밋**해야 한다 —
+     *    성운에 올려 둔 그 항목이다. 그때까지 이 검사는 「돈다」가 아니라 **「못 쟀다」**다.
+     */
     localEvidence: true,
     expect: '재발',
     file: 'observatory/learn-baseline.json',
@@ -1042,7 +1076,7 @@ const CASES = [
        그것이 합의된 값인 줄 안다. 깊이까지 봐야 한다 — 별이 어디서 태어나는지가
        `solarSystems[].srcDir` 에 있고 거기가 가장 놓치기 쉬운 자리다. */
     mutate: (t) => t.replace(/"srcDir": "[^"]*"/, '"srcDir": "TODO: 폴더 경로"'),
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
   },
   {
     check: '문서의 지금 상태(facts --check)',
@@ -1062,7 +1096,7 @@ const CASES = [
     /* ⚠️ 커버리지는 **규칙→법칙**만 봤다. 법칙에서 나가는 화살은 아무도 안 봤고,
        그래서 규칙 이름을 바꾸면 그 법칙이 **자기가 말한 것보다 적게 막는다** — 화면은 정상이다. */
     mutate: (t) => t.replace('rules: [quality/cohesion]', 'rules: [quality/cohesion, quality/ghost-rule]'),
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
   },
   {
     check: '좌표가 실재하는가(observe)',
@@ -1072,7 +1106,7 @@ const CASES = [
     /* ⚠️ 폴더 이름 한 번 바꾸면 **별이 빈 곳에서 태어난다** — 아무도 안 쓰는 코드가 생긴다.
        그런데 그때까지 화면은 정상이었다(R57). */
     mutate: (t) => t.replace(/"srcDir": "src\/components\/shop"/, '"srcDir": "src/components/shop-renamed"'),
-    cmd: ['node', ['observatory/observe.mjs']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'tiny-galaxy']],
   },
   {
     check: 'lint 드리프트(lint)',
@@ -1198,6 +1232,26 @@ console.log('── 검사가 정말 무는가 — 변이 시험\n');
 
 /* 1) 기준선 — 깨끗한 상태에서는 전부 초록불이어야 한다.
       여기서 빨간불이면 변이 결과를 믿을 수 없다(무엇 때문에 물었는지 모른다). */
+/**
+ * ⛔⛔ **`observe` 케이스는 반드시 `--galaxy` 로 겨눈다 — 범위 없이 부르지 마라.**
+ *
+ * 범위 없는 `observe` 는 **등재된 모든 은하**를 잰다. 그중엔 **남의 저장소**도 있다
+ * (backoffice · whitehole). 그 저장소의 기준선이 낡으면 `observe` 가 exit 1 이고,
+ * 그러면 여기 기준선이 **전부** 빨개져서 아래 변이 루프에 **들어가기도 전에 죽는다.**
+ *
+ * ⚠️⚠️ 실측(2026-09-08): whitehole 평탄성이 39→40 으로 하나 어긋났을 뿐인데
+ * 기준선 6개가 한꺼번에 빨개졌다. 관문에는 **빨간불 2개**로 보였지만 뿌리는 **1개**였고,
+ * 그동안 「검사가 정말 무는가」는 **통째로 안 돌고 있었다** — 아무도 그걸 몰랐다.
+ * ⛔ 한 사실(남의 은하가 낡았다)이 다른 사실(우리 검사가 무는가)을 **가린** 것이다.
+ *
+ * ⇒ 겨눌 은하는 **그 케이스가 실제로 건드리는 은하**다(픽스처를 보고 정한다):
+ *   · `fixtures/tiny-galaxy/…` · `galaxies/tiny-galaxy.json` 을 변이 → `tiny-galaxy`
+ *   · `fixtures/messy-galaxy/…` 를 변이 → `messy-galaxy`
+ *   · `laws/*.md` 를 변이(법칙은 은하와 무관하다) → 아무 은하나 되지만 `tiny-galaxy` 로 통일한다
+ *
+ * ⛔ **커버리지는 안 줄었다.** 은하마다의 기준선은 `법칙 관측` 관문이 여전히 전부 잰다
+ * (`universe check` 의 별도 칸). 여기서 재는 것은 **검사가 무는가**이지 은하의 상태가 아니다.
+ */
 /* ⚠️⚠️ **기준선 단계도 곁가지를 남긴다.** 정리는 변이 루프에만 달아 뒀는데,
    기준선 실행도 같은 명령을 돌린다 — `bigbang new` 는 **별을 진짜로 만든다.**
    실측(R62): 픽스처에 `CompileProbe/` 가 남아 다음 실행이 「이미 있다」로 죽었고,
@@ -1318,6 +1372,15 @@ for (const testCase of CASES) {
      * ⚠️⚠️ **이것은 미봉이다.** 이 갈래는 진짜로 죽은 검사도 같이 덮어 준다.
      *    진짜 고침은 **실패 궤적을 픽스처로 커밋해** 어디서나 재게 하는 것이고, 성운에 올려 뒀다.
      *    ⛔ 그때까지 이 두 검사는 「돈다」가 아니라 **「못 쟀다」**로 읽어라.
+     *
+     * ⚠️⚠️⚠️ **그리고 실제로 덮었다 — 2026-09-08 실측.**
+     * `학습 후보 감사` 가 이 갈래로 넘어오고 있었는데, 사유는 「궤적이 없다」가 **아니었다.**
+     * 궤적은 3,003건 있었고, 변이가 **이미 닫힌 후보**(`boot-broken`)를 겨누고 있어서
+     * 아무것도 안 바뀐 것이었다. 즉 이 문장이 **틀린 사유를 말하고 있었다.**
+     * ⇒ 그 케이스의 조준을 고쳤다(판단이 붙은 것을 전부 바꾼다). 지금 이 갈래로 넘어오는 것은
+     *   `학습 재발 감지` 뿐이고, 그건 **`고침` 을 가진 후보가 닫혀서** 진짜로 못 재는 것이다.
+     * ⛔ **앞으로 이 갈래에 무언가가 새로 들어오면 「증거가 없다」로 믿지 마라.**
+     *   먼저 그 변이가 **살아 있는 것을 겨누는지** 확인해라 — 덮이는 쪽이 훨씬 조용하다.
      */
     console.log(`     ⚪ **여기선 못 잰다** — ${code === EXIT_UNMEASURED ? '관문이 스스로 「못 쟀다」고 말했다' : '쌓인 실패 궤적이 없다'}. 통과가 아니다.`);
     unmeasurable += 1;
@@ -1465,8 +1528,19 @@ const SAYINGS = [
   /* ⛔ **발행 경로를 아무 시험도 안 태웠다(R128).** R03 이 「실제 발행 경로는 미검증
      (자격증명 없음)」으로 적어 둔 뒤로 그대로였다 — 그런데 `fetch` **앞까지는 다 잴 수 있다.**
      ⚠️ 자격증명이 없을 때 **조용히 아무것도 안 하면** 사람은 발행된 줄 안다. 거부해야 한다. */
+  /* ⛔⛔ **이 케이스는 진짜 발행을 부른다 — 자격증명이 있는 기계에서는 재면 안 된다.**
+     `beacon/publish.mjs` 를 `--dry-run` 없이 부르는데, 자격증명이 **없을 때만** 「자격증명이 없다」로
+     죽는다. 있으면 그대로 **Confluence 에 진짜로 쓴다.**
+     ⚠️⚠️ 실측(2026-09-08): 이 저장소에 `.secret/confluence.json` 을 놓자마자 `universe check`
+     한 번이 위키를 건드리는 동작이 됐다. 관문은 **재는 것**이지 밖으로 내보내는 것이 아니다.
+     ⛔ 그런데 그때 화면은 ❌(「말해야 하는데 안 했다」)라고 했다 — **틀린 판정**이다.
+        검사가 고장난 것이 아니라 **여기서는 그 갈래를 잴 수 없는 것**이다. ⚪ 로 갈라야 한다(§8).
+     ⇒ 여덟째 칸에 「못 재는 사유」를 두고, 사유가 있으면 **명령을 아예 안 부른다.** */
   ['자격증명이 없으면 발행을 거부하고 처방을 준다',
-    ['node', ['beacon/publish.mjs']], '자격증명이 없다', null, null, null, true],
+    ['node', ['beacon/publish.mjs']], '자격증명이 없다', null, null, null, true,
+    () => (existsSync(join(ROOT, '.secret/confluence.json'))
+      ? '이 기계에 자격증명이 있다 — 부르면 **진짜로 발행된다**. 거부 갈래는 자격증명이 없는 기계에서만 잴 수 있다'
+      : null)],
   ['dry-run 은 무엇을 어디로 보낼지 말한다',
     ['node', ['beacon/publish.mjs', '--dry-run']], '네트워크를 쓰지 않는다'],
   ['git 저장소가 아니면 커밋 관문이 못 돈다고 말한다',
@@ -1480,7 +1554,15 @@ let mute = 0;
 /* ⛔ 이 갈래는 `code === 0` 을 요구했다 — **거부하면서 하는 말은 표현할 수 없었다**(R90).
    「좌표를 못 읽었다」는 죽으면서 하는 말이라, 이 틀에서는 영영 못 재는 말이었다.
    그래서 죽어야 하는 말은 `mustDie` 로 적는다. */
-for (const [name, [command, args], expected, touches, mutate, cleanup, mustDie] of SAYINGS) {
+for (const [name, [command, args], expected, touches, mutate, cleanup, mustDie, unmeasurableWhy] of SAYINGS) {
+  /* ⛔ **못 재는 것은 부르지도 않는다.** 부작용이 있는 명령이 섞여 있어서다(위 발행 케이스). */
+  const why = unmeasurableWhy?.();
+  if (why) {
+    console.log(`  ⚪ ${name}  **여기선 못 쟀다** — 통과가 아니다`);
+    console.log(`     ${why}`);
+    unmeasurable += 1;
+    continue;
+  }
   const original = touches ? await readFile(join(ROOT, touches), 'utf8').catch(() => null) : null;
   /* 말을 재려면 **그 말이 나오는 상황을 만들어야** 하는 것도 있다. 되돌리기는 아래 공통 경로가 한다. */
   if (mutate && original !== null) {
@@ -1534,7 +1616,28 @@ if (notBiting + swallowing + accepting + mute + (refused ? 0 : 1) > 0) {
   }
   process.exit(1);
 }
-console.log(`\n✅ 검사 ${checks.length}종 · 변이 ${CASES.length}건 전부 물었고, 진입점 ${ENTRY_POINTS.length}곳이 모르는 플래그를 거부하고, 거부 시험 ${REFUSALS.length}건과 말 시험 ${SAYINGS.length}건이 지켜지며, 동시 실행이 막힌다.`);
+/**
+ * ⛔⛔ **「전부」라고 말하기 전에 ⚪ 를 뺀다 — 이 줄이 거짓말을 하고 있었다.**
+ *
+ * ⚠️⚠️ 실측(2026-09-08): 위 실패 갈래는 `notBiting` 이 0 이면 **아예 안 돈다.** 그래서
+ * `unmeasurable > 0` 인데 실패가 없으면 ⚪ 가 **요약에서 통째로 사라지고**, 이 줄이
+ * 「변이 77건 **전부** 물었다」고 말했다 — 실제로 잰 것은 76건이었다.
+ * ⛔ 그것이 이 저장소가 §8 로 막으려는 바로 그것이다: **못 쟀다를 통과로 접는 것.**
+ * ⚠️ 하필 여기가 **다른 검사 전부를 검증하는 하네스 자신**이라, 이 한 줄이 접히면
+ *   그 위의 모든 초록불이 「얼마나 쟀는지」를 잃는다.
+ *
+ * ⚠️ 종료코드는 그대로 0 이다 — ⚪ 는 실패가 아니다. 다만 **말은 갈라서** 한다.
+ *   (⚪ 가 있을 때 관문 자체를 exit 3 으로 낼지는 아직 안 정했다 — 76건의 초록을
+ *    가리게 되므로 값이 분명하지 않다. 정하기 전에는 수를 보이는 것으로 둔다.)
+ */
+const measured = CASES.length - unmeasurable;
+console.log(unmeasurable === 0
+  ? `\n✅ 검사 ${checks.length}종 · 변이 ${CASES.length}건 전부 물었고, 진입점 ${ENTRY_POINTS.length}곳이 모르는 플래그를 거부하고, 거부 시험 ${REFUSALS.length}건과 말 시험 ${SAYINGS.length}건이 지켜지며, 동시 실행이 막힌다.`
+  : `\n✅ 검사 ${checks.length}종 · 변이 **${measured}/${CASES.length}건**이 물었고, 진입점 ${ENTRY_POINTS.length}곳이 모르는 플래그를 거부하고, 거부 시험 ${REFUSALS.length}건과 말 시험 ${SAYINGS.length}건이 지켜지며, 동시 실행이 막힌다.`);
+if (unmeasurable > 0) {
+  console.log(`   ⚪ 나머지 ${unmeasurable}건은 **여기선 못 쟀다** — 통과로 세지 않았다. 사유는 위의 ⚪ 줄에 있다.`);
+  console.log('   ⛔ 「전부 물었다」가 아니다. 그 ⚪ 를 없애려면 그 변이가 겨눌 **살아 있는 증거**를 만들어야 한다.');
+}
 /* ⛔ 이 줄은 두 번 거짓이었다. 처음엔 「전부 사유로 판정한다」고 했는데 **변이 갈래는
    종료코드만 봤다**(R89). 그다음엔 「대부분 종료코드」라고 고쳤는데, R95 가 36건 전부에
    사유를 박았다. **말은 실측에서 나와야 한다** — 그래서 수를 찍는다. */

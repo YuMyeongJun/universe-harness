@@ -292,6 +292,23 @@ if (only && !slugs.includes(only)) {
   die(`없는 슬러그: ${only}\n발행 대상: ${slugs.join(' · ')}`);
 }
 
+/**
+ * ⛔⛔ **좌표가 없어서 안 올라가는 장을 조용히 빼지 않는다** (실측 2026-09-08).
+ *
+ * 커밋된 이름표(`beacon/pages.json`)는 **11장**을 선언하는데 좌표 파일에는 **7장**이 있었다.
+ * 그런데 화면은 「발행 대상 7장」이라고만 했다 — 나머지 넷(`guide*`)은 렌더까지 끝나고도
+ * **아무 말 없이 안 올라갔다.** 위키를 보는 사람에게는 그 넷이 「아직 안 쓴 글」로 보이고,
+ * 저장소에서는 「썼다」로 보인다. 정본과 뷰가 갈렸는데 **아무도 안 쟀다**(관측 법칙 §8).
+ *
+ * ⛔ 그렇다고 여기서 **create 하지 않는다** — 발행할 때마다 중복이 쌓이고 정본이 둘이 된다.
+ *    사람이 위키에 한 번 만들고 그 id 를 `.secret/confluence-pages.json` 에 적어야 한다.
+ * ⛔ 그 id 를 `beacon/pages.json`(커밋된다)에 적지 마라 — 좌표가 공개 저장소에 남는다(R151).
+ */
+const chartedElsewhere = localPages ? await readJson(pagesFile).catch(() => null) : null;
+const uncharted = chartedElsewhere
+  ? Object.keys(chartedElsewhere.pages ?? {}).filter((slug) => !slugs.includes(slug))
+  : [];
+
 // ⛔ 렌더가 먼저다. 낡은(혹은 없는) 산출을 발행하면 위키가 조용히 거짓이 된다(관측 법칙).
 if (!(await exists(outDir))) {
   die([
@@ -328,6 +345,18 @@ if (missing.length > 0) {
 
 const bytes = (s) => Buffer.byteLength(s, 'utf8');
 
+/** ⚠️ 안 올라가는 장을 **이름을 불러** 말한다. 조용히 빼면 위키가 낡은 줄 아무도 모른다. */
+const reportUncharted = () => {
+  if (uncharted.length === 0) {
+    return;
+  }
+  console.log(`  ⚠️ ${uncharted.length}장은 **좌표가 없어 안 올라간다**: ${uncharted.join(' · ')}`);
+  console.log('     이름표는 `beacon/pages.json` 에 있는데 `.secret/confluence-pages.json` 에 페이지 id 가 없다.');
+  console.log('     ⛔ 여기서 create 하지 않는다 — 중복 페이지가 쌓이면 그 순간 정본이 둘이 된다.');
+  console.log('     ⇒ 위키에 한 번 만들고 그 id 를 `.secret/confluence-pages.json` 에 적어라(⛔ 커밋되는 쪽 말고).');
+  console.log('');
+};
+
 if (dryRun) {
   console.log(`발행 대상 ${targets.length}장 — dry-run (네트워크를 쓰지 않는다)`);
   console.log(`  사이트 ${pagesJson.site} · 스페이스 ${pagesJson.spaceKey}`);
@@ -337,6 +366,7 @@ if (dryRun) {
     console.log(`  ${t.slug.padEnd(12)} ${String(t.id).padEnd(11)} ${`${bytes(t.md)}B`.padStart(8)} ${`${bytes(t.storage)}B`.padStart(8)}  ${t.title}`);
   }
   console.log('');
+  reportUncharted();
   console.log('  update 만 한다 — create 는 하지 않는다. 실제 발행: --dry-run 을 떼라.');
   process.exit(0);
 }
@@ -393,6 +423,10 @@ const api = async (method, urlPath, body) => {
 };
 
 /* ── 발행 ─────────────────────────────────────────────────── */
+
+/* ⚠️ 실제 발행에서도 **안 올라가는 장을 먼저 말한다.** dry-run 에서만 말하면
+   그대로 미는 사람은 영영 못 본다 — 그게 조용히 빼는 것과 같다. */
+reportUncharted();
 
 console.log(`발행 ${targets.length}장 → ${baseUrl}`);
 const failed = [];

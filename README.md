@@ -12,14 +12,38 @@ description: 빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스.
 
 ## 시작하기
 
+⚠️ **깔 때 치는 이름과 쓸 때 치는 이름이 다르다.**
+패키지는 **`universe-harness`**, 명령은 **`universe`** 다. 아래 두 길에서 계속 갈린다.
+
+### 쓰는 사람 — 레지스트리에서 깐다
+
 ```bash
-git clone https://github.com/YuMyeongJun/universe-harness.git
-cd universe-harness && npm link      # `universe` 명령을 잇는다 (되돌리기: npm rm -g universe)
-universe                             # 무엇을 할지 **고르면서** 쓴다
+npm i -D universe-harness                    # 당신의 저장소에 (pnpm add -D / yarn add -D 도 같다)
+./node_modules/.bin/universe init            # <저장소>/universe/ 가 생긴다
+./node_modules/.bin/universe                 # 무엇을 할지 **고르면서** 쓴다
 ```
 
 ⛔ **`npx universe` 를 치지 마라.** npm 의 `universe` 는 **남의 패키지**다
-(crossfilter/universe — 데이터셋 탐색 도구). 이 우주는 npm 에 배포되지 않았다.
+(crossfilter/universe — 데이터셋 탐색 도구). 우리 것은 `npx universe-harness` 다 —
+**한 칸 차이로 남의 것이 온다.**
+⚠️ 이 경고는 **문서가 스스로 판 함정**이었다(R52): 퀵스타트가 그 이름을 **네 번** 시키고
+있었고, 그대로 따라 하면 엉뚱한 것을 내려받았다.
+⭐ **npm 에 올라간 뒤에도 그 경고는 그대로다** — 그 이름은 여전히 남의 것이다.
+바뀐 것은 하나뿐이다: **우리 이름이 생겼다.**
+자세한 매니저별 표와 **무엇을 쟀고 무엇을 못 쟀는지**는 → [docs/01-quick-start.md](docs/01-quick-start.md)
+
+### 고치는 사람 — 클론해서 잇는다
+
+```bash
+git clone https://github.com/YuMyeongJun/universe-harness.git
+cd universe-harness && npm link      # `universe` 명령을 잇는다
+universe                             # 이제 어디서나 `universe`
+```
+
+⛔ **되돌릴 때 지우는 것은 `universe` 가 아니라 `universe-harness` 다** — `npm rm -g` 는
+**패키지 이름**을 받는다: `npm rm -g universe-harness`.
+⚠️ 명령 이름으로 지우려 하면 **아무것도 안 지우거나 남의 패키지를 건드린다.**
+이 저장소가 두 이름을 갖게 된 순간부터 생긴 자리라, 여기 적어 둔다.
 
 **외울 필요 없다.** 인자 없이 `universe` 를 치면 사람이 치는 명령만 보여 주고, 고른 것에
 **필요한 것만** 묻고, **만들어진 명령줄을 찍고 나서** 실행한다:
@@ -36,6 +60,15 @@ $ universe new tiny-galaxy shop DashboardToday --expand
 로 바꿔 치면 된다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).
 
 당신의 저장소에 깔려면 → [docs/01-quick-start.md](docs/01-quick-start.md)
+
+⭐ **깔 때 패키지 매니저를 가리지 않는다.** 이 우주는 **의존이 0개**라
+`npm` · `pnpm` · `yarn 1` · `yarn berry` 어디서든 깐다 — 사설 레지스트리·스코프·
+`NODE_AUTH_TOKEN` 설정과 상관이 없다. 넷 다 실측했다.
+⚠️ **그때의 실측은 `npm pack` 한 꾸러미로 한 것이다** — 레지스트리에 올라가기 전이었다.
+지금 첫 길은 `npm i -D universe-harness` 이고, 레지스트리를 못 쓰는 곳(망분리·사내 미러)에는
+그 꾸러미 길이 그대로 남아 있다 → [docs/01-quick-start.md](docs/01-quick-start.md)
+
+⚠️ 위 `npm link` 는 **우주 자신을 고치는 사람의 길**이다. 소비 저장소는 레지스트리에서 깐다.
 
 ⚠️ **모델이 없어도 대부분 돈다.** 별을 낳는 것(1차)도, 게이트까지 돌려 빨간 축을 스스로
 고치는 것(2차)도 결정론 규칙과 정적 레인만 쓴다 — 구독도 API 키도 필요 없다.
@@ -100,7 +133,7 @@ Blumn Enterprise Harness 의 「정원 헌법」에서 가져온 가장 중요�
 | 계약 규칙 | 20 |
 | ↳ 법칙이 덮은 것 | 20 |
 | ↳ 성운이 든 것(주인 없는 규칙) | 0 |
-| 등록된 은하 | 7 |
+| 등록된 은하 | 4 |
 | 관문(`universe check`) | 39 |
 | 명령 | 48 |
 | ↳ 사람이 치는 것 | 19 |
@@ -158,3 +191,4 @@ Blumn Enterprise Harness 의 「정원 헌법」에서 가져온 가장 중요�
 | **구조를 그림으로** — 배달 경계 · 빅뱅 3단계 · 관문과 게이트 | [docs/08-architecture.md](docs/08-architecture.md) |
 | 채택 출처 | [docs/06-credits.md](docs/06-credits.md) |
 | **기여하는 법 · 통과해야 할 관문** | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| **배포하는 법**(유지보수자) — npm 에 올리기 전에 거치는 것 | [docs/10-publishing.md](docs/10-publishing.md) |

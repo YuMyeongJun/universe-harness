@@ -183,6 +183,15 @@ const copyTree = async (from, to) => {
     } else if (!dryRun) {
       await fs.mkdir(path.dirname(dst), { recursive: true });
       await fs.copyFile(src, dst);
+      /* ⚠️⚠️ **실행 권한이 배달에서 사라진다.** 실측(2026-09-08): yarn berry 의 기본 배치(PnP)는
+         꾸러미를 zip 에 둔 채 읽어 주는데 거기서 읽은 모드가 `0644` 다. 그대로 복사하면
+         `.githooks/pre-commit` 이 **실행 불가**로 깔리고, `universe hooks --install` 이
+         「이 저장소가 우주의 집이 맞는지 확인하라」로 죽는다 — 사유가 엉뚱해서 아무도 못 고친다.
+         ⛔ 더 나쁜 갈래: 권한 없이 켜지기라도 하면 git 은 그 훅을 **말없이 안 돈다**(§8).
+         ⇒ 훅은 원본 모드를 믿지 않고 못 박는다. npm·pnpm 에서는 원래 실행 권한이 살아 있다. */
+      if (dst.split(path.sep).includes('.githooks')) {
+        await fs.chmod(dst, 0o755);
+      }
     }
   }
 };
@@ -191,13 +200,37 @@ console.log(update
   ? `🌌 기계만 새로 받는다 — ${rel(target)}/ (은하·성운·로그는 그대로 둔다)\n`
   : `🌌 우주를 깐다 — ${rel(target)}/\n`);
 
+/**
+ * ⛔⛔ **선언했는데 없는 것을 조용히 건너뛰지 않는다.**
+ *
+ * ⚠️⚠️ 실측(2026-09-08): `lib/delivered.mjs` 의 `DELIVERED` 는 `.githooks` 를
+ * **배달한다고 선언**하고 그 이유까지 적어 두었는데(「안 배달하면 죽은 규칙이 HEAD 에
+ * 며칠 산다」), `package.json` 의 `files` 에는 없었다. 두 명부가 어긋난 것이다.
+ * 그런데 여기서 `continue` 로 **말없이 건너뛰어서** 아무도 몰랐다 —
+ * `init` 은 초록으로 끝나고, 소비 저장소에서 `universe hooks --install` 만 죽었다.
+ * ⇒ 위반이 늘어난 채로 **커밋이 그냥 통과했다.** 커밋 관문은 이 제품이 「오류·배포 위험
+ *   최소화」를 실제로 집행하는 장치인데, 그것이 없다는 사실을 도구가 안 알려 줬다.
+ *
+ * ⛔ 조용히 빼면 「몇 개가 깔렸는지」를 속이는 것이다(관측 법칙 §8).
+ */
+const notDelivered = [];
 for (const [name, what] of DELIVERED) {
   const from = path.join(packageHome, name);
   if (!(await exists(from))) {
+    notDelivered.push(name);
+    console.error(`   ⛔ ${name.padEnd(12)} 배달 목록에 선언됐는데 **꾸러미에 없다** — ${what}`);
     continue;
   }
   await copyTree(from, path.join(target, name));
   console.log(`   + ${name.padEnd(12)} ${what}`);
+}
+
+if (notDelivered.length > 0) {
+  console.error('');
+  console.error(`⛔ 배달 목록에 선언된 ${notDelivered.length}개가 꾸러미에 없다: ${notDelivered.join(' · ')}`);
+  console.error('   ⚠️ 이 우주는 **덜 깔린 것**이다 — 그 자리의 기능은 조용히 없다.');
+  console.error('   ⇒ 우주 저장소의 `package.json` 의 `files` 와 `lib/delivered.mjs` 의 DELIVERED 를 맞춰라.');
+  process.exit(1);
 }
 
 /**

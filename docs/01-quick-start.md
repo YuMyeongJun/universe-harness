@@ -18,45 +18,150 @@ description: 설치부터 첫 별이 태어나고 「끝났는가」를 묻기�
 | Node | **22.6+** (엔진이 최신 fs API 를 쓴다) |
 | 대상 저장소 | **git 저장소**여야 한다 — 관측이 커밋 SHA 를 기록한다 |
 | 스택 | React + Vite (다른 스택은 플러그인이 필요하다) |
+| 패키지 매니저 | **아무거나** — npm · pnpm · yarn 1 · yarn berry 넷을 쟀다(**무엇으로** 쟀는지는 아래 1-2 의 표 — ⚪ 도 함께 적혀 있다). 이 우주는 **의존이 0개**라 사설 레지스트리·토큰 설정과 무관하다 |
 
 ## 1. 우주를 깐다
 
+### 1-1. 이름이 둘이다 — **깔 때 `universe-harness` · 칠 때 `universe`**
+
+| 무엇 | 이름 |
+|---|---|
+| npm 꾸러미 (깔 때) | **`universe-harness`** |
+| 명령 (깐 뒤 치는 것) | **`universe`** |
+
 ⛔ **`npx universe` 를 치지 마라.** npm 의 `universe` 는 **남의 패키지**다
-(crossfilter/universe — 데이터셋 탐색 도구). 이 우주는 **npm 에 배포되지 않았다** —
-GitHub 에서 클론해서 쓴다. 실측(R52): 문서가 `npx` 를 시키고 있었고, 그대로 따라 하면
-**엉뚱한 것을 내려받는다.**
+(crossfilter/universe — 데이터셋 탐색 도구). 실측(R52): 문서가 **그 이름을 네 번** 시키고
+있었고, 그대로 따라 하면 **엉뚱한 것을 내려받는다.**
 
-### 0-1. `universe` 명령을 이어 붙인다 (한 번만)
-
-⚠️ **이걸 안 하면 `universe` 를 쳐도 `command not found` 다.** 실측: 도움말과 대화형 입구가
-`universe …` 라고 **가르치는데** 정작 그 이름이 기계에 없었다 — **도구가 틀린 말을 했다.**
-(지금은 이어져 있지 않으면 도구가 `node …/bin/universe.mjs` 라고 **사실대로** 말한다.)
+⭐ **이 우주가 npm 에 올라간 뒤에도 그 경고는 그대로다** — 그 이름은 여전히 남의 것이다.
+바뀐 것은 하나뿐이다: **우리 이름이 생겼다.**
 
 ```bash
-cd <우주-저장소>
-npm link          # 되돌리기: npm rm -g universe
+npx universe-harness init     # ⛔ `npx universe` 가 아니다 — 뒤 한 조각을 빼면 남의 패키지다
 ```
 
-⛔ 안 이어 붙여도 **전부 그대로 쓸 수 있다** — 아래의 `universe X` 를 `node <우주-저장소>/bin/universe.mjs X` 로 바꿔 치면 된다.
+⚠️ **왜 이름이 갈리는가.** 꾸러미 이름은 npm 전체에서 겹치면 안 되고(그 자리는 이미 남이 쓴다),
+명령 이름은 **사람이 손으로 치는 것**이라 짧아야 한다. 그래서 꾸러미는 `universe-harness`,
+그 안의 명령은 `universe` 하나다.
+⚠️ 꾸러미에 명령이 **하나뿐이면** `npx` 가 그것을 골라 돌린다 —
+실측(2026-09-08 · npm 11.17): 꾸러미를 `npm exec` 에 물려 부르니 이름을 안 대도 도움말이 나왔다
+(`libnpmexec` 의 `get-bin-from-manifest` 가 그렇게 고른다).
+
+### 1-2. 당신 저장소에 깐다 — **어떤 패키지 매니저든 된다**
+
+⭐ **이 우주는 의존이 0개다**(`package.json` 에 `dependencies` 가 **아예 없다**).
+그래서 사설 레지스트리·스코프·`NODE_AUTH_TOKEN` 같은 그 저장소의 설정과 **아무 상관이 없다** —
+`npm` 을 못 쓰는 저장소도 자기 매니저로 그대로 깐다.
+
+⚠️ 이 줄이 문서에 없어서 **채택이 막힌 적이 있다**(2026-09-08). yarn berry 저장소에서
+「`npm i` 를 못 쓴다」로 멈추고 tar 를 손으로 풀었다 — 안 그래도 됐다.
+
+| 매니저 | 깔기 | 그 뒤 부르는 이름 |
+|---|---|---|
+| npm | `npm i -D universe-harness` | `./node_modules/.bin/universe` |
+| pnpm | `pnpm add -D universe-harness` | `./node_modules/.bin/universe` |
+| yarn 1 | `yarn add -D universe-harness` | `./node_modules/.bin/universe` |
+| yarn berry (`nodeLinker: node-modules`) | `yarn add -D universe-harness` | `./node_modules/.bin/universe` |
+| yarn berry (기본 = PnP) | `yarn add -D universe-harness` | `yarn universe` |
+
+**무엇을 쟀는가** — ⛔ 「전부 실측」으로 뭉뚱그리지 않는다. 잰 것과 안 잰 것을 갈라 적는다:
+
+| 잰 것 | 무엇으로 | 판정 |
+|---|---|---|
+| 매니저 넷 · 깔기 → `init` → `observe` | 2026-09-08 · **꾸러미 파일(tgz)** · npm 11.17 · pnpm 11.24 · yarn 1.22 · yarn berry 4.18 | ✅ 전부 exit 0 |
+| 꾸러미 이름을 `universe-harness` 로 바꾼 뒤 다시 | 2026-09-08 · npm · pnpm · yarn 1 (tgz) | ✅ 전부 exit 0 |
+| **레지스트리에서 받아 깔기** | — | ⚪ **못 쟀다** |
+
+⚠️ 마지막 줄을 ✅ 로 접지 않는다. 받아 오는 자리만 다르고 tarball 은 같은 것이지만,
+**같을 것이다**는 잰 것이 아니다 — 이 저장소의 어휘는 0/1/**3**이다.
+레지스트리에서 처음 깐 사람이 이 칸을 채워라.
 
 ```bash
 cd <당신의 저장소>
-node <우주-저장소>/bin/init.mjs
+./node_modules/.bin/universe init          # yarn berry(PnP) 면: yarn universe init
 ```
 
 `universe/` 가 생기고, `.gitignore` 에 `.harness/`(관측 산출물)가 더해진다.
 안에는 **법칙과 관측소**가 들어 있다. 은하·성운·로그는 비어 있다 —
 **그것은 당신 저장소의 것**이라 배달되지 않는다.
 
-⚠️ **엔진은 배달되지 않는다.** 그래서 아래 명령은 **우주 저장소의 CLI 로 부르고**
-`--universe` 로 깔린 폴더를 겨눈다. 깔린 폴더 안에서 직접 부르면 엔진을 못 찾는다.
+⛔ **선언됐는데 꾸러미에 없는 것이 있으면 `init` 이 막는다**(exit 1). 예전엔 조용히 건너뛰어서
+**덜 깔린 우주**가 초록으로 끝났고, 그 자리의 기능은 아무도 모르게 없었다.
+
+⚠️ **엔진은 `universe/` 안에 배달되지 않는다 — 꾸러미가 들고 있다.** 그래서 아래 명령은
+**깐 꾸러미의 CLI 로 부르고** `--universe` 로 깔린 폴더를 겨눈다.
+깔린 폴더 안의 `observatory/observe.mjs` 를 직접 부르면 엔진을 못 찾는다.
+
+⭐ **판올림도 이제 매니저가 한다 — 그런데 두 걸음이다.**
+
+```bash
+npm i -D universe-harness@latest           # ① 꾸러미(=기계와 엔진)를 새로 받는다
+./node_modules/.bin/universe init --update  # ② 깔린 universe/ 를 다시 깐다 — 은하·성운·로그는 그대로
+```
+
+⛔ **①만 하고 ②를 빼먹으면 깔린 `universe/` 는 옛 판 그대로다.** 새 법칙·궤도가 생겨도
+목록에 안 이어지고, 그 자리는 **아무 말 없이** 안 돈다 — 안 잰 것이 통과로 보이는 자리다.
+
+### 1-3. ⚠️ yarn berry 를 PnP 로 쓰면 **커밋 관문이 안 돈다**
+
+실측(2026-09-08): PnP 기본 배치에서는 `node_modules/.bin/` 이 아예 없다. 명령은
+`yarn universe …` 로 전부 도는데, **커밋 훅은 그 이름을 못 찾는다** — 훅은 저장소의
+`node_modules/.bin/universe` · 우주 저장소의 `bin/universe.mjs` · PATH 의 `universe`
+셋만 본다.
+
+⛔ 그때 훅은 **조용히 넘어가지 않고 커밋을 막는다**(`⛔ 법칙 관측 — 재지 못했다`).
+안 잰 것이 통과로 보이는 자리를 안 만든다 — 그래서 **막힌 것이 옳다.** 푸는 법은 둘이다:
+
+```yaml
+# .yarnrc.yml — 권장. 이러면 훅까지 그대로 돈다(실측: 관문 통과)
+nodeLinker: node-modules
+```
+
+또는 우주를 전역으로 깔아 PATH 에 올린다(`npm i -g universe-harness`).
+
+### 1-4. 레지스트리에 못 닿을 때 — **꾸러미 파일로 깐다**
+
+사내망이라 npm 레지스트리를 못 보거나, **아직 안 올라간 판**(고치는 중인 것)을 재야 할 때다.
+
+```bash
+cd <우주-저장소>
+npm pack --pack-destination <저장소 밖 어딘가>   # universe-harness-<판>.tgz 가 생긴다
+```
+
+| 매니저 | 깔기 |
+|---|---|
+| npm | `npm i -D <어딘가>/universe-harness-<판>.tgz` |
+| pnpm | `pnpm add -D <어딘가>/universe-harness-<판>.tgz` |
+| yarn 1 | `yarn add -D file:<어딘가>/universe-harness-<판>.tgz` |
+| yarn berry | `yarn add -D <어딘가>/universe-harness-<판>.tgz` |
+
+⛔ **`<판>` 을 여기 손으로 적지 않는다** — `npm pack` 이 찍는 파일 이름을 그대로 쓴다.
+문서에 박힌 판 번호는 다음 판올림에 바로 거짓이 된다(이 저장소가 여러 번 데인 자리다).
+⚠️ **저장소 안에 떨구지 마라**(`--pack-destination` 이 그래서 있다) — `.gitignore` 에
+`*.tgz` 가 없어서(실측) 꾸러미가 `git status` 에 그대로 남고, 실수로 커밋될 자리에 놓인다.
+
+### 1-5. 소스에서 쓴다 — **우주 자신을 고치는 사람만**
+
+⚠️ 이 길은 소비 저장소용이 아니다. 여기서 도는 것은 **배달본이 도는 증거가 아니다** —
+심링크 덕에 원본에서만 멀쩡한 결함이 실제로 있었다(2026-09-08 에 엔진 `dist` 로 두 번).
+
+```bash
+cd <우주-저장소>
+npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-harness)
+```
+
+⛔ 안 이어 붙여도 전부 그대로 쓴다 — `universe X` 를 `node <우주-저장소>/bin/universe.mjs X`
+로 바꿔 치면 된다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).
+
+> **아래 명령은 전부 같은 꼴이다** — 깐 꾸러미의 CLI 를 부르고 `--universe` 로 깔린 폴더를 겨눈다.
+> yarn berry(PnP)면 `./node_modules/.bin/universe` 를 `yarn universe` 로 바꿔 친다.
 
 ## 2. 은하를 등록한다
 
 은하 = 법칙이 적용되는 저장소 하나. **손으로 쓰지 마라** — 읽어낼 수 있는 것은 읽어 준다.
 
 ```bash
-node <우주-저장소>/bin/universe.mjs galaxy my-app --dir . --universe ./universe
+./node_modules/.bin/universe galaxy my-app --dir . --universe ./universe
 ```
 
 `package.json` 에서 읽어낸 것은 채우고, **못 읽은 자리는 `TODO:` 로 남긴다.**
@@ -90,7 +195,7 @@ node <우주-저장소>/bin/universe.mjs galaxy my-app --dir . --universe ./univ
 ## 3. 법칙이 무엇을 잡는지 본다
 
 ```bash
-node <우주-저장소>/bin/universe.mjs observe --universe ./universe
+./node_modules/.bin/universe observe --universe ./universe
 ```
 
 ```
@@ -111,7 +216,7 @@ node <우주-저장소>/bin/universe.mjs observe --universe ./universe
 ## 4. 기준선을 심는다
 
 ```bash
-node <우주-저장소>/bin/universe.mjs observe --universe ./universe --update
+./node_modules/.bin/universe observe --universe ./universe --update
 ```
 
 지금 수치가 은하 파일의 `observed.laws` 에 기준선으로 들어간다.
@@ -122,7 +227,7 @@ node <우주-저장소>/bin/universe.mjs observe --universe ./universe --update
 ## 5. 첫 별을 태운다
 
 ```bash
-node <우주-저장소>/bin/universe.mjs new my-app dashboard DashboardToday --universe ./universe
+./node_modules/.bin/universe new my-app dashboard DashboardToday --universe ./universe
 ```
 
 ```
@@ -154,7 +259,7 @@ node <우주-저장소>/bin/universe.mjs new my-app dashboard DashboardToday --u
 ## 6. 끝났는지 묻는다
 
 ```bash
-node <우주-저장소>/bin/universe.mjs loop --galaxy my-app --universe ./universe
+./node_modules/.bin/universe loop --galaxy my-app --universe ./universe
 ```
 
 ⚠️ 위 2·3·4·5 와 **같은 꼴**이다. 이 자리에만 `universe loop --galaxy my-app` 라고 적혀
@@ -197,7 +302,7 @@ node <우주-저장소>/bin/universe.mjs loop --galaxy my-app --universe ./unive
 ## 7. 그 바퀴를 반복한다
 
 ```bash
-node <우주-저장소>/bin/universe.mjs repeat --galaxy my-app --universe ./universe
+./node_modules/.bin/universe repeat --galaxy my-app --universe ./universe
 ```
 
 `loop` 이 **한 번 묻는 것**이라면 `repeat` 는 그것을 **fail 0 까지 돌리는 것**이다.
