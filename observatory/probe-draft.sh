@@ -10,8 +10,12 @@
 #     (`verify-quickstart --monorepo` 가 그 축을 본다).
 #   · **초안의 값이 맞는가.** 「코드가 있는 자리를 가리키는가」만 본다 — `build`·`test` 명령이
 #     **그 저장소에서 실제로 도는지**는 안 본다. 그건 게이트가 은하에서 돌 때 드러난다.
-# ⚠️ 대상은 `app/universe` — 코드가 `server/`·`web/` 에 있고 뿌리에 `src/` 가 **없는** 저장소다.
-#    이 저장소 안에 있으니 다른 기계에서도 있다(남의 저장소에 기대지 않는다).
+# ⚠️ 대상은 `fixtures/nosrc-galaxy` — 코드가 `lib/`·`widgets/` 에 있고 뿌리에 `src/` 가 **없는**
+#    저장소를 흉내 낸 픽스처다. 이 저장소 안에 있으니 다른 기계에서도 있다(남의 저장소에 안 기댄다).
+# ⚠️⚠️ 2026-09-09 까지 대상은 `app/universe`(콘솔)였다. 화면이 `feat/console-screens` 로 나가면서
+#    **탐침은 남았는데 재던 저장소가 없어졌고**, 이 검사가 조용히 ⚪ 로 돌기 시작했다.
+#    ⛔ ⚪ 를 그대로 두면 배경 소음이 된다 — 그래서 재는 성질(`src` 를 안 쓰는 배치)만 남긴
+#    픽스처를 따로 만들었다. **재던 것을 잃지 않으려면 대상을 옮겨야지 검사를 지우면 안 된다.**
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,14 +29,14 @@ cp universe.config.json "$CONFIG_BACKUP"
 restore_config () { cp "$CONFIG_BACKUP" universe.config.json; rm -f "$CONFIG_BACKUP"; }
 trap 'restore_config' EXIT
 
-if [ ! -d app/universe/server/src ]; then
-  echo "⚪ 못 쟀다 — app/universe/server/src 가 없다(배달본이다)."
+if [ ! -d fixtures/nosrc-galaxy/lib ]; then
+  echo "⚪ 못 쟀다 — fixtures/nosrc-galaxy 가 없다(배달본이다 — 픽스처는 배달되지 않는다)."
   exit 3
 fi
 
 # ⚠️ `mktemp` 는 **파일을 만든다** — 도구가 「이미 있다」며 덮어쓰기를 옳게 거부한다.
 draft="$(mktemp -d)/draft.json"
-node bin/galaxy.mjs 초안탐침 --dir app/universe --out "$draft" >/dev/null 2>&1 || {
+node bin/galaxy.mjs 초안탐침 --dir fixtures/nosrc-galaxy --out "$draft" >/dev/null 2>&1 || {
   echo "⛔ 초안을 못 떴다"; exit 1; }
 
 node -e '
@@ -70,8 +74,8 @@ echo "✅ 초안대로 걸면 관측이 파일을 본다 (src/ 를 안 쓰는 �
 cat > galaxies.local/부분탐침.json <<'JSON'
 {
   "name": "부분탐침", "description": "임시 — 훑는다고 적어 놓고 비어 있는 자리", "path": ".",
-  "appWorkspace": "", "appDir": "app/universe",
-  "codeDirs": ["server/src", "web/src", "없는-폴더"],
+  "appWorkspace": "", "appDir": "fixtures/nosrc-galaxy",
+  "codeDirs": ["lib", "widgets", "없는-폴더"],
   "laws": ["naming"], "commands": {}, "thresholds": {}, "solarSystems": [], "observed": {}
 }
 JSON

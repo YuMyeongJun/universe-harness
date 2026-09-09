@@ -184,8 +184,6 @@ flowchart TD
 ```
 universe/
 ├── .githooks/  ← 커밋 시점 관문
-├── app/
-│   └── universe/
 ├── beacon/  ← 저장소 → 위키 한 방향
 ├── bigbang/  ← 별을 태어나게 하는 명령과 별틀
 │   └── templates/
@@ -199,6 +197,7 @@ universe/
 │   ├── empty-wiki/
 │   ├── loop/
 │   ├── messy-galaxy/
+│   ├── nosrc-galaxy/
 │   ├── probe/
 │   └── tiny-galaxy/
 ├── forces/  ← 누가 하는가 — 명부만 배달된다
@@ -212,13 +211,6 @@ universe/
 ├── orbits/  ← 어떻게 반복되는가
 ├── plugins/
 │   └── universe/
-├── qa/
-│   ├── docs/  ← 사람이 읽는 문서
-│   ├── e2e/
-│   ├── reporters/
-│   ├── src/
-│   ├── templates/
-│   └── tests/
 ├── redshift/
 └── seed/  ← 배달용으로 따로 쓴 판
 ```

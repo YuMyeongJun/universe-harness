@@ -128,7 +128,7 @@ const CASES = [
     check: '커버리지 분모(observe)',
     bite: '파일을 0개 봤는데 「0건」으로 보임',
     expect: '훑은 파일이 0개다 — 못 쟀다',
-    file: 'galaxies/console.json',
+    file: 'galaxies/messy-galaxy.json',
     /**
      * ⛔⛔ **「0건」과 「0개를 봤다」는 글자 하나 다르지 않은 화면을 낸다.**
      *
@@ -143,12 +143,16 @@ const CASES = [
      *     앞선 좌표 검사는 통과하고 **훑은 파일만 0개**가 된다 — 겨눈 자리가 정확히 드러난다.
      * ⚠️ `tiny-galaxy` 는 `appDir: "."` 이라 훑개가 저장소 뿌리를 훑어 **0개가 안 된다.**
      */
+    /* ⚠️ 2026-09-09: 겨누던 `console` 은하가 화면과 함께 나갔다. 같은 성질을 `messy-galaxy` 로
+       옮긴다 — **있는 자리를 가리키되 그 아래 소스가 0개**가 되게 한다(`src` → 훑는 곳 `src/src`).
+       태양계는 비운다: 안 그러면 「srcDir 이 빈 곳을 가리킨다」가 **먼저** 물어 겨눈 자리가 안 드러난다. */
     mutate: (t) => {
-      const g = JSON.parse(t.replace('"appDir": "web"', '"appDir": "web/src"'));
+      const g = JSON.parse(t);
+      g.appDir = 'src';
       g.solarSystems = [];
       return `${JSON.stringify(g, null, 2)}\n`;
     },
-    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'console']],
+    cmd: ['node', ['observatory/observe.mjs', '--galaxy', 'messy-galaxy']],
   },
   {
     check: '문서 링크(verify-links)',
@@ -224,9 +228,11 @@ const CASES = [
     check: '처방이 실재하는가(parts)',
     bite: '도구가 없는 명령을 치라고 말함',
     expect: '없는 명령을 치라고 말한다',
-    file: 'observatory/verify-qa.mjs',
-    /* ⛔ 「시키는 대로 해도 안 된다」는 ⚪ 보다 나쁘다 — 사람을 **헛짓으로** 보낸다. */
-    mutate: (t) => t.replace("'universe qa'", "'universe not-a-command'"),
+    file: 'observatory/blind-census.mjs',
+    /* ⛔ 「시키는 대로 해도 안 된다」는 ⚪ 보다 나쁘다 — 사람을 **헛짓으로** 보낸다.
+       ⚠️ 2026-09-09: 겨누던 `observatory/verify-qa.mjs` 가 화면과 함께 나갔다. 겨냥을 옮겼을 뿐
+       재는 성질은 같다 — **도구가 출력에 적는 `universe X` 가 실재하는 명령인가.** */
+    mutate: (t) => t.replace("universe census", "universe not-a-command"),
     cmd: ['node', ['lib/selftest.mjs']],
   },
   {
@@ -237,21 +243,6 @@ const CASES = [
     /* ⛔ 넓히면 생성물이 분모에 새어 들어 **프로브를 만들면 늘고 지우면 주는** 기준선이 된다. */
     mutate: (t) => t.replace("DEFAULT_CODE_DIRS = ['src']", "DEFAULT_CODE_DIRS = ['src', 'app']"),
     cmd: ['node', ['lib/selftest.mjs']],
-  },
-  {
-    check: '끝났는가(loop)',
-    bite: '판정이 없는데 「끝났다」고 말함',
-    expect: '판단하지 않은 fail',
-    file: 'observatory/loop-state.mjs',
-    /**
-     * ⛔⛔ 사람의 계획은 **「fail 0 까지 반복」**인데, 종료 조건을 「fail 0」으로 두면
-     * **가장 싼 해법이 단정을 약하게 만드는 것**이 된다. 그래서 「**판단하지 않은** fail 0」이다.
-     * ⇒ 그 판정을 계약(`qa`)이 아니라 **여기서 만들면** 두 자리가 갈린다 —
-     *   화면은 「판정 붙였다」인데 관문은 「판단 안 했다」가 되는 자리다(R47·R91).
-     * ⚠️ 겨냥: 계약이 낸 답을 **무시하고 늘 끝났다고** 하게 만든다.
-     */
-    mutate: (t) => t.replace('if (done.done === true) {', 'if (true) {'),
-    cmd: ['bash', ['observatory/probe-loop.sh']],
   },
   {
     check: '새 사람의 길 ⑦(quickstart)',
@@ -267,20 +258,6 @@ const CASES = [
      */
     mutate: (t) => t.replace('  process.exit(EXIT_UNMEASURED);', '  process.exit(0);'),
     cmd: ['node', ['observatory/verify-quickstart.mjs']],
-  },
-  {
-    check: '반복이 멈추는가(repeat)',
-    bite: '안 줄어드는데 계속 돈다',
-    expect: '안 줄어드는데 계속 돈다',
-    file: 'observatory/repeat.mjs',
-    /**
-     * ⛔⛔ 사람의 계획은 「fail 0 까지 반복」인데, **멈추는 자리가 없으면** 그건 도구가 아니라
-     * 사람이 안 보는 사이에 도는 물건이다. 그리고 이 도구는 **판정을 자동으로 안 붙인다** —
-     * 붙이면 종료 조건(「판단하지 않은 fail 0」)이 그 자리에서 무의미해진다.
-     * ⇒ 「안 줄어든다」 갈래를 꺼 보면 같은 수로 `--max` 까지 돈다.
-     */
-    mutate: (t) => t.replace('  if (tail.length === stall && tail.every((v) => v === tail[0])) {', '  if (false) {'),
-    cmd: ['bash', ['observatory/probe-loop.sh']],
   },
   {
     check: '카드 훑개(learn-cards)',
@@ -329,49 +306,6 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-blueprint.sh']],
   },
   {
-    check: '레포 고르기(console)',
-    bite: '잘못된 limit 을 그대로 도구에 넘긴다',
-    expect: '잘못된 limit 을 거절하지 않는다',
-    file: 'app/universe/server/src/server.ts',
-    /**
-     * ⛔ 사람이 준 값을 **그대로 인자에 넣는 자리**는 이 저장소가 R76 에서 데인 곳이다.
-     * ⚠️ 이 변이가 재는 것은 **거절이 서 있는가**다 — 「못 읽었을 때 빈 목록으로 접지 않는가」는
-     *    gh 가 정상인 기계에서 **조건이 안 만들어져** 여기서 못 잰다(탐침 머리말에 적어 뒀다).
-     */
-    mutate: (t) => t.replace(
-      '    if (raw !== undefined && (!Number.isInteger(limit) || (limit as number) < 1)) {',
-      '    if (false) {'),
-    cmd: ['node', ['observatory/probe-console.mjs']],
-  },
-  {
-    check: 'TC 양식이 계약과 같은가(verify-tc)',
-    bite: '양식의 칸 이름이 계약과 갈린다',
-    expect: '칸',
-    file: 'qa/templates/tc-cases.tsv',
-    /**
-     * ⛔⛔ 사람이 채워 오는 표와 계약이 **두 벌**이 되면, 채운 표가 **조용히 안 읽힌다** —
-     * 화면은 「TC 13건 올렸다」인데 계약은 「0건」이 되는 자리다(R47·R91 의 그 형태).
-     * ⚠️ 겨냥은 **머리 줄 한 곳**이다 — 설명 문단에도 같은 낱말이 있어 앵커가 둘이었다(실측).
-     */
-    mutate: (t) => t.replace('\tattribution\tflaky\t', '\tattributionXX\tflaky\t'),
-    cmd: ['node', ['observatory/verify-tc.mjs']],
-  },
-  {
-    check: 'TC 입구가 도는가(probe-tc)',
-    bite: '사람이 안 본 초안이 검증으로 세어진다',
-    expect: '초안 미리보기가 죽었다',
-    file: 'qa/src/tc/draft.ts',
-    /**
-     * ⛔⛔ **모델이 만든 TC 는 사람이 보기 전엔 아무것도 검증하지 않는다.**
-     * 계약이 `derived-from-code`·`unknown` 을 **검증 분모 밖**으로 정해 뒀고, 초안은 그중 하나를
-     * 달고 나가야 한다. 검증으로 세는 출처를 달면 **사람이 확인 안 한 TC 가 통과로 세어진다.**
-     * ⚠️ 도구가 스스로 그걸 막는다 — 그 갈래를 깨면 「계약이 바뀌었다」로 죽는다.
-     * ⚠️ 탐침이 **빌드본을 쓴다** — 그래서 소스 변이가 닿게 탐침이 낡으면 다시 짓는다(실측으로 고쳤다).
-     */
-    mutate: (t) => t.replace("  const wanted: CaseOrigin = 'unknown';", "  const wanted: CaseOrigin = 'human';"),
-    cmd: ['bash', ['observatory/probe-tc.sh']],
-  },
-  {
     check: '구조 카드의 예산(parts)',
     bite: '잘라 놓고 **몇 개를 안 봤는지** 안 말한다',
     expect: '**안 본 수**가 틀리다',
@@ -404,23 +338,6 @@ const CASES = [
        `whyItFailed` 의 몸통을 다른 이름으로 붙이면 잡혀야 한다. */
     mutate: (t) => `${t}\nexport const whyItDied = (out, limit = 8) => {\n  const lines = out.split('\\n').filter(Boolean);\n  const marked = lines.filter((line) => FAILURE.test(line));\n  const chosen = marked.length > 0 ? marked.slice(0, limit) : lines.slice(-limit);\n  return chosen.map((line) => \`      \${line.trim()}\`).join('\\n');\n};\n`,
     cmd: ['node', ['observatory/verify-names.mjs']],
-  },
-  {
-    check: 'TC 도구 시험(qa)',
-    bite: '시험이 비켜서는데 종료코드는 0이라 초록으로 읽힘',
-    expect: '비켜선 시험',
-    file: 'qa/tests/playwright.wiring.test.ts',
-    /**
-     * ⛔⛔ **비켜섬은 종료코드에 안 나온다.** 「243 통과」와 「242 통과 · 1 건너뜀」이
-     * 둘 다 exit 0 이라 **같은 초록**으로 읽힌다.
-     * ⚠️ 옆 저장소 세션이 자기 게이트에서 그 사고를 겪었다 — 빌드 산출물이 없어 3건이
-     *    매번 조용히 비켜섰는데 **여러 회전을 같은 초록으로 읽어** 뒤늦게 알았다.
-     *    그쪽을 오도한 것은 `CLAUDE.md` 의 줄임 한 줄(`yarn build`(=`tsc`))이었다.
-     * ⇒ 여기서는 **수로 말하고 ⚪ 로 갈린다.** 「고칠 수 있는 이유로 비켜서는 것」은
-     *    정직이 아니라 **안 재는 핑계**다.
-     */
-    mutate: (t) => t.replace('it(', 'it.skip('),
-    cmd: ['node', ['observatory/verify-qa.mjs']],
   },
   {
     check: '손 변이 틀의 커버리지(parts)',
@@ -488,102 +405,6 @@ const CASES = [
       "if (/^[a-z+]+:\\/\\/[^/@]*[:@]/i.test(url) && !/^ssh:\\/\\//i.test(url)) {",
       'if (false) {'),
     cmd: ['bash', ['observatory/probe-clone.sh']],
-  },
-  {
-    check: '콘솔이 서는가(console)',
-    bite: '지식 저장소를 못 찾았는데 「ok」라고 답함',
-    expect: '없는데 「ok」라고 답한다',
-    file: 'app/universe/server/src/server.ts',
-    /**
-     * ⛔⛔ **못 찾았을 때 「0개」로 답하면 그것이 사고다.** 빈 목록은 「도메인이 없다」로
-     * 읽히고, 그건 「못 읽었다」와 다른 말이다(§8). 콘솔은 사람의 계획이 전부 지나가는
-     * 자리인데 **아무 관문도 띄워 본 적이 없었다** — 시험이 하나도 없는 저장소였다.
-     *
-     * ⚠️ 이 변이는 **TypeScript 소스**를 건드린다. 그래서 탐침이 **낡으면 스스로 다시 짓는다** —
-     *    처음엔 「낡았으면 ⚪」로 했는데, 그러면 **소스를 고치는 변이가 판정을 못 바꾼다.**
-     */
-    /**
-     * ⛔⛔ **조준이 죽어 있었다 — 2026-09-08 실측.**
-     * 이 변이는 `paths.ts` 의 `if (existsSync(dir)) return { ok: true, dir };` 를 겨누고 있었는데,
-     * 그 코드는 **리팩터링으로 사라진 지 오래**였다(지금 `paths.ts` 에는 `existsSync` 도 `ok:` 도 없다).
-     * 변이가 파일을 **하나도 안 바꾸니** 시험대는 `⚠️ 변이가 안 먹었다` 로 세었는데,
-     * 그건 `❌` 가 아니라 `⚠️` 로 찍혀서 **눈에 안 띄었다.** ⇒ 이 검사는 그 뒤로
-     * **한 번도 무는 것이 확인되지 않았다.**
-     * ⇒ 지금 실재를 재는 자리는 `/api/health` 다(`server.ts`). 거기를 겨눈다.
-     * ⚠️ 조준을 옮길 때는 **변이가 정말 파일을 바꾸는지** 먼저 확인해라 —
-     *   안 바꾸면 이 시험은 조용히 장식이 된다.
-     */
-    mutate: (t) => t.replace('const ok = existsSync(manifest);', 'const ok = true;'),
-    cmd: ['node', ['observatory/probe-console.mjs']],
-  },
-  {
-    check: '콘솔이 서는가(console)',
-    bite: 'TC 가 **아무것도 검증 안 했는데** 통과라고 답함',
-    expect: '빈 양식이 못 쟀다로 안 끝난다',
-    file: 'app/universe/server/src/tc.ts',
-    /**
-     * ⛔⛔ **세 갈래를 두 갈래로 접으면 그것이 사고다.** TC 도구의 계약은
-     * `0 끝났다 · 1 판단하지 않은 fail · 3 **못 쟀다**` 다. 3 을 `ok` 로 접으면
-     * **아무것도 검증하지 않은 TC 가 초록불로 보인다** — §8 의 그 자리다.
-     *
-     * ⚠️ 실측으로 이 변이가 **정확히 그 사유로** 물렸다:
-     *    「⛔ 빈 양식이 못 쟀다로 안 끝난다(ok=true · unmeasured=false · exit=3)」.
-     */
-    mutate: (t) => t.replace(
-      'ok: run.exitCode === 0,\n      unmeasured: run.exitCode === 3 || run.exitCode === null || run.killed,',
-      'ok: run.exitCode === 0 || run.exitCode === 3,\n      unmeasured: false,'),
-    cmd: ['node', ['observatory/probe-console.mjs']],
-  },
-  {
-    check: '콘솔이 서는가(console)',
-    bite: '양식을 **못 읽었는데** 빈 양식을 성공으로 내줌',
-    expect: '다 안 온다',
-    file: 'app/universe/server/src/tc.ts',
-    /**
-     * ⛔ 빈 양식을 받은 사람은 그걸 **채워서 올리고**, 그때 거부당하며 **자기가 틀린 줄 안다.**
-     *
-     * ⚠️⚠️ **겨냥을 한 번 틀렸다 — 그 실패를 적어 둔다.** 처음엔 `if (files.length === 0)`
-     *    가드를 `if (false)` 로 지웠는데 **안 물렸다.** 당연하다: 정상 기계에서는 파일이
-     *    안 비므로 **가드가 막으려는 조건이 안 만들어진다.**
-     *    ⇒ 겨냥은 「가드를 지운다」가 아니라 **「가드가 막으려는 조건을 만든다」**다.
-     *    파일 이름을 읽는 정규식을 못 맞게 바꿔 **실제로 0개를 만든 뒤에야** 물렸다.
-     */
-    mutate: (t) => t.replace(String.raw`matchAll(/^\s*·\s*(\S+)$/gm)`, 'matchAll(/^ZZZNOMATCH(\\S+)$/gm)'),
-    cmd: ['node', ['observatory/probe-console.mjs']],
-  },
-  {
-    check: '콘솔이 서는가(console)',
-    bite: '**축이 없는데 서버가 지어 줘서** 화면이 임의 명령을 돌리게 됨',
-    expect: '서버가 축을 지어 줬다',
-    file: 'observatory/loop-state.mjs',
-    /**
-     * ⛔⛔ **이 콘솔에서 제일 위험한 칸의 자물쇠 ②다.**
-     * `commands.e2eWatch` 는 셸 문자열이다 — 없을 때 서버가 **지어 주기 시작하면**
-     * 화면을 여는 사람이 서버 기계에서 명령을 돌리는 길이 열린다.
-     *
-     * ⚠️ **판정은 종료코드로 못 한다.** 축을 지어 주는 변이도 ⚪ **3** 으로 끝난다
-     *    (실측으로 확인했다 — 「명령을 못 불렀다」로 죽는다).
-     *    ⇒ **거부 사유**가 `commands.e2eWatch` 를 가리키는지까지 봐야 물린다.
-     */
-    mutate: (t) => t.replace(
-      'const e2e = watching ? galaxy.commands?.e2eWatch : galaxy.commands?.e2e;',
-      'const e2e = watching ? (galaxy.commands?.e2eWatch ?? `${galaxy.commands?.e2e ?? \'\'} --headed`) : galaxy.commands?.e2e;'),
-    cmd: ['node', ['observatory/probe-console.mjs']],
-  },
-  {
-    check: '콘솔이 서는가(console)',
-    bite: '은하 이름에 **명령을 섞어도** 받아서 원격 명령 실행기가 됨',
-    expect: '명령을 섞어도 받는다',
-    file: 'app/universe/server/src/tc.ts',
-    /**
-     * ⛔⛔ 자물쇠 ①. 서버는 **은하 이름만** 받는다 — 그 이름이 셸로 흘러가는 자리가 있으므로
-     * 모양을 좁히는 것이 유일한 방벽이다. `adopt` 가 「받아 온 자리 안의 초안만」으로 막은 것,
-     * `repos` 가 사람이 준 값을 정수로 좁힌 것과 **같은 자리**다(R76).
-     */
-    mutate: (t) => t.replace(
-      "  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(galaxy)) return '은하 이름은 영소문자·숫자·하이픈만 됩니다.';\n",
-      ''),
-    cmd: ['node', ['observatory/probe-console.mjs']],
   },
   {
     check: '자리마다 분모(observe)',
@@ -669,14 +490,15 @@ const CASES = [
     check: '좌표 감사(coordinates)',
     bite: '옛 손 목록 **밖**의 설정이 기계 경로를 흘림',
     expect: '그 기계에만 있는 경로가 있다',
-    file: 'qa/package.json',
+    file: 'fixtures/nosrc-galaxy/package.json',
     /**
      * ⛔⛔ **질문을 손으로 적으면 그 목록 밖은 안 보인다.**
      * 이 감사는 예전에 설정 파일 **세 개**(`universe.config.json`·`beacon/pages.json`·
      * `package.json`)만 봤다. 넷째가 생기면 **질문 자체가 못 본다** — 그리고 이 저장소는
      * **공개 MIT** 라 새면 그대로 나간다.
      * ⇒ git 에게 묻게 바꿨다(3개 → 82개). 이 변이는 **옛 목록 밖**의 파일을 고른다 —
-     *   `qa/package.json` 은 세 개 중 어디에도 없었다. 예전 판이면 **조용히 통과**한다.
+     *   `fixtures/nosrc-galaxy/package.json` 은 세 개 중 어디에도 없다. 예전 판이면 **조용히 통과**한다.
+     * ⚠️ 2026-09-09: 겨누던 `qa/package.json` 이 화면과 함께 나가 새 픽스처로 옮겼다.
      * ⛔ 회사 이름을 심지 않는다. 구조(홈 아래 절대 경로)만으로 물려야 §9 를 지킨 것이다.
      */
     mutate: (t) => t.replace('"private": true', '"private": true,\n  "//기계": "/Users/someone/qa"'),
@@ -791,7 +613,7 @@ const CASES = [
      * 판정이 아니다. ② 다음엔 「0개면 못 쟀다」 갈래를 지웠는데, 그걸 재려면 **빈 폴더**가
      * 필요하고 빈 폴더는 **기준선이 3** 이라 틀이 「깨끗한 상태에서 빨간불」로 잡았다
      * (`liveness` 에서 같은 걸 겪었다). ⇒ **기준선이 0인 자리에서 판정이 뒤집히는** 곳을 겨눈다:
-     *   `console` 은 못 읽는 것이 0이라 `--max-blind-share 0` 에서 초록이다.
+     *   ⚠️ 2026-09-09: `console` 은하가 화면과 함께 나가서 `tiny-galaxy` 로 옮겼다.
      *   그런데 `.mjs` 를 「읽는다」로 옮기면 **읽는 수가 부풀고**, 반대로 `.ts` 를 못 읽는 쪽에
      *   넣으면 비율이 선을 넘어 **1로 죽는다.** 후자를 쓴다 — 판정이 확실히 달라진다.
      */
@@ -821,56 +643,7 @@ const CASES = [
      * ⛔ 여기서 선을 그대로 두고 도구를 되돌리면, **보이게 만든 것을 다시 숨기는** 꼴이 된다.
      * ⇒ 실측(2.1%)보다 위에 긋되 **변이가 넘길 만큼은 낮게**(변이는 45.7% 를 만든다).
      */
-    cmd: ['node', ['observatory/blind-census.mjs', '--galaxy', 'console', '--max-blind-share', '5']],
-  },
-  {
-    check: 'TC 도구 시험(qa)',
-    bite: '흡수한 시험이 깨진 것을 아무도 모르는 것',
-    expect: '1 failed',
-    file: 'qa/tests/github.guards.test.ts',
-    /**
-     * ⛔⛔ **흡수한 시험 239개를 아무도 안 돌리고 있었다.**
-     *
-     * `qa-harness` 를 흡수하며 `qa/tests/` 10벌이 같이 왔는데 **관문에도 CI 에도 안 넣었다.**
-     * 그래서 흡수 시점부터 **빨간 시험 하나가 조용히 숨어 있었다** — 옛 저장소 이름이
-     * 박혀 있어(`toBe('qa-harness')`) origin 이 바뀌자 깨진 것이다. 자식 에이전트가
-     * 다른 일을 하다 `npm test` 를 돌려서야 드러났다.
-     * ⚠️ 「**옮겨지지 않은 방어**」와 같은 종류다(R162 에서 `.gitignore` 가 그랬다) —
-     * 옮겨 온 파일은 세어서 확인하는데 **「누가 돌리는가」는 아무도 안 센다.**
-     * ⇒ 관문에 걸었고, 그 관문이 정말 무는지를 여기서 잰다.
-     */
-    mutate: (t) => t.replace('expect(coordinate?.repo).toBe(expected);',
-      "expect(coordinate?.repo).toBe('절대안맞는이름');"),
-    cmd: ['node', ['observatory/verify-qa.mjs']],
-  },
-  {
-    check: '세션 생존(liveness)',
-    bite: '선언을 못 읽고도 조용히 지나가는 것',
-    /* ⚠️ 사유를 **실제 출력에서** 가져왔다. 처음엔 '못 쟀다'로 적었는데 그 문구가 안 나와
-       ⚠️(다른 이유로 죽음)로 갈렸다 — **판정은 종료코드가 아니라 거부 사유로 한다.** */
-    expect: '선언이 하나도 없다',
-    file: 'observatory/liveness.mjs',
-    /**
-     * ⛔⛔ **「선언이 없다」를 「살아 있다」로 접으면 이 층 전체가 장식이 된다.**
-     *
-     * 이 관문이 있는 이유가 「존재」와 「생존」이 다른 층이라서다 — **토큰 문자열은
-     * 만료돼도 그대로 있다.** 그래서 존재만 보는 검사는 죽은 세션을 절대 못 잡는다.
-     * ⚠️ 실측(다른 팀): 세션 수명이 1시간이라 오래 도는 루프가 **중간에 죽고**, 그때
-     * 화면은 로그인 페이지를 재고 「전부 fail」을 뱉는다 — **제품 결함이 아닌데도.**
-     * ⇒ 선언이 없을 때 조용히 초록을 주면, 아무도 세션을 안 재면서 **재고 있다고 믿는다.**
-     * 변이는 그 상태를 되살린다: 「못 쟀다」 대신 「살아 있다」로 넘긴다.
-     */
-    /**
-     * ⚠️ **조준을 한 번 옮겼다.** 처음엔 `UNMEASURED = 'alive'` 로 바꿨는데, 변이 틀이
-     * **기준선에 exit 0 을 요구**하고 `liveness` 는 선언이 없으면 3(못 쟀다)을 낸다 —
-     * 「깨끗한 상태에서 빨간 검사」로 잡혀 변이가 아예 안 돌았다. 조준이 틀린 것이다.
-     * ⇒ 픽스처 은하에 선언을 넣어 기준선을 0 으로 만들고, **선언을 못 읽게** 되는 쪽을 겨눈다.
-     *   읽개가 죽으면 **모든 은하가 조용히 「선언 없음」이 되고**, 그러면 아무도 세션을
-     *   안 재면서 재고 있다고 믿는다. 그때 「못 쟀다」라고 말하는지가 이 변이가 재는 것이다.
-     */
-    mutate: (t) => t.replace('export const declaredLiveness = (galaxy) => {',
-      'export const declaredLiveness = () => {\n  return [];\n};\nconst unusedDeclaredLiveness = (galaxy) => {'),
-    cmd: ['node', ['observatory/liveness.mjs', '--galaxy', 'tiny-galaxy']],
+    cmd: ['node', ['observatory/blind-census.mjs', '--galaxy', 'tiny-galaxy', '--max-blind-share', '5']],
   },
   {
     check: '부품 시험(parts)',

@@ -1,7 +1,7 @@
 {
   "//": "발행 대상 장의 **이름표**만 둔다. ⛔ 사이트·스페이스·페이지 id 같은 **좌표는 여기 두지 않는다** — 공개 저장소에 남으면 받은 사람에게는 못 쓰는 좌표이고, 우리에게는 새어 나가는 좌표다(R151). Confluence 로 보내려면 `.secret/confluence-pages.json`(gitignore) 에 같은 모양으로 좌표를 두면 `beacon/publish.mjs` 가 그것을 먼저 읽는다. 기본 전파 경로는 이제 **git 위키**다 — `beacon/wiki.mjs`.",
   "//기본": "git 위키 주소는 적지 않는다 — `git remote get-url origin` 에서 파생한다(lib/wiki-remote.mjs).",
-  "//가이드": "`guide*` 넷은 위의 일곱과 성질이 다르다 — 조립되는 것이 아니라 **사람이 쓴 글**이고, 정본은 `docs/wiki/{슬러그}.md` 다. `beacon/render.mjs` 가 그 폴더를 읽어 frontmatter 를 떼고 싣는다. ⛔ 여기 이름표를 먼저 달지 마라 — 렌더가 내지 않는 슬러그가 여기 있으면 `beacon/publish.mjs` 가 「렌더 산출이 모자란다」로 죽는다. **렌더가 먼저, 이름표가 나중**이다. ⚠️ 여기 `title` 은 `docs/wiki/{슬러그}.md` 의 frontmatter `title` 과 **두 벌**이다 — publish.mjs 가 이름표를 요구해서 그렇다. 갈렸는지 재는 법: `node beacon/render.mjs` 가 찍는 제목과 이 표를 맞대어 본다(`beacon/out/index.json` 이 렌더가 낸 제목을 들고 있다).",
+  "//가이드": "⛔ `guide*` 넷은 2026-09-09 에 화면과 함께 `feat/console-screens` 로 갔다. 정본이던 `docs/wiki/{슬러그}.md` 가 이 가지에 없으므로 이름표도 뺀다 — ⚠️ 렌더가 안 내는 슬러그를 여기 남기면 `beacon/publish.mjs` 가 「렌더 산출이 모자란다」로 죽는다. **렌더가 먼저, 이름표가 나중**이다. ⚠️ 위키에 만들어 둔 그 4장은 **지우지 않았다** — 좌표는 `.secret/confluence-pages.json` 에 남아 있고, 화면을 다시 들일 때 그대로 쓴다.",
   "pages": {
     "index": {
       "title": "Universe — 프론트엔드 하네스",
@@ -30,22 +30,6 @@
     "rounds": {
       "title": "라운드 (Rounds)",
       "parent": "index"
-    },
-    "guide": {
-      "title": "화면에서 다 한다 — 시작하기 전에",
-      "parent": "index"
-    },
-    "guide-not-yet": {
-      "title": "⚪ 아직 화면에 없는 칸",
-      "parent": "guide"
-    },
-    "guide-screens": {
-      "title": "화면 하나하나 — 레일에 선 다섯 칸",
-      "parent": "guide"
-    },
-    "guide-walkthrough": {
-      "title": "처음 한 바퀴 — 클릭만으로",
-      "parent": "guide"
     }
   }
 }

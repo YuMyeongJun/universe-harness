@@ -64,6 +64,24 @@ npx universe-harness init     # ⛔ `npx universe` 가 아니다 — 뒤 한 조
 | yarn berry (`nodeLinker: node-modules`) | `yarn add -D universe-harness` | `./node_modules/.bin/universe` |
 | yarn berry (기본 = PnP) | `yarn add -D universe-harness` | `yarn universe` |
 
+⚠️ **왜 `npx` 를 안 가르치는가.** 깐 저장소 안에서는 그 형태도 로컬 것을 부른다
+(실측 2026-09-09: `init`·`observe`·`galaxy` 셋 다 exit 0). ⛔ **그런데 안 깐 곳에서 같은 줄을
+치면 npm 의 `universe`(남의 패키지)를 진짜로 내려받는다.** 같은 글자가 자리에 따라 다른 것을
+가리키는 처방은 안 가르친다 — 문서가 그것으로 사람을 헛짓으로 보낸 적이 있다(R52).
+⚠️ 이 규율은 **검사로 지킨다**: 문서에 그 형태를 적으면 부품 시험이 문다. 실제로 물었다.
+
+⭐ **길면 별칭을 걸어라** — 도구가 아니라 당신의 셸이 할 일이다:
+
+```bash
+alias u='./node_modules/.bin/universe'
+u observe
+```
+
+⭐ **`--universe` 는 안 붙여도 된다.** 도구가 저장소 뿌리에서 `universe/` 를 스스로 찾는다
+(실측: 붙이든 안 붙이든 같은 출력·같은 종료코드). 예전 문서는 모든 줄에 그것을 붙이고 있었다 —
+**안 써도 되는 것을 가르치면 명령이 길어 보이고, 긴 명령은 아무도 안 친다.**
+⚠️ 우주가 이상한 자리에 깔렸을 때만 `--universe <경로>` 로 겨눈다.
+
 **무엇을 쟀는가** — ⛔ 「전부 실측」으로 뭉뚱그리지 않는다. 잰 것과 안 잰 것을 갈라 적는다:
 
 | 잰 것 | 무엇으로 | 판정 |
@@ -153,15 +171,14 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 ⛔ 안 이어 붙여도 전부 그대로 쓴다 — `universe X` 를 `node <우주-저장소>/bin/universe.mjs X`
 로 바꿔 치면 된다(도구도 이어져 있지 않으면 **그 형태로** 알려 준다).
 
-> **아래 명령은 전부 같은 꼴이다** — 깐 꾸러미의 CLI 를 부르고 `--universe` 로 깔린 폴더를 겨눈다.
-> yarn berry(PnP)면 `./node_modules/.bin/universe` 를 `yarn universe` 로 바꿔 친다.
+> **아래 명령은 전부 같은 꼴이다.** yarn berry(PnP)면 `./node_modules/.bin/universe` 를 `yarn universe` 로 바꿔 친다.
 
 ## 2. 은하를 등록한다
 
 은하 = 법칙이 적용되는 저장소 하나. **손으로 쓰지 마라** — 읽어낼 수 있는 것은 읽어 준다.
 
 ```bash
-./node_modules/.bin/universe galaxy my-app --dir . --universe ./universe
+./node_modules/.bin/universe galaxy my-app --dir .
 ```
 
 `package.json` 에서 읽어낸 것은 채우고, **못 읽은 자리는 `TODO:` 로 남긴다.**
@@ -195,7 +212,7 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 ## 3. 법칙이 무엇을 잡는지 본다
 
 ```bash
-./node_modules/.bin/universe observe --universe ./universe
+./node_modules/.bin/universe observe
 ```
 
 ```
@@ -216,7 +233,7 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 ## 4. 기준선을 심는다
 
 ```bash
-./node_modules/.bin/universe observe --universe ./universe --update
+./node_modules/.bin/universe observe --update
 ```
 
 지금 수치가 은하 파일의 `observed.laws` 에 기준선으로 들어간다.
@@ -227,7 +244,7 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 ## 5. 첫 별을 태운다
 
 ```bash
-./node_modules/.bin/universe new my-app dashboard DashboardToday --universe ./universe
+./node_modules/.bin/universe new my-app dashboard DashboardToday
 ```
 
 ```
@@ -259,7 +276,7 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 ## 6. 끝났는지 묻는다
 
 ```bash
-./node_modules/.bin/universe loop --galaxy my-app --universe ./universe
+./node_modules/.bin/universe loop --galaxy my-app
 ```
 
 ⚠️ 위 2·3·4·5 와 **같은 꼴**이다. 이 자리에만 `universe loop --galaxy my-app` 라고 적혀
@@ -295,14 +312,14 @@ npm link          # `universe` 를 잇는다 (되돌리기: npm rm -g universe-h
 
 ⚠️ `universe clone`·`universe galaxy` 는 저장소에 Playwright 가 있으면 **이 줄을 초안에 적어 준다.**
 
-판정은 콘솔에서 붙인다(`universe console` 이 그 화면이 서는지 잰다). 판정을 붙이면 콘솔이
+판정은 사람이 붙인다. 판정을 붙이면 그
 **붙인 주행을 파일로도** 남기고, `universe loop --galaxy my-app --report <그 파일>` 이
 그것을 읽어 「끝났다」고 말한다.
 
 ## 7. 그 바퀴를 반복한다
 
 ```bash
-./node_modules/.bin/universe repeat --galaxy my-app --universe ./universe
+./node_modules/.bin/universe repeat --galaxy my-app
 ```
 
 `loop` 이 **한 번 묻는 것**이라면 `repeat` 는 그것을 **fail 0 까지 돌리는 것**이다.

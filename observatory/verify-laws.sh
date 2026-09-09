@@ -57,7 +57,20 @@ done < <(node -e '
 #    ⛔ 특히 `qa/tests/fixtures/*.md` 는 **일부러 어긋나게 쓴 린터 입력**이다 —
 #       거기에 frontmatter 를 붙이면 그 시험이 재던 것이 사라진다.
 ABSORBED='./qa/*'
-NOT_ASSET=( -not -path "$GENERATED" -not -path "$VENDORED" -not -path "$NODE_MODULES" -not -path './node_modules/*' -not -path "$ABSORBED" ${GALAXY_HOMES[@]+"${GALAXY_HOMES[@]}"} )
+# ⛔⛔ **화면(콘솔)은 2026-09-09 에 이 제품의 범위 밖으로 나갔다 — 그런데 폴더는 남아 있다.**
+#
+# `app/universe/` 는 그전까지 **은하로 등록돼 있어서** 위 `GALAXY_HOMES` 가 자동으로 걸러 줬다.
+# 목록에서 빼자마자 이 검사가 콘솔의 문서와 **그 안에 받아 둔 남의 저장소 사본**
+# (`app/universe/.data/clones/*`)까지 훑기 시작했다 — 「우주 문서에 frontmatter 가 없다」로.
+# ⚠️ 그건 우리 문서가 아니다. 남이 쓴 저장소를 우리 법으로 재는 것은 재는 방향이 틀린 것이다.
+#
+# ⛔ 손으로 이름을 적는 것은 §9 가 네 번 잡은 형태다 — 그래서 **왜 여기 적는지**를 남긴다:
+#   `qa/`(흡수한 도구)와 **같은 성질**이다. 등록된 은하도 아니고 우주의 문서도 아닌,
+#   **저장소 안에 얹혀 있는 앱**이다. 이 둘 말고는 그런 것이 없다.
+# ⇒ 화면을 다시 은하로 들이면 이 줄을 지워라 — 그때는 `GALAXY_HOMES` 가 자동으로 건다.
+# ⚠️ 같은 규칙이 `lib/selftest.mjs` 에도 있다(집행자가 bash·node 둘이라 합칠 수 없다).
+CONSOLE_APP='./app/*'
+NOT_ASSET=( -not -path "$GENERATED" -not -path "$VENDORED" -not -path "$NODE_MODULES" -not -path './node_modules/*' -not -path "$ABSORBED" -not -path "$CONSOLE_APP" ${GALAXY_HOMES[@]+"${GALAXY_HOMES[@]}"} )
 
 say() { printf '%s\n' "$1"; }
 bad() { printf '  ❌ %s\n' "$1"; fail=1; }

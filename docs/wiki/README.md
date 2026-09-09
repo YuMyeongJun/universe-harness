@@ -30,12 +30,16 @@ git 위키로 옮기면서 사라진 문제다. ⇒ **되돌릴 이유가 없다
 
 ## 장
 
-| 파일 | 위키에서의 이름 | 무엇 |
-|------|----------------|------|
-| [guide.md](guide.md) | `guide` | 전제 — 화면에서 다 한다 · 여는 법 · 세 가지 색 |
-| [guide-screens.md](guide-screens.md) | `guide-screens` | 화면 하나하나가 무엇을 하는가 |
-| [guide-walkthrough.md](guide-walkthrough.md) | `guide-walkthrough` | 처음 한 바퀴 — 클릭만으로 |
-| [guide-not-yet.md](guide-not-yet.md) | `guide-not-yet` | ⚪ 아직 화면에 없는 칸 |
+⚪ **지금 이 폴더에 사람이 쓴 장은 없다.**
+
+⛔ 있던 넷(`guide` · `guide-screens` · `guide-walkthrough` · `guide-not-yet`)은 전부 **화면 안내**였고,
+2026-09-09 에 화면과 함께 `feat/console-screens` 가지로 나갔다.
+⚠️ **위키의 그 4장은 지우지 않았다** — 좌표는 `.secret/confluence-pages.console.json` 에 있고,
+화면을 다시 들이면 그대로 발행된다.
+
+⚠️ 「없다」와 「아직 안 썼다」는 다르다. 여기는 **비어 있는 것이 맞는 상태**다 —
+조립되는 일곱 장(`index`·`laws`·`forces`·`observatory`·`galaxies`·`nebula`·`rounds`)은
+이 폴더가 아니라 저장소의 실물에서 나온다.
 
 ## 어떻게 나가는가
 

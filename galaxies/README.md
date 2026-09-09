@@ -21,8 +21,6 @@ description: 우주의 법칙이 적용되는 저장소들. 우주는 별이 아
 |---|---:|---:|---|
 | `tiny-galaxy` | 6개 | 1개 | `build` · `test` · `lintJson` · `testFile` · `lintFix` · `typecheck` |
 | `messy-galaxy` | 6개 | 1개 | — |
-| `console` | 5개 | 1개 | `typecheck` · `build` |
-| `qa-e2e` | 3개 | 0개 | `e2e` · `e2eWatch` |
 <!-- GALAXIES:END -->
 
 ⛔ **이 표는 `universe facts` 가 좌표 파일에서 생성한다 — 손으로 고치지 마라.**

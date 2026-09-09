@@ -179,7 +179,11 @@ console.error(`\n⛔ ${done.reason ?? '판단하지 않은 fail 이 남았다'}`
 for (const row of unjudged) {
   console.error(`   · ${row.id} — ${row.reason ?? '판단하지 않았다'} (귀속: ${row.attribution ?? '모름'})`);
 }
-console.error('\n   → 콘솔에서 판정을 붙여라(`universe console` 이 그 화면이 서는지 잰다).');
+/* ⚠️ 예전엔 「`universe console` 이 그 화면이 서는지 잰다」고 적혀 있었다. 2026-09-09 에
+   화면이 `feat/console-screens` 로 나가면서 그 명령이 사라졌고, **부품 시험이 물었다** —
+   「도구가 없는 명령을 치라고 말한다」. ⛔ 안 지키는 처방은 ⚪ 보다 나쁘다: ⚪ 는 「못 쟀다」지만
+   이건 사람을 헛짓으로 보낸다. ⇒ 지금 이 가지에서 판정은 **보고서 파일**로 들어온다. */
+console.error('\n   → 판정을 붙여라 — 붙인 주행을 파일로 남기고 `--report <그 파일>` 로 다시 물어라.');
 console.error('   ⛔ 단정을 약하게 만들어 fail 을 없애지 마라 — 그래서 종료 조건이 「fail 0」이 아니다.');
 
 /**

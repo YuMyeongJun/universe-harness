@@ -35,7 +35,6 @@
     "observatory/light-speed.mjs",
     "observatory/blind-census.mjs",
     "observatory/verify-links.mjs",
-    "observatory/liveness.mjs",
     "observatory/learn.mjs",
     "observatory/learn-cards.mjs",
     "observatory/README.md",
