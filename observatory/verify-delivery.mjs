@@ -99,7 +99,12 @@ try {
   }
   console.log('  ✅ 깔았다 — node_modules/.bin/universe');
 
-  /** ③ **소비자가 제일 먼저 치는 명령.** 여기서 죽으면 제품의 정문이 막힌 것이다. */
+  /**
+   * ③ **소비자가 제일 먼저 치는 명령.** 여기서 죽으면 제품의 정문이 막힌 것이다.
+   * ⚠️ 치기 전에 **소비자의 `package.json` 을 떠 둔다** — `init` 이 남의 파일을 말없이
+   * 고치지 않는다는 것이 아래 ⑧에서 재는 계약이다.
+   */
+  const pkgBefore = await readFile(join(repo, 'package.json'), 'utf8');
   const init = await run(cli, ['init'], repo);
   if (init.code !== 0) {
     console.error(`  ⛔ **배달본의 「init」 이 죽는다**(exit ${init.code}). 소비자가 첫 명령에서 막힌다.`);
@@ -171,6 +176,22 @@ try {
   if (missing.length > 0) {
     for (const g of missing) console.error(`     ⛔ ${g.label} — ${g.file} 가 배달되지 않았다`);
     console.error('     ⇒ `package.json` 의 `files` 에 더하거나, 소비자용이 아니면 `scope: \'universe\'` 로 적어라.');
+    failed += 1;
+  }
+
+  /**
+   * ⑧ **`init` 이 남의 `package.json` 을 말없이 고치지 않는가.**
+   *
+   * ⛔ 소비 저장소의 파일을 고치는 일은 이 저장소가 `repeat --fix`·`blueprint --write` 에서
+   * 지키는 **두 겹 자물쇠**와 같은 자리다 — 플래그가 있어야 쓴다.
+   * ⚠️ 스크립트를 넣어 주는 것은 편한 기능이라 **기본으로 켜고 싶어지는 자리**다. 그렇게 되면
+   * 깔기만 했는데 남의 커밋에 diff 가 생긴다. ⇒ 기본 주행이 파일을 바꾸면 여기서 문다.
+   */
+  const pkgAfter = await readFile(join(repo, 'package.json'), 'utf8');
+  const untouched = pkgBefore === pkgAfter;
+  console.log(`  ${untouched ? '✅' : '❌'} init 이 소비자의 package.json 을 안 건드린다 (플래그 없이)`);
+  if (!untouched) {
+    console.error('     ⛔ **깔기만 했는데 남의 파일이 바뀌었다.** 스크립트는 `--scripts` 를 줘야 쓴다.');
     failed += 1;
   }
 

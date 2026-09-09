@@ -26,7 +26,7 @@ const flag = (n) => (argv.includes(n) ? argv[argv.indexOf(n) + 1] : undefined);
 const has = (n) => argv.includes(n);
 /* ⛔ 실측(R91): `universe init --존재하지않는플래그` 가 **조용히 삼켜졌다.** §7 이 있는 바로
    그 이유인데(안 켜진 모드가 켜진 것처럼 보인다) 이 진입점만 빠져 있었다. */
-rejectUnknownFlags(argv, ['--dir', '--force', '--dry-run', '--update'], 'universe init');
+rejectUnknownFlags(argv, ['--dir', '--force', '--dry-run', '--update', '--scripts'], 'universe init');
 
 const exists = (p) => fs.stat(p).then(() => true).catch(() => false);
 
@@ -61,6 +61,8 @@ if (!inGitRepo) {
 }
 
 const dryRun = has('--dry-run');
+/* ⛔ **남의 `package.json` 은 플래그가 있어야 고친다** — 두 겹 자물쇠(`repeat --fix` 와 같다). */
+const wantScripts = has('--scripts');
 /* ⚠️ target 이 cwd 와 같으면 `path.relative` 가 빈 문자열이라 「이미 있다: /」가 됐다(R91). */
 const rel = (p) => path.relative(process.cwd(), p) || p;
 
@@ -404,6 +406,61 @@ if (current === null) {
   console.log(`\n   ~ .gitignore  (${IGNORE_LINE} 를 더했다 — 관측 산출물)`);
 } else {
   console.log(`\n   · .gitignore  (${IGNORE_LINE} 는 이미 있다)`);
+}
+
+/**
+ * **`./node_modules/.bin/universe` 는 아무도 두 번 안 친다.**
+ *
+ * npm 스크립트 안에서는 `universe` 가 그냥 이름으로 풀린다(`node_modules/.bin` 이 PATH 에 붙는다).
+ * ⛔ **`npx universe` 는 치지 마라** — 안 깐 곳에서는 npm 의 **남의 패키지**를 내려받는다.
+ *    그래서 안내도 그것을 가르치지 않는다.
+ *
+ * ⛔⛔ **기본은 보여 주기만 한다.** 남의 `package.json` 을 말없이 고치는 것은 이 저장소가
+ * `repeat --fix`·`blueprint --write` 에서 지키는 규율과 같은 자리다 — **선언 + 플래그 두 겹**이다.
+ * `--scripts` 를 줘야 쓰고, **이미 있는 이름은 절대 덮지 않는다**(무엇을 건너뛰었는지 말한다).
+ */
+const SUGGESTED_SCRIPTS = {
+  'universe:check': 'universe check',
+  'universe:observe': `universe observe --universe ${dir}`,
+  'universe:hooks': 'universe hooks --install',
+};
+{
+  const pkgPath = path.join(process.cwd(), 'package.json');
+  let pkg = null;
+  try {
+    pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
+  } catch {
+    pkg = null;
+  }
+  if (pkg === null) {
+    console.log('\n   ⚪ `package.json` 이 없거나 못 읽어 스크립트는 못 봤다 — 손으로 부르면 된다.');
+  } else {
+    const have = pkg.scripts ?? {};
+    const add = Object.entries(SUGGESTED_SCRIPTS).filter(([k]) => have[k] === undefined);
+    const kept = Object.keys(SUGGESTED_SCRIPTS).filter((k) => have[k] !== undefined);
+    if (add.length === 0) {
+      console.log('\n   ✅ 스크립트가 이미 있다 — 그대로 둔다.');
+    } else if (!wantScripts) {
+      console.log('\n   💡 `package.json` 에 이렇게 넣으면 `./node_modules/.bin/universe` 를 안 쳐도 된다:');
+      for (const [k, v] of add) {
+        console.log(`        "${k}": "${v}"`);
+      }
+      console.log('      ⛔ 지금은 **아무것도 안 썼다.** 쓰려면 `universe init --scripts`.');
+      console.log('      ⚠️ yarn 은 `yarn universe check` 로 그냥 부를 수 있다 — 스크립트가 없어도 된다.');
+    } else if (dryRun) {
+      console.log(`\n   (dry-run) 스크립트 ${add.length}개를 넣었을 것이다.`);
+    } else {
+      pkg.scripts = { ...have, ...Object.fromEntries(add) };
+      await fs.writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
+      console.log(`\n   + package.json 의 scripts ${add.length}개`);
+      for (const [k] of add) {
+        console.log(`        ${k}`);
+      }
+      if (kept.length > 0) {
+        console.log(`      ⚠️ 이미 있어 **안 건드린 것** ${kept.length}개: ${kept.join(' · ')}`);
+      }
+    }
+  }
 }
 
 console.log([
