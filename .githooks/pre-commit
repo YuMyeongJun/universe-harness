@@ -85,9 +85,9 @@ ENGINE_SELFTEST="$HOME_DIR/observatory/engine/packages/@core/fe-agent-contracts/
 #    「관측 엔진을 찾지 못했다」로 죽었다 — 도구가 그 사유를 정확히 말해 줬다.
 #    ⇒ **패키지의 CLI** 를 찾아 그 폴더를 겨눈다. 못 찾으면 ⏭ 로 물러난다(거짓 초록보다 낫다).
 # ⛔⛔ **아래 세 자리의 `universe` 는 전부 「명령 이름」이다 — 패키지 이름이 아니다.**
-#    npm 패키지 이름은 `universe-harness` 이지만 `package.json` 의 `bin` **키**는 `universe` 라서
+#    npm 패키지 이름은 `universe-front-harness` 이지만 `package.json` 의 `bin` **키**는 `universe` 라서
 #    깔리는 파일은 `node_modules/.bin/universe` 이고 PATH 에 놓이는 것도 `universe` 다.
-#    ⚠️ 여기를 `universe-harness` 로 바꾸면 **훅이 CLI 를 영영 못 찾는다** — 그러면 아래
+#    ⚠️ 여기를 `universe-front-harness` 로 바꾸면 **훅이 CLI 를 영영 못 찾는다** — 그러면 아래
 #    「못 찾으면 막는다」 갈래에 걸려 **이 저장소의 모든 커밋이 막힌다.** 바꾸지 마라.
 OBSERVE_CLI=""
 if [ -x "$REPO/node_modules/.bin/universe" ]; then

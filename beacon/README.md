@@ -11,71 +11,124 @@ description: 우주의 상태를 밖으로 쏜다. 저장소가 정본이고 위
 
 > 우주는 신호를 **쏘기만** 한다. 받아 적지 않는다.
 
-## 방향은 한쪽이다
+## 무엇을 하는 기관인가
+
+전파는 **우주의 지금 상태를 위키로 내보내는 기관**이다. 방향은 한쪽뿐이다.
 
 ```
-저장소 (정본)  ──전파──▶  Confluence (뷰)
+저장소 (정본)  ──전파──▶  위키 (뷰)
 ```
 
-⛔ **위키를 정본으로 쓰지 않는다.** 위키에는 diff·리뷰·롤백이 없고, 무엇보다
-**lint 로 집행할 수 없다.** 법칙이 관문일 수 있는 이유가 파일이기 때문이다(보존 법칙).
+내보내는 글은 **사람이 쓴 것이 아니다.** 렌더러가 `universe.config.json` · `laws/*.md`
+frontmatter · `galaxies/*.json` 같은 **우주의 실제 상태를 읽어 조립한다** — 그래서 낡을 수가 없다.
 
-이것은 원형이 된 두 정원이 이미 내린 결론이다 —
-Blumn Enterprise Harness 는 `sync_harness.py` 로 저장소에서 Confluence 로 발행하고,
-talk-bridge 정원은 같은 방식으로 Notion 에 발행한다. **어느 쪽도 위키에서 읽어 오지 않는다.**
-
-## 페이지 트리 — 우주의 구조가 위키에서도 보여야 한다
+| 절 | 출처 |
+|----|------|
+| 우주 상태 | `universe.config.json` |
+| 법칙 표(실측 포함) | `laws/*.md` frontmatter (`title`·`scope`·`optIn`·`rules`·`measured`) |
+| 은하 · 태양계 | `galaxies/*.json` |
+| 성운 | `nebula/README.md` |
+| 라운드 | `log/*.md` frontmatter |
 
 한 장으로 발행하지 않는다. **기관마다 한 페이지**다.
 
 ```
 Universe — 프론트엔드 하네스     (부모 · 개요 · 무엇이 배달되고 무엇이 안 되나)
-├── 법칙 (Laws)                 메타 4 + 물질 5 + 추가 절차
-├── 힘 (Forces)                 종류 3 + 지금 있는 힘 + 발견 카탈로그
+├── 법칙 (Laws)                 메타 + 물질 + 추가 절차
+├── 힘 (Forces)                 종류 + 지금 있는 힘 + 발견 카탈로그
 ├── 관측소 (Observatory)        세 장치 + 엔진 + 커버리지·드리프트
 ├── 은하 (Galaxies)             등록법 + 좌표 스키마
 ├── 성운 (Nebula)               형식 + 0건은 무죄가 아니다
 └── 라운드 (Rounds)             평가 규칙 + 이력 + 성숙도
 ```
 
-좌표는 `beacon/pages.json` 이 들고 있다. ⚠️ **이 파일은 배달되지 않는다** —
-사이트·스페이스·페이지 id 는 은하 좌표와 같은 성질이라 소비 저장소가 자기 것을 갖는다(보존 법칙).
-패키지에는 렌더러와 발행기만 실린다. **다음 발행은 create 가 아니라 update** —
-안 그러면 중복 페이지가 쌓인다.
+## 어떻게 부르는가 — 두 단계
 
-## 두 단계
+**렌더가 먼저, 발행이 나중이다.** 발행기는 `beacon/out/` 을 만들지 않는다.
 
 | 단계 | 스크립트 | 하는 일 | 필요한 것 |
 |------|----------|---------|----------|
-| 렌더 | `render.mjs` | 우주 상태 → `beacon/out/pages/{slug}.md` 7장 | 없음 (오프라인) |
-| 발행 | `publish.mjs` | 그 7장을 storage XHTML 로 바꿔 **id 가 있는 페이지에 update** | `.secret/confluence.json` |
+| 렌더 | `render.mjs` | 우주 상태 → `beacon/out/pages/{slug}.md` | 없음 (오프라인) |
+| 발행 (기본) | `wiki.mjs` | 그 산출을 **git 위키**에 커밋한다. 주소는 `origin` 에서 파생한다 | git 위키가 있는 원격 |
+| 발행 (Confluence) | `publish.mjs` | 그 산출을 storage XHTML 로 바꿔 **id 가 있는 페이지에 update** | `.secret/confluence.json` |
 
 ```bash
-node beacon/render.mjs                        # beacon/out/ 에 생성 (추적 안 함)
-node beacon/publish.mjs --dry-run             # 대상 id·제목·본문 크기만 (네트워크 안 씀)
-node beacon/publish.mjs --only laws           # 한 장만
-node beacon/publish.mjs                       # 7장 발행
+universe render                             # beacon/out/ 에 생성 (추적 안 함)
+
+node beacon/wiki.mjs --dry-run              # 무엇이 바뀌는지만
+node beacon/wiki.mjs                        # 커밋까지. --push 를 줘야 실제로 민다
+node beacon/wiki.mjs --push                 # 위키로 민다
+
+universe publish --dry-run                  # 대상 id·제목·본문 크기만 (네트워크 안 씀)
+universe publish --only laws                # 한 장만
+universe publish                            # Confluence 로 발행
 ```
 
 **헤드리스다.** MCP 도 사람도 필요 없으므로 커밋 훅·cron 에 걸 수 있다 —
 R03 평가에서 자동화 완결성이 `C` 였던 이유가 이것이 없어서였다.
 
+### 재는 법
+
+```bash
+universe render                             # 이름표에 있는 장이 전부 나온다
+universe publish --dry-run; echo $?         # 대상 목록 + 0
+```
+
+⛔ 검사 명령을 파이프에 물려 그 결과로 판정하지 마라(관측 법칙 §3).
+
+## 함정
+
+- ⛔ **위키를 정본으로 쓰지 않는다.** 위키에는 diff·리뷰·롤백이 없고, 무엇보다
+  **lint 로 집행할 수 없다.** 법칙이 관문일 수 있는 이유가 파일이기 때문이다(보존 법칙).
+- ⛔ **Confluence 경로에 create 는 없다.** id 가 있는 페이지만 update 한다 —
+  create 를 섞는 순간 발행할 때마다 중복이 쌓이고 정본이 둘이 된다.
+- ⛔ **페이지 id 를 `beacon/pages.json` 에 적지 마라.** 그 파일은 커밋된다.
+  거기 두는 것은 **이름표(슬러그·제목·부모)뿐**이고, 사이트·스페이스·페이지 id 는
+  `.secret/confluence-pages.json`(gitignore) 에 둔다 — 공개 저장소에 남으면 받은 사람에게는
+  못 쓰는 좌표이고 우리에게는 새어 나가는 좌표다.
+- ⛔ **발행 전에 `observe.mjs` 가 초록불이어야 한다.** 낡은 수치를 발행하는 것이
+  안 하느니만 못하다(관측 법칙).
+- `beacon/pages.json` 은 **배달되지 않는다.** 발행 대상은 은하 좌표와 같은 성질이라
+  소비 저장소가 자기 것을 갖는다(보존 법칙). 패키지에는 렌더러와 발행기만 실린다.
+- 렌더가 안 내는 슬러그를 이름표에 남기면 발행기가 「렌더 산출이 모자란다」로 죽는다.
+  **렌더가 먼저, 이름표가 나중**이다.
+- 위키에서 제목이 바뀌면 경고를 찍고 **저장소의 제목으로 되돌린다**(정본은 저장소다).
+
 | 상황 | 무슨 일이 일어나나 |
 |------|-------------------|
-| `beacon/out/` 이 없거나 모자람 | 「먼저 `node beacon/render.mjs` 를 돌려라」 후 **exit 1** |
+| `beacon/out/` 이 없거나 모자람 | 「먼저 렌더하라」 후 **exit 1** |
 | `.secret/confluence.json` 이 없음 | 만드는 법 안내 후 **exit 1** (`--dry-run` 은 자격증명 없이도 exit 0) |
-| 템플릿을 안 채움 | 401 을 원인 모르고 보지 않도록 **먼저 막는다** |
-| 위키에서 제목이 바뀜 | 경고를 찍고 **저장소의 제목으로 되돌린다** (정본은 저장소다) |
+| 자격증명 템플릿을 안 채움 | 401 을 원인 모르고 보지 않도록 **먼저 막는다** |
 | 한 장이 실패 | 나머지는 계속 발행하고 마지막에 실패 목록 + **exit 1** |
 
-⛔ **create 는 없다.** `pages.json` 에 id 가 있는 7장만 update 한다 —
-create 를 섞는 순간 발행할 때마다 중복이 쌓이고 정본이 둘이 된다.
+## 왜 이렇게 정했나
 
-## 마크다운 → storage 변환기
+### 왜 한 방향인가
 
-⚠️ Confluence Cloud REST **v2** 는 본문을 `storage`(XHTML) 로만 받는다. 마크다운을 그대로 PUT 하면
+이것은 원형이 된 두 정원이 이미 내린 결론이다 —
+Blumn Enterprise Harness 는 `sync_harness.py` 로 저장소에서 Confluence 로 발행하고,
+talk-bridge 정원은 같은 방식으로 Notion 에 발행한다. **어느 쪽도 위키에서 읽어 오지 않는다.**
+
+### 왜 Confluence 에서 git 위키로 옮겼나 (R151)
+
+Confluence 로 보내면 셋이 따라왔다.
+
+1. **좌표가 커밋된다** — 사이트·스페이스 키·페이지 id. 받은 사람에겐 못 쓰는 좌표고
+   공개 저장소엔 있어선 안 되는 좌표다.
+2. **되읽을 수가 없다** — 본문이 MCP 로만 읽혀 스크립트의 손이 안 닿았다. 그래서
+   「위키가 손으로 고쳐졌는가」 검사가 **혼자 못 돌았다** — 사람이 받아다 줘야 했다.
+3. **왕복이 글자를 바꾼다** — 표 구분선·불릿·이스케이프를 정규화해야 겨우 비교가 됐고,
+   그 정규화층은 **진짜 사람 수정이 숨을 수 있는 곳**이기도 했다.
+
+git 위키는 셋 다 없다. 주소는 `origin` 에서 **파생되고**(적을 좌표가 없다), `clone` 으로
+되읽고, **바이트가 그대로다**. 그래서 `wiki.mjs` 에는 마크다운 변환기가 **없다** —
+없어진 것이 성과다. 그리고 기본이 안전하다: `--push` 를 주지 않으면 커밋까지만 한다.
+
+### 왜 변환기를 직접 들고 있나 (Confluence 경로)
+
+Confluence Cloud REST **v2** 는 본문을 `storage`(XHTML) 로만 받는다. 마크다운을 그대로 PUT 하면
 원문이 그대로 보인다. 그래서 `publish.mjs` 안에 최소 변환기를 직접 들고 있다 —
-**이 저장소는 순수 Node 로 돈다(외부 의존 0).**
+**이 저장소는 순수 Node 로 돈다(외부 의존 0).** 대신 덮는 범위가 좁다.
 
 | 지원한다 | 지원하지 않는다 |
 |----------|----------------|
@@ -91,24 +144,3 @@ create 를 섞는 순간 발행할 때마다 중복이 쌓이고 정본이 둘�
 ⚠️ **글롭 `["**/*.tsx"]` 이 백틱 밖에 있으면 굵게 문법으로 먹힌다** — 마크다운 규격대로 파싱해도
 그렇게 깨진다. 변환기가 「여는 별표 뒤에 `/`」를 강조로 보지 않는 가드로 막고 있지만,
 **렌더러에서 백틱으로 감싸는 것이 정석이다.**
-
-## 재는 법
-
-```bash
-node beacon/render.mjs                      # 7장이 나온다
-node beacon/publish.mjs --dry-run; echo $?  # 7장 대상 + 0  ⛔ 파이프 뒤에서 판정하지 마라
-```
-
-## 무엇이 발행되나
-
-렌더러는 **문서를 쓰지 않는다. 우주의 실제 상태를 읽어 조립한다** — 그래서 낡을 수가 없다.
-
-| 절 | 출처 |
-|----|------|
-| 우주 상태 | `universe.config.json` |
-| 법칙 표(실측 포함) | `laws/*.md` frontmatter (`title`·`scope`·`optIn`·`rules`·`measured`) |
-| 은하 · 태양계 | `galaxies/*.json` |
-| 성운 | `nebula/README.md` |
-| 라운드 | `log/*.md` frontmatter |
-
-⚠️ 발행 전에 `observe.mjs` 가 초록불이어야 한다. **낡은 수치를 발행하는 것이 안 하느니만 못하다**(관측 법칙).

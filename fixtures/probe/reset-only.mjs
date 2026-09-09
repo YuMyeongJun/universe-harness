@@ -27,7 +27,7 @@ try {
   const observation = await harness.reset(stageId);
   console.log(observation.text);
   console.log('\n신호:', JSON.stringify(observation.signals));
-  /* ⚠️ 엔진은 boot build 가 빨간불이어도 reset 을 정상 반환한다(fixtures/README.md §5-a).
+  /* ⚠️ 엔진은 boot build 가 빨간불이어도 reset 을 정상 반환한다.
      여기서만이라도 종료코드로 드러낸다 — 안 그러면 「재현 불가」가 조용히 성공처럼 보인다. */
   if (!observation.signals.every((signal) => signal.ok)) {
     console.log('⛔ boot build 가 빨간불이다 — 이 스테이지는 이 저장소에서 재현 불가다.');

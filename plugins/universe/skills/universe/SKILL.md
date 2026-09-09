@@ -44,7 +44,7 @@ universe laws
 ## 1. 설치
 
 ```bash
-npx universe init          # <저장소>/universe/ 를 깐다
+npx universe-front-harness init   # <저장소>/universe/ 를 깐다
 ```
 
 깔리는 것: **법칙 · 궤도 · 힘 · 빅뱅 · 관측소 · 문서**

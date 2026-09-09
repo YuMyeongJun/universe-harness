@@ -105,8 +105,8 @@ export const createGatewayAsk = ({ model, apiKey, systemPrompt, baseUrl, timeout
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           /* 순위표용 선택 헤더. 저장소 주소는 공개된 것이라 좌표가 아니다. */
-          'HTTP-Referer': 'https://github.com/YuMyeongJun/universe-harness',
-          'X-Title': 'universe-harness',
+          'HTTP-Referer': 'https://github.com/YuMyeongJun/universe-front-harness',
+          'X-Title': 'universe-front-harness',
         },
         /* `usage.include` 를 켜야 **비용이 응답에 온다** — 안 켜면 우리가 추정하게 된다. */
         body: JSON.stringify({ model, messages, usage: { include: true } }),

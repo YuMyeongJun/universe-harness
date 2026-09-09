@@ -1,10 +1,10 @@
 {
-  "name": "universe-harness",
+  "name": "universe-front-harness",
   "version": "0.9.0",
   "type": "module",
   "description": "빅뱅 한 번으로 별이 태어나는 프론트엔드 하네스. 법칙(규칙)과 관측소(채점)를 배달하고, 힘과 은하는 배달하지 않는다.",
   "license": "MIT",
-  "//bin": "⛔ 명령 이름 `universe` 는 **바꾸지 마라** — `.githooks/pre-commit` 과 문서 전부가 `node_modules/.bin/universe` 에 걸려 있다(패키지 이름만 `universe-harness` 로 갔다). ⚠️⚠️ 값의 앞 `./` 는 **뺐다**: npm 11 은 `\"./bin/universe.mjs\"` 를 발행 때 `npm warn publish \"bin[universe]\" script name bin/universe.mjs was invalid and removed` 로 **명령을 통째로 지운다**(실측: `./` 있으면 경고, 없으면 조용하다). 지워지면 소비 저장소에 `.bin/universe` 가 안 깔리고 — 그건 훅·문서·`init` 안내가 전부 매달린 이름이다. ⚠️ 이 손해는 **원본에서도, 로컬 tarball 설치에서도 안 보인다**(둘 다 tarball 의 package.json 을 읽는다). 레지스트리를 거쳐야 드러나는 종류라 **아직 못 쟀다(⚪)** — 그래서 경고를 없애는 쪽을 골랐다.",
+  "//bin": "⛔ 명령 이름 `universe` 는 **바꾸지 마라** — `.githooks/pre-commit` 과 문서 전부가 `node_modules/.bin/universe` 에 걸려 있다(패키지 이름만 `universe-front-harness` 로 갔다). ⚠️⚠️ 값의 앞 `./` 는 **뺐다**: npm 11 은 `\"./bin/universe.mjs\"` 를 발행 때 `npm warn publish \"bin[universe]\" script name bin/universe.mjs was invalid and removed` 로 **명령을 통째로 지운다**(실측: `./` 있으면 경고, 없으면 조용하다). 지워지면 소비 저장소에 `.bin/universe` 가 안 깔리고 — 그건 훅·문서·`init` 안내가 전부 매달린 이름이다. ⚠️ 이 손해는 **원본에서도, 로컬 tarball 설치에서도 안 보인다**(둘 다 tarball 의 package.json 을 읽는다). 레지스트리를 거쳐야 드러나는 종류라 **아직 못 쟀다(⚪)** — 그래서 경고를 없애는 쪽을 골랐다.",
   "bin": {
     "universe": "bin/universe.mjs"
   },
@@ -62,11 +62,11 @@
   "//beacon-pages": "beacon/pages.json 은 싣지 않는다 — 사이트·페이지 id 는 은하 좌표와 같은 성질이라 소비 저장소가 갖는다.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YuMyeongJun/universe-harness.git"
+    "url": "git+https://github.com/YuMyeongJun/universe-front-harness.git"
   },
-  "homepage": "https://github.com/YuMyeongJun/universe-harness#readme",
+  "homepage": "https://github.com/YuMyeongJun/universe-front-harness#readme",
   "bugs": {
-    "url": "https://github.com/YuMyeongJun/universe-harness/issues"
+    "url": "https://github.com/YuMyeongJun/universe-front-harness/issues"
   },
   "author": "mjyu-louis <mjyu@blumn.ai> (https://github.com/YuMyeongJun)",
   "//keywords": "npm 검색은 영어로 이뤄지므로 영어를 정본으로 둔다. 한글 낱말은 이 저장소를 이미 아는 사람만 치므로 검색 가치가 없다 — 대신 제품이 **재는 축**(lint·coverage·bundle-size)을 낱말로 박아 둔다.",

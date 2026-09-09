@@ -106,17 +106,17 @@ $ universe new tiny-galaxy shop DashboardToday --expand
 
 ## `init` — 소비 저장소에 우주를 깐다
 
-**깔 때 부르는 이름과 친 뒤 부르는 이름이 다르다** — 꾸러미는 `universe-harness`, 명령은 `universe`:
+**깔 때 부르는 이름과 친 뒤 부르는 이름이 다르다** — 꾸러미는 `universe-front-harness`, 명령은 `universe`:
 
 ```bash
-npm i -D universe-harness   # pnpm add -D / yarn add -D 도 같다 (의존이 0개다)
+npm i -D universe-front-harness   # pnpm add -D / yarn add -D 도 같다 (의존이 0개다)
 ./node_modules/.bin/universe init            # universe/ 가 생긴다
 ./node_modules/.bin/universe init --update   # 기계만 새로 받는다 — 은하·성운·로그는 그대로
 ```
 
 **나온다** — `universe/` 폴더(법칙·힘·관측소 목록)와, 규칙이 이 저장소에서 **얼마나 못 읽는지**의 비율.
 
-⛔ **`npx universe` 를 치지 마라** — 우리 것은 `npx universe-harness` 다(전자는 남의 패키지다).
+⛔ **`npx universe` 를 치지 마라** — 우리 것은 `npx universe-front-harness` 다(전자는 남의 패키지다).
 ⚠️ 판올림은 **두 걸음**이다: 꾸러미를 새로 받고(`@latest`) **그다음** `universe init --update`.
 앞만 하면 깔린 폴더는 옛 판 그대로고, 새 법칙은 목록에 안 이어져 **아무 말 없이** 안 돈다.
 ⛔ 우주 저장소 안에서는 **거절한다**(`--force` 로도 안 뚫린다) — 왜 막는지는

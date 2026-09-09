@@ -85,8 +85,8 @@ try {
   }
   /**
    * ⛔⛔ **`.bin/universe` 는 「명령 이름」이라 패키지 이름이 바뀌어도 그대로다.**
-   * npm 은 `package.json` 의 `bin` **키**로 이 파일을 만든다 — 패키지 이름(`universe-harness`)이
-   * 아니다. 여기를 `.bin/universe-harness` 로 바꾸면 **이 검사만 빨개지고 제품은 멀쩡**하다
+   * npm 은 `package.json` 의 `bin` **키**로 이 파일을 만든다 — 패키지 이름(`universe-front-harness`)이
+   * 아니다. 여기를 `.bin/universe-front-harness` 로 바꾸면 **이 검사만 빨개지고 제품은 멀쩡**하다
    * (더 나쁜 쪽으로는, `bin` 키를 바꿔 놓고 이 줄도 같이 바꾸면 **훅이 CLI 를 못 찾는 것**을
    * 이 검사가 못 잡는다 — `.githooks/pre-commit` 이 `node_modules/.bin/universe` 를 찾는다).
    * ⚠️ 위의 tgz 이름은 `npm pack --json` 이 알려 준 것을 쓴다 — **패키지 이름을 손으로 안 적는다.**
