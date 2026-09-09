@@ -1,11 +1,15 @@
 {
   "pages": {
-    "forces": "047c489a0e93df13",
-    "galaxies": "689a0b837edc635f",
-    "index": "51068bd81f3598aa",
-    "laws": "e1470f5be6fff050",
-    "nebula": "e335c0de791ff8f8",
-    "observatory": "f7f92c794a993a37",
-    "rounds": "86d3dbc6493de44d"
+    "forces": "96f8801397e88902",
+    "galaxies": "cceab01caf9991f4",
+    "guide-not-yet": "efc755230ce5eaf3",
+    "guide-screens": "391c52bc56cd82c1",
+    "guide-walkthrough": "4f87ac7bb1f3d18b",
+    "guide": "5cd70f6b92a60283",
+    "index": "6290c252a8d8814e",
+    "laws": "48092947d76c562c",
+    "nebula": "3a4d5f6a7756c578",
+    "observatory": "644e1639c0fbb403",
+    "rounds": "d747cd01c184af76"
   }
 }
