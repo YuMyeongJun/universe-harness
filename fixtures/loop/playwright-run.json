@@ -1,0 +1,12 @@
+{
+  "config": { "version": "1.49.0" },
+  "errors": [],
+  "suites": [
+    { "title": "smoke.spec.ts", "file": "e2e/smoke.spec.ts", "specs": [
+      { "title": "TC-100 대시보드가 뜬다", "file": "e2e/smoke.spec.ts",
+        "tests": [{ "status": "expected", "results": [{ "status": "passed" }] }] },
+      { "title": "TC-101 쿠폰 배지가 남은 개수를 보여 준다", "file": "e2e/smoke.spec.ts",
+        "tests": [{ "status": "unexpected", "results": [{ "status": "failed" }] }] }
+    ]}
+  ]
+}

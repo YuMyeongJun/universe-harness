@@ -19,7 +19,7 @@ description: 우주의 법칙이 적용되는 저장소들. 우주는 별이 아
 <!-- GALAXIES:BEGIN -->
 | 은하 | 켠 법칙 | 태양계 | 선언한 명령 |
 |---|---:|---:|---|
-| `tiny-galaxy` | 6개 | 1개 | `build` · `test` · `lintJson` · `testFile` · `lintFix` · `typecheck` |
+| `tiny-galaxy` | 6개 | 1개 | `build` · `test` · `lintJson` · `testFile` · `lintFix` · `typecheck` · `e2eOrigins` |
 | `messy-galaxy` | 6개 | 1개 | — |
 <!-- GALAXIES:END -->
 

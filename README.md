@@ -104,7 +104,7 @@ $ universe new tiny-galaxy shop DashboardToday --expand
 | ↳ 법칙이 덮은 것 | 20 |
 | ↳ 성운이 든 것(주인 없는 규칙) | 0 |
 | 등록된 은하 | 2 |
-| 관문(`universe check`) | 33 |
+| 관문(`universe check`) | 34 |
 | 명령 | 45 |
 | ↳ 사람이 치는 것 | 19 |
 | ↳ 관문이 알아서 부르는 것 | 26 |

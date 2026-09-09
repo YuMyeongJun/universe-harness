@@ -31,6 +31,7 @@ import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { requireUniverseHome } from '../lib/home.mjs';
 import { findGalaxyFile, resolveGalaxyPath } from '../lib/galaxy-load.mjs';
 import { EXIT_UNMEASURED } from '../lib/gates.mjs';
+import { judgeRun } from '../lib/loop-contract.mjs';
 
 const argv = process.argv.slice(2);
 rejectUnknownFlags(argv, ['--universe', '--galaxy', '--report', '--watch'], 'universe loop');
@@ -57,11 +58,15 @@ if (!file) {
 const galaxy = resolveGalaxyPath(root, JSON.parse(await readFile(file, 'utf8')));
 console.log(`   은하 ${name} — ${galaxy.path}`);
 
-/** ⛔ 계약을 여기서 다시 구현하지 않는다 — `qa` 의 것을 부른다. */
-const runner = path.join(root, 'qa/dist/run/cli.js');
-if (!existsSync(runner)) {
-  unmeasured('TC 계약(`qa/dist`)이 안 지어져 있다.', 'npm --prefix qa install && npm --prefix qa run build');
-}
+/**
+ * ⛔ **계약을 여기서 다시 구현하지 않는다** — `lib/loop-contract.mjs` 의 것을 쓴다.
+ *
+ * ⚠️ 예전엔 `qa/dist/run/cli.js` 를 **spawn 으로** 불렀다. 그 `qa/` 는 2026-09-09 에 화면과
+ * 함께 나갔고 **배달된 적도 없다** — 소비 저장소에서 `universe loop` 은 ⚪ 도 아니고
+ * **날 Node 스택**으로 죽었다. 이 저장소에서 돌던 것은 `qa/dist` 가 gitignore 된 잔해로
+ * 남아 있어서였다. ⇒ 계약을 `lib/` 으로 옮겨 이 도구가 **혼자 서게** 했다.
+ * ⛔ 그때 뜻을 바꾸지 않았다 — 옮긴 계약이 원본과 같은 답을 내는지 여섯 갈래로 대조했다.
+ */
 
 /**
  * **화면 시험 결과를 어디서 받는가.**
@@ -135,30 +140,32 @@ try {
 const isPlaywright = Boolean(raw && typeof raw === 'object' && Array.isArray(raw.suites) && raw.config);
 console.log(`   입력 — ${isPlaywright ? 'Playwright 리포트(판정은 비어 있다)' : '판정이 붙은 주행'}`);
 
-const origins = path.join(root, 'qa/e2e/origins.json');
-const args = [runner, report, '--json'];
-if (isPlaywright) { args.push('--from-playwright'); }
-if (existsSync(origins) && isPlaywright) { args.push('--origins', origins); }
-
-const out = await new Promise((done) => {
-  const child = spawn(process.execPath, args, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-  let text = '';
-  let err = '';
-  child.stdout.on('data', (d) => { text += d; });
-  child.stderr.on('data', (d) => { err += d; });
-  child.on('close', (code) => done({ code, text, err }));
-  child.on('error', (error) => done({ code: 127, text: '', err: String(error.message) }));
-});
+/**
+ * **출처 명부** — 어느 TC 가 사람이 쓴 것인가.
+ * ⛔ 여기 없는 TC 는 `unknown` 이 되고 **검증 분모에서 빠진다**(자기 채점 가드).
+ * 생 Playwright 리포트는 전부 `unknown` 이라, 명부가 없으면 이 도구는 ⚪ 로 답한다 —
+ * 그게 옳다. 「무엇을 검증하는지 모르는 TC」로 「끝났다」를 말할 수는 없다.
+ * ⚠️ 자리는 은하가 정한다: 좌표의 `commands.e2eOrigins` (없으면 은하 안 `.harness/origins.json`).
+ */
+const originsPath = galaxy.commands?.e2eOrigins
+  ? path.resolve(galaxy.path, galaxy.commands.e2eOrigins)
+  : path.join(galaxy.path, '.harness/origins.json');
+let origins;
+if (existsSync(originsPath)) {
+  try {
+    origins = JSON.parse(await readFile(originsPath, 'utf8'));
+    console.log(`   출처 명부 — ${path.relative(process.cwd(), originsPath)} (${Object.keys(origins).length}건)`);
+  } catch (error) {
+    unmeasured(`출처 명부를 못 읽었다: ${path.relative(process.cwd(), originsPath)}`, error.message.split('\n')[0]);
+  }
+}
 
 let parsed = null;
 try {
-  parsed = JSON.parse(out.text);
-} catch {
-  parsed = null;
-}
-/* ⛔ 계약의 답을 못 읽었으면 **통과가 아니다** — 「끝났다」를 지어내지 않는다(§8). */
-if (parsed === null) {
-  unmeasured('TC 계약이 낸 답을 못 읽었다(JSON 이 아니다).', (out.err || out.text).split('\n').slice(-3).join(' '));
+  parsed = judgeRun(raw, origins ? { origins } : {});
+} catch (error) {
+  /* ⛔ 계약이 터졌으면 **통과가 아니다** — 「끝났다」를 지어내지 않는다(§8). */
+  unmeasured('TC 계약이 이 주행을 판정하지 못했다.', error.message.split('\n')[0]);
 }
 
 const stats = parsed.stats ?? {};

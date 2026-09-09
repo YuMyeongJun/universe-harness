@@ -306,6 +306,24 @@ const CASES = [
     cmd: ['bash', ['observatory/probe-blueprint.sh']],
   },
   {
+    check: '끝났는가가 갈리는가(probe-loop)',
+    bite: '출처를 모르는 TC 로 **「끝났다」**를 말한다',
+    expect: '못 쟀다',
+    file: 'lib/loop-contract.mjs',
+    /**
+     * ⛔⛔ **자기 채점 가드가 이 명령의 값어치 전부다.**
+     * 「끝났는가」의 종료 조건은 「판단하지 않은 fail 0」인데, **무엇을 검증하는지 모르는 TC**
+     * (`origin: unknown`)를 검증으로 세면 생 Playwright 리포트만으로 「끝났다」가 나온다 —
+     * 아무도 판단하지 않은 주행이 끝난 것으로 보인다.
+     * ⇒ 분모에서 빼는 목록을 비우면(가드를 무르게 하면) 탐침의 ③ 갈래가 ⚪ 대신 0/1 을 내고 문다.
+     * ⚠️ 겨냥은 **조건**이다: 가드가 막으려는 상태(출처를 모르는데 검증으로 세는 것)를 만든다.
+     */
+    mutate: (t) => t.replace(
+      "export const NON_VERIFYING_ORIGINS = ['derived-from-code', 'unknown'];",
+      "export const NON_VERIFYING_ORIGINS = ['derived-from-code'];"),
+    cmd: ['bash', ['observatory/probe-loop.sh']],
+  },
+  {
     check: '구조 카드의 예산(parts)',
     bite: '잘라 놓고 **몇 개를 안 봤는지** 안 말한다',
     expect: '**안 본 수**가 틀리다',

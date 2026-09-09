@@ -14,10 +14,10 @@
  * ⛔ 파이프 뒤에서 종료코드를 읽지 마라(관측 법칙 §3).
  */
 import { mkdtemp, mkdir, rm, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { rejectUnknownFlags } from '../lib/flags.mjs';
 import { requireUniverseSource } from '../lib/home.mjs';
 
@@ -171,6 +171,40 @@ try {
   if (missing.length > 0) {
     for (const g of missing) console.error(`     ⛔ ${g.label} — ${g.file} 가 배달되지 않았다`);
     console.error('     ⇒ `package.json` 의 `files` 에 더하거나, 소비자용이 아니면 `scope: \'universe\'` 로 적어라.');
+    failed += 1;
+  }
+
+  /**
+   * ⑦ **사람이 치는 명령의 파일이 전부 실렸는가.**
+   *
+   * ⛔⛔ 실측(2026-09-09): ⑥ 바로 위가 「소비자 **관문**이 전부 실렸는가」인데, 그 질문은
+   * `GATES` 만 본다 — **배분표(`SUBCOMMANDS`)는 그 밖이라 안 보였다.** 그래서
+   * `blueprint` · `loop` · `repeat` · `extract` 넷이 **사람이 치는 것으로 광고되면서
+   * 파일은 안 실려** 있었다. 소비 저장소에서 치면 ⚪ 도 아니고 **날 Node 스택**으로 죽는다
+   * (`Cannot find module …/observatory/loop-state.mjs`).
+   * ⚠️ R53 이 못 박은 「아무도 못 쓰는 기능」의 더 나쁜 판이다 — 그때는 문서에 없었을 뿐이고
+   * 이건 **시키는 대로 쳤을 때 죽는다.** ⇒ 질문을 관문에서 **명령까지** 넓힌다(§9).
+   *
+   * ⚠️ 패키지 이름을 손으로 안 적는다 — `.bin/universe` 심링크를 되짚어 꾸러미의 뿌리를 찾는다.
+   */
+  const pkgRoot = dirname(dirname(realpathSync(cli)));
+  const { COMMANDS } = await import('../lib/commands.mjs');
+  const routerSrc = await readFile(join(pkgRoot, 'bin/universe.mjs'), 'utf8');
+  const routerBlock = routerSrc.slice(routerSrc.indexOf('const SUBCOMMANDS'),
+    routerSrc.indexOf('};', routerSrc.indexOf('const SUBCOMMANDS')));
+  const routed = [...routerBlock.matchAll(/^\s*'?([a-z][a-z-]*)'?:\s*'([^']+)'/gm)];
+  if (routed.length === 0) {
+    console.error('  ⛔ 배분표를 못 읽었다 — 잴 대상이 0개가 된다. 통과가 아니다(§8).');
+    failed += 1;
+  }
+  const daily = routed.filter(([, name]) => (COMMANDS[name]?.group ?? '') === 'daily');
+  const notShipped = daily.filter(([, , file]) => !existsSync(join(pkgRoot, file)));
+  console.log(`  ${notShipped.length === 0 ? '✅' : '❌'} 사람이 치는 명령이 전부 실렸다 (${daily.length}개 중 안 실린 것 ${notShipped.length}개)`);
+  if (notShipped.length > 0) {
+    for (const [, name, file] of notShipped) {
+      console.error(`     ⛔ universe ${name} — ${file} 가 배달되지 않았다. 치면 날 스택으로 죽는다`);
+    }
+    console.error('     ⇒ `package.json` 의 `files` 에 더하거나, 사람이 칠 것이 아니면 `lib/commands.mjs` 에서 group 을 바꿔라.');
     failed += 1;
   }
 } finally {

@@ -20,7 +20,8 @@
     "lintJson": "npx eslint <TARGET> --report-unused-disable-directives --format json -o <OUT>",
     "testFile": "npx vitest run <PATH>",
     "lintFix": "npx eslint <TARGET> --fix",
-    "typecheck": "npm run typecheck"
+    "typecheck": "npm run typecheck",
+    "e2eOrigins": "e2e/origins.json"
   },
   "lintTargets": [
     {
