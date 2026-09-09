@@ -169,18 +169,31 @@ export function RepoSelect() {
           {blanks.length > 0 && (
             <div className={CARD_NEXT}>
               <h2 className={SECTION}>사람이 채울 자리 — 도구가 못 읽었다</h2>
-              {blanks.map((where) => (
-                <TextField
-                  key={where}
-                  id={`blank-${where}`}
-                  label={where}
-                  sub="⛔ TODO — 도구가 못 읽은 자리"
-                  mono
-                  value={filled[where] ?? ''}
-                  placeholder="여기는 사람만 안다"
-                  onChange={(next) => setFilled({ ...filled, [where]: next })}
-                />
-              ))}
+              {/**
+                * ⚠️⚠️ 칸마다 똑같이 「여기는 사람만 안다」가 떠 있었다 — **사람도 못 채웠다.**
+                * 도구는 `TODO:` 뒤에 **무엇을 적어야 하는지 이미 적어 뒀는데**(`todos.asked`)
+                * 화면이 그 말을 버리고 영어 열쇠말만 보여 줬다.
+                * ⛔ 설명을 나르는 것이지 **값을 대신 넣는 것이 아니다.**
+                */}
+              {blanks.map((where) => {
+                const ask = drafted?.todos.asked[where] ?? '';
+                return (
+                  <TextField
+                    key={where}
+                    id={`blank-${where}`}
+                    label={where}
+                    sub={
+                      ask === ''
+                        ? '⚪ 도구가 이 자리에 아무 말도 안 남겼다 — 화면이 지어내지 않는다'
+                        : `⛔ TODO — ${ask}`
+                    }
+                    mono
+                    value={filled[where] ?? ''}
+                    placeholder=""
+                    onChange={(next) => setFilled({ ...filled, [where]: next })}
+                  />
+                );
+              })}
 
               <ActionButton primary disabled={busy !== null || typed < blanks.length} onClick={askToWrite}>
                 {busy === 'write' ? '적는 중…' : '좌표에 적기'}

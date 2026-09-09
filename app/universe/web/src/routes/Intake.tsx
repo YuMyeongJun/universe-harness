@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getBranches, getGalaxies, getGhOrgs, getRepos, postAdopt, postClone, readGalaxyDraft, writeGalaxyCoordinates } from '@api/client';
-import type { IAdoptResult, IBranchList, ICloneResult, IGhOrgs, IRepoListResult } from '@api/types';
+import type { IAdoptResult, IBranchList, ICloneResult, IGalaxyCandidates, IGhOrgs, IRepoListResult } from '@api/types';
 
 import { GhAuthPanel } from '@components/data-display/GhAuthPanel';
 import { ActionButton } from '@components/form-controls/ActionButton';
@@ -95,6 +95,13 @@ export function Intake() {
    * ⇒ 「잴 저장소」 화면에 이미 있던 그 칸을 여기에도 낸다. 서버 자리는 같은 것을 쓴다.
    */
   const [blanks, setBlanks] = useState<string[] | null>(null);
+  /**
+   * 자리마다 **도구가 적어 둔 설명**. ⛔ 값이 아니다 — 칸 **옆에**만 쓴다.
+   * 이게 없으면 화면은 영어 열쇠말만 보여 주고 사람은 무엇을 적을지 모른다.
+   */
+  const [asked, setAsked] = useState<Record<string, string>>({});
+  /** 도구가 저장소에서 **읽어 낸** 후보. ⛔ 화면이 고르지 않는다 — 그대로 낸다. */
+  const [draftCandidates, setDraftCandidates] = useState<IGalaxyCandidates | null>(null);
   const [filled, setFilled] = useState<Record<string, string>>({});
   const [writeNote, setWriteNote] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
@@ -179,11 +186,18 @@ export function Intake() {
         setStep(came.ok && came.draft !== null ? 'draft' : 'clone');
         /* ⭐ 초안이 나왔으면 **빈칸 자리를 바로 읽어 온다** — 사람이 파일을 열 이유가 없게. */
         setBlanks(null);
+        setAsked({});
+        setDraftCandidates(null);
         setFilled({});
         setWriteNote(null);
         if (came.draft !== null) {
           void readGalaxyDraft(came.draft).then(
-            (draft) => setBlanks(draft.todos.at),
+            (draft) => {
+              setBlanks(draft.todos.at);
+              /* ⭐ 자리 이름과 **그 자리가 요구하는 것**을 같이 받아 둔다. */
+              setAsked(draft.todos.asked);
+              setDraftCandidates(draft.candidates);
+            },
             /* ⛔ 못 읽었으면 **빈 목록으로 그리지 않는다** — 「채울 게 없다」로 보인다(§8). */
             () => setBlanks(null),
           );
@@ -623,18 +637,75 @@ export function Intake() {
 
                 {blanks !== null && blanks.length > 0 && (
                   <>
-                    {blanks.map((where) => (
-                      <TextField
-                        key={where}
-                        id={`blank-${where}`}
-                        label={where}
-                        sub="⛔ TODO — 도구가 못 읽은 자리"
-                        mono
-                        value={filled[where] ?? ''}
-                        placeholder="여기는 사람만 안다"
-                        onChange={(next) => setFilled({ ...filled, [where]: next })}
-                      />
-                    ))}
+                    {/**
+                      * ⚠️⚠️ **여기에 칸마다 똑같이 「여기는 사람만 안다」가 떠 있었다.**
+                      * 사람은 `appWorkspace` · `//thresholds` 같은 **영어 열쇠말**만 보게 되고,
+                      * 「사람만 안다」고 해 놓고 그 사람에게 **아무것도 안 알려 줬다.**
+                      * ⛔ 도구는 이미 `"TODO: 모노레포다 — 위 후보에서 골라 이름을 적어라"` 처럼
+                      * 적어 뒀는데 화면이 그 말을 **버리고 있었다**(`todos.asked`).
+                      * ⇒ 도구가 한 말을 **그대로** 칸 옆에 낸다. ⛔ 칸 안에는 안 넣는다 —
+                      * 짐작한 값이 사람이 적은 값 행세를 하는 자리를 만들지 않는다.
+                      */}
+                    {blanks.map((where) => {
+                      const ask = asked[where] ?? '';
+                      return (
+                        <TextField
+                          key={where}
+                          id={`blank-${where}`}
+                          label={where}
+                          sub={
+                            ask === ''
+                              ? '⚪ 도구가 이 자리에 아무 말도 안 남겼다 — 화면이 지어내지 않는다'
+                              : `⛔ TODO — ${ask}`
+                          }
+                          mono
+                          value={filled[where] ?? ''}
+                          placeholder=""
+                          onChange={(next) => setFilled({ ...filled, [where]: next })}
+                        />
+                      );
+                    })}
+
+                    {/**
+                      * ⭐ 도구가 **저장소를 읽어 낸** 후보다. ⛔ 화면이 고르지 않는다 —
+                      * 그대로 보여 주고 사람이 고른다(관측 법칙 §9: 열거하면 낡는다).
+                      */}
+                    {(draftCandidates?.workspaces?.length ?? 0) > 0 && (
+                      <Banner tone="unknown">
+                        <strong>
+                          ⭐ 모노레포 후보 — <code>appWorkspace</code> · <code>appDir</code> 에 쓸
+                          것들이다
+                        </strong>
+                        <ul className="mt-1.5 list-disc pl-5">
+                          {draftCandidates?.workspaces?.map((w) => (
+                            <li key={w}>
+                              <code>{w}</code>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-1.5">
+                          ⛔ 도구가 <strong>고르지 않았다</strong> — 어느 것이 잴 앱인지는 사람이
+                          안다. 괄호 안이 폴더(<code>appDir</code>), 앞이 이름(
+                          <code>appWorkspace</code>)이다.
+                        </div>
+                      </Banner>
+                    )}
+
+                    {draftCandidates?.solarSystemsRaw !== null &&
+                      draftCandidates?.solarSystemsRaw !== undefined && (
+                        <Banner tone="unknown">
+                          <strong>
+                            ⭐ 태양계 후보 — <code>solarSystems[].srcDir</code> 에 쓸 것들이다
+                          </strong>
+                          <div className="mt-1.5">
+                            <code>{draftCandidates.solarSystemsRaw}</code>
+                          </div>
+                          <div className="mt-1.5">
+                            ⛔ 도구는 <strong>후보만</strong> 냅니다 — 별이 어디서 태어나는지는
+                            사람이 고릅니다.
+                          </div>
+                        </Banner>
+                      )}
 
                     <ActionButton
                       primary

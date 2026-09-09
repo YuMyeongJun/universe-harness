@@ -72,6 +72,12 @@ export interface IGalaxyDraftTodos {
   count: number | null;
   /** 어디에 남았는지. 개수의 출처는 위(도구)이고, 이건 **자리를 짚어 주는 것**뿐이다. */
   at: string[];
+  /**
+   * 자리마다 **도구가 적어 둔 「무엇을 적어야 하는가」**. 열쇠는 `at` 의 자리 이름이다.
+   * ⛔ 값이 아니다 — **설명**이다. 화면은 이것을 칸 옆에 보여 줄 뿐 칸에 넣지 않는다.
+   * ⚠️ 도구가 아무 말도 안 남긴 자리는 빈 문자열이다 — 그때는 화면이 그렇게 말해야 한다.
+   */
+  asked: Record<string, string>;
   /** 도구가 센 개수와 짚은 자리 수가 다르면 여기에 적는다 — 조용히 맞추지 않는다. */
   note: string | null;
 }
@@ -106,24 +112,54 @@ export interface IGalaxyDraftResult {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
+const PLACEHOLDER = 'TODO:';
+
+/** 빈칸 한 자리 — **어디**인가와, 도구가 그 자리에 적어 둔 **무엇을 적어야 하는가**. */
+interface ITodoBlank {
+  at: string;
+  /** `TODO:` 뒤에 도구가 적어 둔 말. 빈 문자열이면 도구가 아무 말도 안 남긴 것이다. */
+  ask: string;
+}
+
 /**
- * `TODO:` 가 남은 **자리**를 짚는다.
+ * `TODO:` 가 남은 **자리와 그 자리가 요구하는 것**을 함께 짚는다.
  * ⚠️ 개수의 출처는 여전히 **도구**다 — 여기서 센 것은 대조용이고, 어긋나면 그렇게 적는다.
+ *
+ * ## ⛔⛔ 왜 `ask` 까지 나르는가 — 화면이 이걸 버리고 있었다
+ *
+ * 초안의 값은 그냥 `"TODO:"` 가 아니라 **`"TODO: 모노레포다 — 위 후보에서 골라 이름을 적어라"`**
+ * 처럼 도구가 **무엇을 적어야 하는지 이미 적어 둔** 문자열이다. 그런데 화면은 **자리 이름만**
+ * 받아 가고(`todos.at`) 그 말을 통째로 버린 뒤 칸마다 똑같이 「여기는 사람만 안다」를 띄웠다.
+ *
+ * ⚠️⚠️ **실측: 사람도 못 채웠다.** 화면에 `appWorkspace` · `//thresholds` 같은 **영어 열쇠말**만
+ * 뜨니 「사람만 안다」고 해 놓고 그 사람에게 아무것도 안 알려 준 꼴이었다. ⛔ 「도구가 못 읽었다」는
+ * 사실이지만, 그게 **아무 말도 안 해도 된다는 뜻은 아니다.**
+ *
+ * ⛔ 이건 **대신 채우는 것이 아니다.** 값은 여전히 사람이 적는다 — 나르는 것은 **설명**이다.
+ * 짐작한 값을 칸에 미리 넣으면 그건 초안이 완성본 행세를 하는 그 결함이 된다.
  */
-const todoPaths = (value: unknown, at = '', found: string[] = []): string[] => {
+const todoBlanks = (value: unknown, at = '', found: ITodoBlank[] = []): ITodoBlank[] => {
   if (typeof value === 'string') {
-    if (value.startsWith('TODO:')) found.push(at || '.');
+    if (value.startsWith(PLACEHOLDER)) {
+      found.push({ at: at || '.', ask: value.slice(PLACEHOLDER.length).trim() });
+    }
     return found;
   }
   if (Array.isArray(value)) {
-    value.forEach((v, i) => todoPaths(v, `${at}[${i}]`, found));
+    value.forEach((v, i) => todoBlanks(v, `${at}[${i}]`, found));
     return found;
   }
   if (isRecord(value)) {
-    for (const [k, v] of Object.entries(value)) todoPaths(v, at === '' ? k : `${at}.${k}`, found);
+    for (const [k, v] of Object.entries(value)) todoBlanks(v, at === '' ? k : `${at}.${k}`, found);
   }
   return found;
 };
+
+/**
+ * 자리만 필요한 곳을 위한 얇은 껍데기.
+ * ⛔ 걷는 것은 `todoBlanks` **한 벌**이다 — 두 벌로 걸으면 「자리 수」와 「설명」이 갈린다.
+ */
+const todoPaths = (value: unknown): string[] => todoBlanks(value).map((b) => b.at);
 
 /** 도구가 말한 개수를 그대로 읽는다: `⛔ 사람이 채울 자리 4곳 (`TODO:`)`. */
 const todoCountFromTool = (stdout: string): number | null => {
@@ -199,7 +235,7 @@ const unmeasuredResult = (
   drafted: false,
   unmeasured: why,
   draft: null,
-  todos: { count: null, at: [], note: null },
+  todos: { count: null, at: [], asked: {}, note: null },
   complete: false,
   summary: '⚪ 좌표 초안을 못 만들었다 — 서버가 대신 지어내지 않았다.',
   candidates: null,
@@ -261,7 +297,9 @@ const describe = (
   draft: Record<string, unknown>,
   tool: IGalaxyDraftResult['tool'],
 ): IGalaxyDraftResult => {
-  const at = todoPaths(draft);
+  const blanks = todoBlanks(draft);
+  const at = blanks.map((b) => b.at);
+  const asked = Object.fromEntries(blanks.map((b) => [b.at, b.ask]));
   const counted = todoCountFromTool(tool.stdout);
   /* 도구를 못 부른 채(다시 읽기) 서술할 때는 도구의 개수가 없다 — 그때는 자리 수를 쓴다. */
   const count = counted ?? (tool.stdout === '' ? at.length : null);
@@ -275,7 +313,7 @@ const describe = (
     drafted: true,
     unmeasured: null,
     draft,
-    todos: { count, at, note },
+    todos: { count, at, asked, note },
     complete,
     /**
      * ⛔ **여기서 「완성」이라는 말을 못 쓰게 한다.** 도구가 「사람이 채울 자리 N곳」이라고
