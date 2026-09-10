@@ -1,7 +1,0 @@
-{
-  "CONFIG_FILE_NAMES": "병렬 구조 — 플러그인마다 자기 설정 파일 이름을 갖는다(fe-harness.config.json vs next 쪽). 구현이 다르다",
-  "ILintTarget": "병렬 구조 — 스택마다 lint 대상의 모양이 다르다. 이름만 같고 필드가 다르다",
-  "createStage01": "병렬 구조 — 플러그인마다 자기 첫 스테이지를 만든다. 같이 import 되는 일이 없다",
-  "inApp": "병렬 구조 — 앱 경로를 만드는 helper 인데 스택마다 앱의 자리가 다르다",
-  "verifyWorkingTree": "병렬 구조 — 각자 자기 게이트와 관문으로 워킹트리를 본다. 구현이 다르다"
-}

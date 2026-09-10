@@ -1,8 +1,0 @@
-{
-  "//": "cp confluence.json.tmp confluence.json 후 채운다. 실제 파일은 gitignore 로 막혀 있다.",
-  "baseUrl": "https://<네-사이트>.atlassian.net/wiki",
-  "email": "your@email",
-  "apiToken": "https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급",
-  "spaceKey": "~개인스페이스키",
-  "parentPageId": "선택 — 이 페이지 아래에 발행한다"
-}

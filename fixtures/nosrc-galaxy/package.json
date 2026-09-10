@@ -1,7 +1,0 @@
-{
-  "//": "⛔ 시험 자산이다 — 별이 아니다. 뿌리에 `src/` 가 **없고** 코드가 `lib/`·`widgets/` 에 사는 저장소를 흉내 낸다. `observatory/probe-draft.sh` 가 이것으로 「초안이 코드가 있는 자리를 가리키는가」를 잰다.",
-  "name": "nosrc-galaxy",
-  "private": true,
-  "version": "0.0.0",
-  "description": "뿌리에 src/ 가 없는 저장소 픽스처 — 초안이 코드가 있는 자리를 가리키는지 재는 데 쓴다."
-}

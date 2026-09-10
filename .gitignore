@@ -1,68 +1,9 @@
-node_modules
+node_modules/
+dist/
 .DS_Store
-
-# 시크릿 — 템플릿(.tmp)만 추적한다
-.secret/*.json
-!.secret/*.json.tmp
-
-# 발행 산출물 — 저장소가 정본이므로 렌더 결과는 추적하지 않는다
-beacon/out/
-
-# 벤더링한 엔진의 의존·산출 — 소스만 추적한다
-observatory/engine/node_modules
-observatory/engine/**/dist
-observatory/.mutation-rescue.json
-observatory/.mutation-lock
-observatory/engine/.build-stamp
-
-# 은하 로컬 명부 — **그 기계에만 있는 좌표**가 사는 곳(R152).
-# ⛔ 커밋되는 `galaxies/` 에는 상대 경로만 둔다. 절대 경로는 남에게 못 쓰는 좌표이고,
-#    공개 저장소에 실려 나가면 남의 홈 경로가 그대로 공개된다(실측: backoffice 가 그랬다).
-galaxies.local/
-
-# ── 우주 안에 벤더링된 것 — 각자 자기 의존성을 갖는다(뿌리는 여전히 0) ──────────
-# ⛔ `app/universe`(콘솔)와 `qa/`(TC 관문)는 우주가 **재는 대상**이지 우주의 소스가 아니다.
-#    그래서 산출물은 커밋하지 않는다 — 커밋되면 워킹트리가 늘 더러워 게이트가 판정을 못 낸다.
-# ⛔⛔ **2026-09-09 — `app/`·`qa/` 는 이 가지에서 추적되지 않는다.**
-#   화면(콘솔)과 흡수한 TC 도구가 `feat/console-screens` 로 나갔다. 그런데 **디스크에는
-#   남는다** — node_modules·빌드 산출·받아 둔 저장소 사본(`.data/clones/*`)까지.
-#   ⚠️ 그것들을 막던 규칙이 `app/universe/.gitignore` 에 살았고 파일과 함께 사라졌다.
-#   실측: 그 직후 `git add -A` 가 **남의 저장소 사본 14개를 통째로 담으려 했다**(embedded git repo 경고).
-#   ⛔ 그 사고는 조용하지 않았지만, 조용했다면 남의 코드가 공개 저장소에 실려 나갔다.
-# ⇒ 폴더째 막는다. 화면을 다시 들일 때는 그쪽 가지의 `.gitignore` 가 다시 세부를 맡는다.
-app/
-qa/
-# ⛔ 티켓 본문에 계정 정보가 섞일 수 있다 — 원 저장소가 같은 이유로 무시하고 있었다.
-qa/tickets/
-
-# ⛔⛔ **Playwright 산출물 — 세션 쿠키·스크린샷·네트워크 헤더가 들어간다.**
-#   `.auth/storageState.json` 은 계정 정보가 아니라 **로그인된 세션 그 자체**다. 콘솔은
-#   브라우저를 headed 로 띄워 **사람이 직접 로그인**하므로 진짜 세션이 거기 떨어진다.
-#   트레이스(`*.zip`)에는 스크린샷과 네트워크 헤더가 통째로 들어간다.
-# ⚠️ 이 규칙들은 원 저장소(qa-harness)의 **루트** .gitignore 에 있었는데 이관에 안 따라왔다.
-#   ⇒ **옮겨진 파일은 세는데 옮겨지지 않은 「방어」는 아무도 안 센다.** 그리고 그 부재는
-#      **파일이 생기기 전까지 조용하다** — 지금 트리가 깨끗한 것은 막고 있다는 증거가 아니다.
-# ⛔⛔ **자리에 매지 않는다.** 2026-09-09 에 화면이 `feat/console-screens` 로 나가면서
-#   `app/`·`qa/` 폴더가 이 가지에서 사라졌고, `app/*/.auth/` 처럼 **경로가 박힌 규칙은
-#   그 순간 아무것도 안 막게 됐다** — 부품 시험이 그 자리에서 물어서 알았다(⚪ 아니고 ❌ 였다).
-#   ⚠️ R162 가 잡은 것과 **같은 형태**다: 파일은 옮겨지는데 방어는 안 따라온다. 이번엔
-#      파일이 **나가면서** 방어까지 데려갔다. ⇒ 어디에 생기든 막게 `**/` 로 적는다.
-#   ⛔ 화면이 돌아올 때 방어가 **먼저** 있어야 한다 — 나중에 붙이면 그 사이가 조용히 열린다.
-**/.auth/
-**/test-results/
-**/playwright-report/
-**/blob-report/
-**/trace.zip
-**/*.trace.zip
-
-# ⛔ 이 저장소는 **공개**다 — `.env` 가 뿌리에서도 안 막히고 있었다.
+.secret/
 .env
-.env.local
-**/.env
-**/.env.local
-
-# ⛔ 은하가 낸 **주행 산출물** — `universe loop` 가 읽는 자리다(`e2eReport`).
-#    실측: `qa/.universe/e2e.json` 이 커밋 대상으로 올라왔다. 화면 시험 리포트에는
-#    URL·계정·스크린샷 경로가 섞여 오고, 이 저장소는 **공개 MIT** 다.
-#    ⚠️ `test-results/` 만 막혀 있었다 — 자리를 옮기면 방어가 **안 따라온다**(R162 의 그 형태).
-.universe/
+__pycache__/
+.venv/
+test-results/
+playwright-report/
