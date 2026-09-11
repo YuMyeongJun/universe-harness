@@ -165,6 +165,9 @@ describe('실제 origin 으로 확인', () => {
     const origin = execFileSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' }).trim();
     const coordinate = repoCoordinateOf(origin);
     expect(coordinate, `origin 에서 좌표를 못 세웠다: ${origin}`).not.toBeNull();
-    expect(coordinate?.repo).toBe('qa-harness');
+    /* ⛔ 저장소 이름을 여기 적지 않는다 — 흡수돼 이름이 바뀐 날 이 줄이 빨개졌다(2026-09-11).
+       이름 대신 **origin 의 마지막 경로 조각과 같은가**를 잰다. 이름이 뭐든 좌표는 origin 에서 파생돼야 한다. */
+    const lastSegment = origin.replace(/\.git$/, '').split(/[/:]/).pop();
+    expect(coordinate?.repo).toBe(lastSegment);
   });
 });
