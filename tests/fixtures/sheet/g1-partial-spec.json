@@ -1,0 +1,50 @@
+[
+  {
+    "major": "게시판",
+    "middle": "공지사항",
+    "minor": "목록",
+    "sub": "",
+    "precondition": "1. 관리자 계정 로그인",
+    "content": "3. 게시글 목록 영역 확인",
+    "expected": "3.1 게시글 목록 노출 됨",
+    "reviewComment": "",
+    "result": "Incomplete",
+    "issueSummary": ""
+  },
+  {
+    "major": "게시판",
+    "middle": "공지사항",
+    "minor": "목록",
+    "sub": "",
+    "precondition": "1. 관리자 계정 로그인",
+    "content": "3. 게시글 목록 영역 확인",
+    "expected": "3.2 검색 필드 노출 됨",
+    "reviewComment": "",
+    "result": "Incomplete",
+    "issueSummary": ""
+  },
+  {
+    "major": "게시판",
+    "middle": "공지사항",
+    "minor": "목록",
+    "sub": "",
+    "precondition": "1. 관리자 계정 로그인",
+    "content": "4. 저장 버튼 선택",
+    "expected": "4. 레이어 닫힘",
+    "reviewComment": "",
+    "result": "Incomplete",
+    "issueSummary": ""
+  },
+  {
+    "major": "게시판",
+    "middle": "공지사항",
+    "minor": "설정",
+    "sub": "",
+    "precondition": "1. 관리자 계정 로그인",
+    "content": "1. 알림 토글 ON/OFF 동작",
+    "expected": "1. 설정 저장 됨",
+    "reviewComment": "",
+    "result": "Incomplete",
+    "issueSummary": ""
+  }
+]

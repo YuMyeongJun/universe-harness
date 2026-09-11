@@ -1,0 +1,65 @@
+# 관문 — 한 job 으로 돌린다.
+#
+# ⚠️ **나누지 않는다.** 지금 전체가 1분 미만이고, 나누면 job 기동 비용이 검사 시간을 넘긴다.
+#    그리고 나눈 job 하나가 조용히 안 도는 것보다 한 덩어리가 빨간불인 편이 낫다.
+#    나중에 Playwright 가 들어와 시간이 늘면 그때 재고 나서 나눈다 — 재기 전에 나누지 않는다.
+#
+# ⚠️ **깨끗한 클론에서 돈다.** 로컬에만 쌓인 데이터에 기대는 검사는 여기서 터진다 —
+#    그게 이 워크플로의 목적 중 하나다.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # 타입 — 관문이 별을 정말 보는지의 최소 조건
+      - name: typecheck
+        run: npx tsc -p tsconfig.json --noEmit
+
+      # 소비 쪽이 실제로 부르는 것은 dist 다. 빌드하지 않으면 그 축을 못 잰다 —
+      # 그리고 못 잰 것을 조용히 넘기지 않으므로, 안 만들면 시험이 빨개진다.
+      - name: build
+        run: npm run build
+
+      # 변이 시험 — 각 검사가 실제로 무는지 확인하는 층이 여기 들어 있다
+      - name: 변이 시험
+        run: npm test
+
+      # 자기 검사: 린터가 자기 표본을 실제로 판정하는가.
+      # ⚠️ 여기서 "대상 0건"이면 exit 3 이 떨어진다 — 조용한 초록불을 막는 자리다.
+      - name: 린터 종단 (마크다운)
+        run: npx tsx src/lint/cli.ts tests/fixtures/good.md
+
+      - name: 린터 종단 (시트)
+        run: npx tsx src/lint/cli.ts --format sheet tests/fixtures/sheet/good.json
+
+      # 탐지기가 살아 있는가 — 변이를 주면 **빨개져야** 한다.
+      # 초록불을 증거로 삼지 않는다: 통과하면 그게 실패다.
+      - name: 탐지기 생존 (변이를 주면 빨개지는가)
+        run: |
+          set +e
+          npx tsx src/lint/cli.ts tests/fixtures/weak-negative.md > /dev/null 2>&1
+          MD=$?
+          npx tsx src/lint/cli.ts --format sheet tests/fixtures/sheet/g7-banned.json > /dev/null 2>&1
+          SHEET=$?
+          npx tsx src/lint/cli.ts tests/fixtures/없는디렉토리 > /dev/null 2>&1
+          MISSING=$?
+          set -e
+          echo "마크다운 변이 exit=$MD (기대 1) / 시트 변이 exit=$SHEET (기대 1) / 대상 0건 exit=$MISSING (기대 3)"
+          [ "$MD" = "1" ] || { echo "⛔ 마크다운 변이가 통과했다 — 탐지기가 죽었다"; exit 1; }
+          [ "$SHEET" = "1" ] || { echo "⛔ 시트 변이가 통과했다 — 탐지기가 죽었다"; exit 1; }
+          [ "$MISSING" = "3" ] || { echo "⛔ 대상 0건이 exit 3 이 아니다 — 안 잰 것이 통과로 세어진다"; exit 1; }

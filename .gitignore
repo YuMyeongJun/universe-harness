@@ -1,9 +1,20 @@
 node_modules/
 dist/
-.DS_Store
-.secret/
 .env
+.env.local
+.secret/
 __pycache__/
 .venv/
+
+# Playwright
 test-results/
 playwright-report/
+blob-report/
+.auth/
+*.zip
+
+# macOS
+.DS_Store
+
+# 로컬 티켓 작업 폴더 — TC 본문에 계정 정보가 섞일 수 있다
+tickets/
